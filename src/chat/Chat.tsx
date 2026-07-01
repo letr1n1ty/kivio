@@ -2235,10 +2235,14 @@ export default function Chat({ onSettingsChange }: ChatProps) {
         e.preventDefault()
         setSearchOpen((open) => !open)
       }
+      if (e.key === ',') {
+        e.preventDefault()
+        openEmbeddedSettings()
+      }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [chatView, handleNewConversation])
+  }, [chatView, handleNewConversation, openEmbeddedSettings])
 
   const applyAssistantStreamStats = useCallback((updatedConv: Conversation) => {
     const lastAssistant = [...updatedConv.messages]

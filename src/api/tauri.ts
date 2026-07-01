@@ -715,7 +715,7 @@ export type Settings = {
       searchDepth: 'ultra-fast' | 'fast' | 'basic' | 'advanced'
     }
   }
-  settingsLanguage?: 'zh' | 'en'
+  settingsLanguage?: 'zh' | 'zh-TW' | 'en'
   /** 启动时静默检查 GH Releases 是否有新版（默认 true） */
   autoCheckUpdate?: boolean
   /** 截图自动归档开关（默认 false） */
