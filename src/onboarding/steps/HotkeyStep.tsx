@@ -76,6 +76,20 @@ export function HotkeyStep({ t, settings, onChange }: HotkeyStepProps) {
 
   const sections: HotkeySection[] = [
     {
+      title: t.onboardingHotkeySectionLens,
+      fields: [{
+        id: 'lens',
+        label: t.onboardingHotkeyLens,
+        hint: t.onboardingHotkeyLensHint,
+        value: settings.lens?.hotkey || 'CommandOrControl+Shift+G',
+        placeholder: 'CommandOrControl+Shift+G',
+        onClear: () => onChange({
+          ...settings,
+          lens: { ...settings.lens, hotkey: '' },
+        }),
+      }],
+    },
+    {
       title: t.onboardingHotkeySectionTranslator,
       fields: [{
         id: 'main',
@@ -124,77 +138,59 @@ export function HotkeyStep({ t, settings, onChange }: HotkeyStepProps) {
         },
       ],
     },
-    {
-      title: t.onboardingHotkeySectionLens,
-      fields: [{
-        id: 'lens',
-        label: t.onboardingHotkeyLens,
-        hint: t.onboardingHotkeyLensHint,
-        value: settings.lens?.hotkey || 'CommandOrControl+Shift+G',
-        placeholder: 'CommandOrControl+Shift+G',
-        onClear: () => onChange({
-          ...settings,
-          lens: { ...settings.lens, hotkey: '' },
-        }),
-      }],
-    },
   ]
 
   const replaceEnabled = settings.screenshotTranslation?.replaceEnabled !== false
 
   return (
     <OnboardingStepFrame title={t.onboardingHotkeyTitle} subtitle={t.onboardingHotkeyDesc}>
-      <div className="onboarding-panel">
-        {sections.map((section, sectionIndex) => (
-          <div key={section.title}>
-            {sectionIndex > 0 ? <div className="onboarding-panel-divider" /> : null}
-            <div className="onboarding-panel-section">
-              <div className="onboarding-panel-label">{section.title}</div>
-              {section.fields.map((field, fieldIndex) => (
-                <OnboardingFormRow
-                  key={field.id}
-                  label={field.label}
-                  hint={field.hint}
-                  border={fieldIndex < section.fields.length - 1}
-                  stack
-                  extra={field.id === 'replace' ? (
-                    <label className="onboarding-inline-toggle">
-                      <Toggle
-                        checked={replaceEnabled}
-                        onChange={(enabled) => onChange({
-                          ...settings,
-                          screenshotTranslation: {
-                            ...settings.screenshotTranslation,
-                            replaceEnabled: enabled,
-                          },
-                        })}
-                      />
-                      <span>{t.onboardingHotkeyReplaceEnabled}</span>
-                    </label>
-                  ) : undefined}
-                >
-                  <div className={`onboarding-hotkey-control${field.id === 'replace' && !replaceEnabled ? ' onboarding-hotkey-control--disabled' : ''}`}>
-                    <HotkeyInput
-                      value={field.value}
-                      placeholder={field.placeholder}
-                      recording={recordingTarget === field.id}
-                      onToggleRecording={() => {
-                        if (field.id === 'replace' && !replaceEnabled) return
-                        setRecordingTarget((current) => (current === field.id ? null : field.id))
-                      }}
-                      recordLabel={t.hotkeyRecord}
-                      recordingLabel={t.hotkeyRecording}
-                      recordingPlaceholder={t.hotkeyRecordingPlaceholder}
-                      onClear={field.onClear}
-                      clearLabel={t.hotkeyClear}
+      {sections.map((section) => (
+        <div key={section.title} className="onboarding-section">
+          <div className="onboarding-section-label">{section.title}</div>
+          <div className="onboarding-card onboarding-card--rows">
+            {section.fields.map((field) => (
+              <OnboardingFormRow
+                key={field.id}
+                label={field.label}
+                hint={field.hint}
+                stack
+                extra={field.id === 'replace' ? (
+                  <label className="onboarding-inline-toggle">
+                    <Toggle
+                      checked={replaceEnabled}
+                      onChange={(enabled) => onChange({
+                        ...settings,
+                        screenshotTranslation: {
+                          ...settings.screenshotTranslation,
+                          replaceEnabled: enabled,
+                        },
+                      })}
                     />
-                  </div>
-                </OnboardingFormRow>
-              ))}
-            </div>
+                    <span>{t.onboardingHotkeyReplaceEnabled}</span>
+                  </label>
+                ) : undefined}
+              >
+                <div className={`onboarding-hotkey-control${field.id === 'replace' && !replaceEnabled ? ' onboarding-hotkey-control--disabled' : ''}`}>
+                  <HotkeyInput
+                    value={field.value}
+                    placeholder={field.placeholder}
+                    recording={recordingTarget === field.id}
+                    onToggleRecording={() => {
+                      if (field.id === 'replace' && !replaceEnabled) return
+                      setRecordingTarget((current) => (current === field.id ? null : field.id))
+                    }}
+                    recordLabel={t.hotkeyRecord}
+                    recordingLabel={t.hotkeyRecording}
+                    recordingPlaceholder={t.hotkeyRecordingPlaceholder}
+                    onClear={field.onClear}
+                    clearLabel={t.hotkeyClear}
+                  />
+                </div>
+              </OnboardingFormRow>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
     </OnboardingStepFrame>
   )
 }

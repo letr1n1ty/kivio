@@ -654,7 +654,7 @@
     }
 
     fn test_tool_arguments(function_name: &str) -> Value {
-        match function_name {
+        match function_name.to_ascii_lowercase().as_str() {
             "read" => serde_json::json!({ "path": "/tmp/kivio-test.txt" }),
             "web_fetch" => serde_json::json!({ "url": "https://example.com" }),
             "run_python" => serde_json::json!({ "code": "print(1)" }),
@@ -1945,7 +1945,7 @@
         ]);
         let state = test_app_state();
         let mut config = test_run_config(&state, &server.base_url, true);
-        // 600 token 窗口（预算 510）：9000 字符旧工具输出远超 → 直接走 Layer2 摘要（无 L1）。
+        // 600 token context：普通舊訊息不可被 microcompact 降級，必須進 Layer2 摘要。
         config.provider.model_overrides.insert(
             "test-model".to_string(),
             crate::settings::ModelInfo {
@@ -1953,15 +1953,10 @@
                 ..Default::default()
             },
         );
-        // 预填早前轮次历史：一条超大 tool 输出 + 8 条近期小消息把它推出保护尾巴。
+        // 預填早前輪次歷史：一條超大普通訊息 + 8 條近期小訊息把它推出保護尾巴。
         let huge = "A".repeat(9_000);
         config.runtime_messages.push(serde_json::json!({
-            "role": "assistant", "content": "", "tool_calls": [
-                {"id": "old_call", "type": "function", "function": {"name": "read", "arguments": "{}"}}
-            ]
-        }));
-        config.runtime_messages.push(serde_json::json!({
-            "role": "tool", "tool_call_id": "old_call", "content": huge
+            "role": "user", "content": huge
         }));
         for i in 0..8 {
             config.runtime_messages.push(serde_json::json!({
@@ -1986,7 +1981,7 @@
         for body in &bodies[1..] {
             assert!(
                 !body.contains(&"A".repeat(1_000)),
-                "post-compaction request must not carry the full old tool output"
+                "post-compaction request must not carry the full old raw content"
             );
         }
 
@@ -2086,7 +2081,7 @@
         ]);
         let state = test_app_state();
         let mut config = test_run_config(&state, &server.base_url, true);
-        // 600 token 窗口（预算 510）：snip 后仍超 → 必然升级 Layer2。
+        // 600 token context：普通舊訊息不可被 microcompact 降級，必須升級 Layer2。
         config.provider.model_overrides.insert(
             "test-model".to_string(),
             crate::settings::ModelInfo {
@@ -2096,7 +2091,7 @@
         );
         let huge = "B".repeat(9_000);
         config.runtime_messages.push(serde_json::json!({
-            "role": "tool", "tool_call_id": "old_call", "content": huge
+            "role": "user", "content": huge
         }));
         for i in 0..8 {
             config.runtime_messages.push(serde_json::json!({
@@ -2176,7 +2171,7 @@
         );
         let huge = "C".repeat(9_000);
         config.runtime_messages.push(serde_json::json!({
-            "role": "tool", "tool_call_id": "old_call", "content": huge
+            "role": "user", "content": huge
         }));
         for i in 0..8 {
             config.runtime_messages.push(serde_json::json!({
@@ -2242,8 +2237,7 @@
         ]);
         let state = test_app_state();
         let mut config = test_run_config(&state, &server.base_url, true);
-        // Small window so the pre-filled huge tool output is always over budget,
-        // forcing a compaction attempt at the top of every planning round.
+        // 600 token context，讓預填的大型普通訊息在每個規劃輪次都超出預算。
         config.provider.model_overrides.insert(
             "test-model".to_string(),
             crate::settings::ModelInfo {
@@ -2254,17 +2248,12 @@
         // Allow a second round so the loop re-enters planning after the tool round
         // and trips the thrash guard there.
         config.effective_chat_tools.max_tool_rounds = Some(2);
-        // Pre-fill an oversized earlier tool output + small recent tail: the history
-        // stays over budget every round, but the summary call always errors so the
-        // send view never shrinks → unresolved_rounds climbs to the limit.
+        // Pre-fill an oversized earlier plain message + small recent tail: the
+        // history stays over budget every round, but the summary call always errors
+        // so the send view never shrinks -> unresolved_rounds climbs to the limit.
         let huge = "A".repeat(9_000);
         config.runtime_messages.push(serde_json::json!({
-            "role": "assistant", "content": "", "tool_calls": [
-                {"id": "old_call", "type": "function", "function": {"name": "read", "arguments": "{}"}}
-            ]
-        }));
-        config.runtime_messages.push(serde_json::json!({
-            "role": "tool", "tool_call_id": "old_call", "content": huge
+            "role": "user", "content": huge
         }));
         for i in 0..8 {
             config.runtime_messages.push(serde_json::json!({

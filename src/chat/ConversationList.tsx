@@ -6,6 +6,25 @@ import {
   type ConversationMenuAnchor,
 } from './ConversationContextMenu'
 
+/** 對話所屬分組標籤：優先「集 · 名」，否則專案名（按 project_id，退回 folder===專案名）。
+ *  與 Sidebar 搜尋彈層的顯示邏輯一致。無歸屬時返回空串。 */
+function conversationFolderLabel(
+  conv: ConversationListItem,
+  projects: ChatProject[],
+  sets: ChatSet[],
+): string {
+  const setId = conv.set_id ?? conv.setId ?? null
+  if (setId) {
+    const setName = sets.find((s) => s.id === setId)?.name
+    if (setName) return `集 · ${setName}`
+  }
+  const projectId = conv.project_id ?? conv.projectId ?? null
+  const project = projectId
+    ? projects.find((p) => p.id === projectId)
+    : projects.find((p) => conv.folder === p.name)
+  return project?.name ?? conv.folder ?? ''
+}
+
 interface ConversationListProps {
   conversations: ConversationListItem[]
   currentConversationId?: string
@@ -16,6 +35,9 @@ interface ConversationListProps {
   emptyLabel?: string
   indent?: boolean
   showAssistantName?: boolean
+  // 「最近」平鋪列表用：在每條對話右側顯示其所屬「集 / 專案」標籤（與搜尋彈層一致）。
+  // 專案/集 tab 的巢狀列表不傳（已在該分組下，標籤冗餘）。
+  showFolderLabel?: boolean
   onSelectConversation: (id: string) => void
   onRenameConversation: (id: string, title: string) => Promise<void>
   onDeleteConversation: (id: string) => Promise<void>
@@ -33,6 +55,7 @@ export const ConversationList = memo(function ConversationList({
   emptyLabel = '暫無對話',
   indent = false,
   showAssistantName = true,
+  showFolderLabel = false,
   onSelectConversation,
   onRenameConversation,
   onDeleteConversation,
@@ -96,6 +119,7 @@ export const ConversationList = memo(function ConversationList({
           const active = currentConversationId === conv.id
           const isGenerating = generatingConversationIds.has(conv.id)
           const isRenaming = renamingId === conv.id
+          const folderLabel = showFolderLabel ? conversationFolderLabel(conv, projects, sets) : ''
 
           if (isRenaming) {
             return (
@@ -151,6 +175,14 @@ export const ConversationList = memo(function ConversationList({
               >
                 <span className="flex min-w-0 items-center gap-1.5">
                   <span className="block min-w-0 flex-1 truncate">{conv.title}</span>
+                  {folderLabel && (
+                    <span
+                      className="max-w-[96px] shrink-0 truncate text-[11px] font-normal text-neutral-400 dark:text-neutral-500"
+                      title={folderLabel}
+                    >
+                      {folderLabel}
+                    </span>
+                  )}
                   {isGenerating && (
                     <span
                       className="inline-flex h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-[1.5px] border-neutral-300 border-t-neutral-600 dark:border-neutral-600 dark:border-t-neutral-200"

@@ -32,7 +32,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { AgentTodoItem, AgentTodoState, AgentTodoStatus, ToolCallRecord, ToolCallStatus } from './types'
-import { isToolCallErrorStatus, normalizeToolCallStatus } from './toolStatus'
+import { normalizeToolCallStatus } from './toolStatus'
 import { formatToolResultPreview } from './toolResultPreview'
 import { knowledgeSearchHits, type KbHitView } from './knowledgeBaseHits'
 import { AskUserBlock } from './AskUserBlock'
@@ -210,11 +210,6 @@ function toolGlyph(toolCall: ToolCallRecord): LucideIcon | ComponentType<{ size?
       toolCall.source !== 'mixer')
   if (isMcp) return Plug
   return Wrench
-}
-
-function isTodoTool(toolCall: ToolCallRecord): boolean {
-  const rawName = toolRawName(toolCall)
-  return rawName === 'todo_write' || rawName === 'todo_update'
 }
 
 function isAskUserTool(toolCall: ToolCallRecord): boolean {
@@ -471,7 +466,7 @@ function SubAgentCard({ toolCall, defaultOpen = false }: ToolCallBlockProps) {
           <span
             className={`min-w-0 truncate ${
               status === 'error'
-                ? 'text-red-500'
+                ? 'text-neutral-400 dark:text-neutral-500'
                 : status === 'running'
                   ? 'chat-motion-subagent-shimmer'
                   : 'text-neutral-400 dark:text-neutral-500'
@@ -529,7 +524,7 @@ function SubAgentCard({ toolCall, defaultOpen = false }: ToolCallBlockProps) {
               </div>
             )}
             {error && (
-              <div className="whitespace-pre-wrap break-words text-red-500">
+              <div className="whitespace-pre-wrap break-words text-neutral-500 dark:text-neutral-400">
                 {error}
               </div>
             )}
@@ -814,10 +809,51 @@ function getToolName(toolCall: ToolCallRecord): string {
     return '生成 PDF 摘要上下文'
   }
   if (raw === 'skill_run_script') return '執行 Skill 指令碼'
-  // read/write/edit/bash/grep/find/ls — plus legacy aliases (read_file/…/
-  // run_command) and the removed path tools — display their raw tool name.
+  // 使用繁體中文動詞呈現工具列；目標（檔名 + 行號 / 指令 / pattern）由 getToolTarget 追加。
+  switch (raw) {
+    case 'read':
+    case 'read_file':
+      return '讀取'
+    case 'write':
+    case 'write_file':
+      return '寫入'
+    case 'edit':
+    case 'edit_file':
+      return '編輯'
+    case 'bash':
+    case 'run_command':
+      return '執行'
+    case 'grep':
+    case 'search_files':
+      return '搜尋'
+    case 'glob':
+    case 'glob_files':
+    case 'find':
+      return '比對'
+    case 'ls':
+    case 'list_dir':
+      return '列出'
+    case 'stat':
+    case 'stat_path':
+      return '檢查'
+    case 'delete':
+      return '刪除'
+    case 'move':
+      return '移動'
+    case 'copy':
+      return '複製'
+    case 'create_dir':
+      return '建立目錄'
+    default:
+      break
+  }
   if (raw === 'run_python') return 'Python'
-  if (raw === 'web_search') return '網路搜尋'
+  if (raw === 'web_search') {
+    // 結果裡帶了實際使用的搜尋服務名稱（後端 structured_content.provider），顯示為「網路搜尋 · Ollama」。
+    const structured = objectValue(toolCall.structured_content ?? toolCall.structuredContent) ?? {}
+    const provider = stringValue(structured.provider)
+    return provider ? `網路搜尋 · ${provider}` : '網路搜尋'
+  }
   if (raw === 'web_fetch') return '網頁抓取'
   if (raw === 'knowledge_search') return '知識庫檢索'
   if (raw === 'mixer_vision') return '混音器視覺分析'
@@ -826,22 +862,107 @@ function getToolName(toolCall: ToolCallRecord): string {
   return raw
 }
 
-function getSource(toolCall: ToolCallRecord): string {
-  if (isTodoTool(toolCall)) return ''
-  if (toolCall.source === 'skill') return 'Skill'
-  if (toolCall.source === 'native') return 'Kivio'
-  if (toolCall.source === 'mixer') {
-    const model = toolCall.server_id || toolCall.serverId || ''
-    return model ? `混音器 · ${model}` : '混音器'
+function firstString(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim()
   }
-  return (
-    toolCall.server_name ||
-    toolCall.serverName ||
-    toolCall.source ||
-    toolCall.server_id ||
-    toolCall.serverId ||
-    ''
-  )
+  return ''
+}
+
+/** 只取路徑最後一段（Cursor 行內用檔名而非全路徑）：`src/a/Lens.tsx` → `Lens.tsx`。 */
+function basename(path: string): string {
+  const trimmed = path.trim().replace(/[\\/]+$/, '')
+  const idx = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'))
+  return idx >= 0 ? trimmed.slice(idx + 1) : trimmed
+}
+
+/** read 的行號範圍 `L起-止`：優先用結果裡的真實 start/end（structured_content 保留了
+ *  ReadFileResult），流式未出結果時回退到請求視窗 offset/limit；整檔案讀取則為空。 */
+function readLineLabel(toolCall: ToolCallRecord, args: Record<string, unknown> | null): string {
+  const structured = objectValue(toolCall.structured_content ?? toolCall.structuredContent)
+  const start = numberValue(structured?.start_line ?? structured?.startLine)
+  const end = numberValue(structured?.end_line ?? structured?.endLine)
+  if (start > 0 && end > 0) return `L${start}-${end}`
+  const offset = numberValue(args?.offset)
+  const limit = numberValue(args?.limit)
+  if (offset > 0) return limit > 0 ? `L${offset}-${offset + limit - 1}` : `L${offset}+`
+  return ''
+}
+
+/** 摺疊行的「目標」：以輸入引數為主（檔名 / 命令 / pattern / url），不含動詞、不含結果。
+ *  Cursor 風格 —— 行內只呈現「動詞 + 目標」，其餘細節（結果、diff、錯誤）放展開區。 */
+function getToolTarget(toolCall: ToolCallRecord): string {
+  const raw = toolRawName(toolCall)
+  const args = parsedArguments(toolCall)
+  const path = firstString(args?.path, args?.relative_path, args?.relativePath)
+  const primary = ((): string => {
+    switch (raw) {
+      case 'read':
+      case 'read_file':
+        return [basename(path), readLineLabel(toolCall, args)].filter(Boolean).join(' ')
+      case 'write':
+      case 'write_file':
+      case 'edit':
+      case 'edit_file': {
+        const mutation = structuredFileMutation(toolCall)
+        if (mutation && (mutation.files?.length ?? 0) > 1) {
+          return `${mutation.files!.length} files`
+        }
+        const target = (mutation && fileMutationTarget(mutation)) || path
+        return target.includes('/') || target.includes('\\') ? basename(target) : target
+      }
+      case 'bash':
+      case 'run_command':
+        return compactText(firstString(args?.description, args?.command), 160)
+      case 'grep':
+      case 'search_files':
+        return compactText(firstString(args?.query, args?.pattern), 140)
+      case 'glob':
+      case 'glob_files':
+      case 'find': {
+        const pattern = compactText(firstString(args?.pattern, args?.glob), 140)
+        const dir = firstString(args?.path)
+        return dir && dir !== '.' ? `${pattern} 於 ${basename(dir)}` : pattern
+      }
+      case 'ls':
+      case 'list_dir':
+      case 'stat':
+      case 'stat_path':
+      case 'delete':
+      case 'create_dir':
+        return path
+      case 'move':
+      case 'copy': {
+        const from = firstString(args?.source, args?.from, args?.src, args?.path)
+        const to = firstString(args?.destination, args?.to, args?.dest, args?.target)
+        return [from, to].filter(Boolean).join(' → ')
+      }
+      case 'web_fetch':
+        return compactText(firstString(args?.url), 140)
+      case 'web_search':
+      case 'knowledge_search':
+        return compactText(firstString(args?.query), 140)
+      case 'todo_write': {
+        const counts = formatTodoCounts(normalizeTodoItems(args?.todos))
+        return counts
+      }
+      case 'todo_update':
+        return compactText(firstString(args?.content, args?.id), 120)
+      case 'mixer_vision': {
+        const count = numberValue(args?.images)
+        return count > 0 ? `${count} image${count > 1 ? 's' : ''}` : ''
+      }
+      case 'mixer_generate_image':
+        return compactText(firstString(args?.prompt), 140)
+      default:
+        return ''
+    }
+  })()
+  if (primary) return primary
+  // run_python 只顯示動詞「Python」，不追加目標；其餘工具（含引數尚未解析出的情況）
+  // 回退到已有的輸入引數摘要（todo / mixer / skill / MCP 及流式佔位 argumentPreview）。
+  if (raw === 'run_python') return ''
+  return getArgumentPreview(toolCall)
 }
 
 function getArgumentPreview(toolCall: ToolCallRecord): string {
@@ -919,29 +1040,6 @@ function getResultPreview(toolCall: ToolCallRecord): string {
     previewValue(toolCall.result ?? toolCall.output)
   if (!raw) return ''
   return formatToolResultPreview(raw)
-}
-
-function getRunningPreview(toolCall: ToolCallRecord): string {
-  const raw = toolRawName(toolCall)
-  if (raw === 'todo_write' || raw === 'todo_update') {
-    return '正在同步 Todo…'
-  }
-  if (raw === 'run_python') {
-    return '正在載入 Python 環境…'
-  }
-  if (raw === 'write' || raw === 'write_file') {
-    return '正在寫入檔案…'
-  }
-  if (raw === 'edit' || raw === 'edit_file') {
-    return '正在應用檔案變更…'
-  }
-  if (raw === 'mixer_vision') {
-    return '正在分析圖片並提取視覺資訊…'
-  }
-  if (raw === 'mixer_generate_image') {
-    return '正在生成圖片…'
-  }
-  return ''
 }
 
 function stripPythonFailurePrefix(message: string): string {
@@ -1024,7 +1122,7 @@ function StatusIcon({ status }: { status: ToolCallStatus }) {
     )
   }
   if (status === 'error') {
-    return <AlertCircle className="shrink-0 text-red-500" size={14} strokeWidth={1.9} />
+    return <AlertCircle className="shrink-0 text-neutral-400 dark:text-neutral-500" size={14} strokeWidth={1.9} />
   }
   if (status === 'skipped') {
     return <CircleSlash className="shrink-0" size={14} strokeWidth={1.9} />
@@ -1045,7 +1143,7 @@ function ToolTypeIcon({ toolCall, status }: { toolCall: ToolCallRecord; status: 
     prevStatusRef.current = status
   }, [status])
   if (status === 'error') {
-    return <AlertCircle className="shrink-0 text-red-500" size={14} strokeWidth={1.9} />
+    return <AlertCircle className="shrink-0 text-neutral-400 dark:text-neutral-500" size={14} strokeWidth={1.9} />
   }
   if (status === 'skipped') {
     return <CircleSlash className="shrink-0" size={14} strokeWidth={1.9} />
@@ -1057,7 +1155,7 @@ function ToolTypeIcon({ toolCall, status }: { toolCall: ToolCallRecord; status: 
   if (status === 'running') {
     return (
       <Glyph
-        className="shrink-0 text-[#C56646] dark:text-[#E39A78] animate-pulse"
+        className="shrink-0 text-neutral-400 dark:text-neutral-500 animate-pulse"
         size={14}
         strokeWidth={1.9}
       />
@@ -1066,7 +1164,7 @@ function ToolTypeIcon({ toolCall, status }: { toolCall: ToolCallRecord; status: 
   if (isDone) {
     return (
       <Glyph
-        className={`shrink-0 text-[#C56646] dark:text-[#E39A78]${justCompleted ? ' chat-motion-pop' : ''}`}
+        className={`shrink-0 text-neutral-400 dark:text-neutral-500${justCompleted ? ' chat-motion-pop' : ''}`}
         size={14}
         strokeWidth={1.9}
       />
@@ -1091,14 +1189,12 @@ function DefaultToolCallBlock({
   const [open, setOpen] = useState(defaultOpen)
 
   const toolName = getToolName(toolCall)
-  const source = getSource(toolCall)
-  const duration = formatDuration(getDuration(toolCall))
+  const target = useMemo(() => getToolTarget(toolCall), [toolCall])
   const fileMutation = useMemo(() => structuredFileMutation(toolCall), [toolCall])
   const knowledgeHits = useMemo(() => knowledgeSearchHits(toolCall), [toolCall])
   const argumentPreview = useMemo(() => getArgumentPreview(toolCall), [toolCall])
   const resultPreview = useMemo(() => getResultPreview(toolCall), [toolCall])
   const error = toolCall.error ? compactToolError(toolCall.error) : ''
-  const rowPreview = error || resultPreview || (status === 'running' ? getRunningPreview(toolCall) : '') || argumentPreview
   const hasFileMutationDetails = Boolean(
     fileMutation && (
       fileMutation.files?.length ||
@@ -1110,14 +1206,14 @@ function DefaultToolCallBlock({
   const hasDetails = Boolean(argumentPreview || resultPreview || error || hasFileMutationDetails || knowledgeHits)
 
   return (
-    <div className="not-prose mb-2 text-[12.5px] leading-5 text-neutral-500 dark:text-neutral-400">
+    <div className="not-prose mb-1 text-[12.5px] leading-5 text-neutral-500 dark:text-neutral-400">
       <button
         type="button"
         onClick={() => {
           if (hasDetails) setOpen((value) => !value)
         }}
         aria-expanded={hasDetails ? open : undefined}
-        className={`max-w-full min-w-0 inline-flex items-center gap-1.5 rounded-md py-0.5 transition-colors ${
+        className={`max-w-full min-w-0 inline-flex items-center gap-1.5 rounded-md py-0 transition-colors ${
           hasDetails
             ? 'hover:text-neutral-700 dark:hover:text-neutral-200'
             : 'cursor-default'
@@ -1131,28 +1227,9 @@ function DefaultToolCallBlock({
         >
           {toolName || mergedLabels.tool}
         </span>
-        {source && (
+        {target && (
           <span className="min-w-0 truncate text-neutral-400 dark:text-neutral-500">
-            · {source}
-          </span>
-        )}
-        <span className="shrink-0 text-neutral-400 dark:text-neutral-500">
-          · {mergedLabels[status]}
-        </span>
-        {duration && (
-          <span className="shrink-0 tabular-nums text-neutral-400 dark:text-neutral-500">
-            · {duration}
-          </span>
-        )}
-        {rowPreview && (
-          <span
-            className={`min-w-0 truncate ${
-              error && isToolCallErrorStatus(toolCall.status)
-                ? 'text-red-500'
-                : 'text-neutral-400 dark:text-neutral-500'
-            }`}
-          >
-            · {rowPreview}
+            {target}
           </span>
         )}
         {hasDetails && (
@@ -1192,7 +1269,7 @@ function DefaultToolCallBlock({
               <FileMutationDetails mutation={fileMutation} />
             )}
             {error && (
-              <div className="whitespace-pre-wrap break-words text-red-500">
+              <div className="whitespace-pre-wrap break-words text-neutral-500 dark:text-neutral-400">
                 {error}
               </div>
             )}

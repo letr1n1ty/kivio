@@ -389,6 +389,9 @@ interface InputBarProps {
   enabledSkills?: SlashSkill[]
   onOpenSkillSettings?: () => void
   selectedProject?: ChatProject | null
+  // 當前會話自身所屬的專案（id + 名）。用於在沒有 selectedProject（導航態）時，
+  // 讓專案按鈕仍反映"這條會話屬於哪個專案"——例如從「最近」開啟一條專案內的對話。
+  conversationProject?: { id: string; name: string } | null
   onSelectProject?: (project: ChatProject | null) => void | Promise<void>
   showProjectEntry?: boolean
   /** 當前生效的專家(無則為空);顯示在底部欄 */
@@ -435,6 +438,7 @@ export function InputBar({
   enabledSkills = [],
   onOpenSkillSettings,
   selectedProject = null,
+  conversationProject = null,
   onSelectProject,
   showProjectEntry = false,
   currentAssistant = null,
@@ -480,6 +484,10 @@ export function InputBar({
   const agentPlanActive = agentPlanMode === 'plan'
   const agentOrchestrateActive = agentPlanMode === 'orchestrate'
   const projectEntryEnabled = Boolean(showProjectEntry && onSelectProject)
+  // 專案按鈕的顯示態：優先使用導覽選中的專案；否則回退到目前對話自身的專案（有名稱才算），
+  // 這樣從「最近」開啟一則屬於專案的對話時，按鈕仍能顯示該專案。
+  const effectiveProject: { id: string; name: string } | null =
+    selectedProject ?? (conversationProject?.name ? conversationProject : null)
   // 專家入口:歡迎頁與對話中都顯示,未選時為「選擇專家」圖示,已選時高亮 + 清除按鈕。
   const showAssistantEntry = Boolean(onOpenAssistantCenter)
   const modeEntryEnabled = Boolean(onAgentPlanModeChange)
@@ -1721,15 +1729,15 @@ export function InputBar({
                 className={`grid size-7 shrink-0 place-items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300/60 disabled:cursor-default disabled:opacity-50 dark:focus-visible:ring-neutral-600 ${
                   projectMenuOpen
                     ? 'bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-100'
-                    : selectedProject
+                    : effectiveProject
                       ? 'text-indigo-500 hover:bg-neutral-100 dark:text-indigo-300 dark:hover:bg-neutral-800'
                       : 'text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800'
                 }`}
                 aria-expanded={projectMenuOpen}
                 aria-haspopup="menu"
-                title={selectedProject ? `專案 · ${selectedProject.name}` : '進入專案工作'}
+                title={effectiveProject ? `專案 · ${effectiveProject.name}` : '進入專案工作'}
               >
-                {selectedProject ? (
+                {effectiveProject ? (
                   <Folder size={18} strokeWidth={1.75} />
                 ) : (
                   <FolderPlus size={18} strokeWidth={1.75} />

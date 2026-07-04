@@ -973,6 +973,13 @@ export default function Chat({ onSettingsChange }: ChatProps) {
   const storedActiveSkillId = currentConversation
     ? currentConversation.active_skill_id ?? currentConversation.activeSkillId ?? null
     : null
+  // 當前會話自身所屬專案（id + 名 folder）。傳給輸入欄，使從「最近」開啟的專案內對話
+  // 也能在專案按鈕上顯示其專案，即便導航態 selectedProject 已被清空。
+  const conversationProject = useMemo<{ id: string; name: string } | null>(() => {
+    const id = currentConversation?.project_id ?? currentConversation?.projectId ?? null
+    if (!id) return null
+    return { id, name: currentConversation?.folder ?? '' }
+  }, [currentConversation?.project_id, currentConversation?.projectId, currentConversation?.folder])
   const enabledSkills = useMemo(
     () => skills.filter((skill) => !disabledSkillIds.includes(skill.id)),
     [disabledSkillIds, skills],
@@ -3497,6 +3504,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
                       enabledSkills={slashSkills}
                       onOpenSkillSettings={openSkillCenter}
                       selectedProject={selectedProject}
+                      conversationProject={conversationProject}
                       onSelectProject={handleSidebarSelectProject}
                       showProjectEntry
                       currentAssistant={currentAssistantSnapshot ? { id: currentAssistantSnapshot.id, name: currentAssistantSnapshot.name } : null}
@@ -3570,6 +3578,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
                     enabledSkills={slashSkills}
                     onOpenSkillSettings={openSkillCenter}
                     selectedProject={selectedProject}
+                    conversationProject={conversationProject}
                     onSelectProject={handleSidebarSelectProject}
                     showProjectEntry
                     currentAssistant={currentAssistantSnapshot ? { id: currentAssistantSnapshot.id, name: currentAssistantSnapshot.name } : null}

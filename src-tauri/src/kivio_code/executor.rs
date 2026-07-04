@@ -230,11 +230,13 @@ impl ToolExecutor for CliToolExecutor {
             let result = self.dispatch(&tool_name, arguments.clone()).await;
             match result {
                 Ok(output) => Ok(output),
-                Err(err) if tool_name != fallback => {
+                Err(_) if tool_name != fallback => {
                     // Retry under the raw name in case of an alias mismatch.
                     match self.dispatch(&fallback, arguments.clone()).await {
                         Ok(output) => Ok(output),
-                        Err(_) => self.dispatch_mcp_or_error(tool, &arguments, err).await,
+                        Err(fallback_err) => {
+                            self.dispatch_mcp_or_error(tool, &arguments, fallback_err).await
+                        }
                     }
                 }
                 Err(err) => self.dispatch_mcp_or_error(tool, &arguments, err).await,

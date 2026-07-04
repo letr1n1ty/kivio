@@ -57,6 +57,7 @@ import {
 } from './components'
 import { ConnectorsPanel } from './ConnectorsPanel'
 import { KnowledgeBasePanel } from './KnowledgeBasePanel'
+import { WebSearchPanel } from './WebSearchPanel'
 
 export type SettingsTab = 'general' | 'translate' | 'screenshot' | 'lens' | 'chat' | 'memory' | 'mixer' | 'kivioCode' | 'externalAgents' | 'mcp' | 'skill' | 'webSearch' | 'connectors' | 'knowledge' | 'usage' | 'providers' | 'about'
 
@@ -2320,7 +2321,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
         <main className={`kv-content ${variant === 'embedded' ? 'settings-embedded-main' : ''}`}>
           <header
             className={`kv-page-header ${variant === 'embedded' ? 'settings-embedded-header' : ''}`}
-            data-tauri-drag-region={variant === 'embedded' ? true : undefined}
+            onMouseDown={handleSettingsDragMouseDown}
           >
             <div>
               <div className="kv-page-title">{pageMeta[activeTab].title}</div>
@@ -2369,7 +2370,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                     label={t.themeColor}
                     description={
                       lang.startsWith('zh')
-                        ? '選擇 Kivio 的色彩主題；會依目前外觀自動使用淺色或深色配置。'
+                        ? '選擇 Kivio 的色彩主題；會依目前外觀自動使用淺色或深色設定。'
                         : 'Choose Kivio color theme. It adapts to the current light or dark appearance.'
                     }
                   >
@@ -3263,65 +3264,18 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                       }}
                     />
                   </SettingRow>
-                  <SettingRow label={lang.startsWith('zh') ? '網頁抓取' : 'Web fetch'} description={lang.startsWith('zh') ? 'web_fetch，HTTPS 只讀' : 'web_fetch, HTTPS read-only'}>
+                  {/* 搜尋 API（供應商 / Key / 結果數 / 深度）統一在「網路搜尋」分頁設定，
+                      這裡只保留啟用開關，避免兩處重複編輯同一份 settings.lens.webSearch。 */}
+                  <p className="kv-row-desc px-1 pb-1">
+                    {lang.startsWith('zh')
+                      ? '搜尋 API（供應商 / Key / 結果數 / 深度）在「網路搜尋」設定裡設定。'
+                      : 'Configure the search API (provider / key / results / depth) in Web Search settings.'}
+                  </p>
+                  <SettingRow label={lang.startsWith('zh') ? '網頁抓取' : 'Web fetch'} description={lang.startsWith('zh') ? 'web_fetch，HTTPS 唯讀' : 'web_fetch, HTTPS read-only'}>
                     <Toggle
                       checked={chatTools.nativeTools?.webFetch === true}
                       onChange={(webFetch) => updateNativeTools({ webFetch })}
                     />
-                  </SettingRow>
-                  <SettingRow label={t.webSearchApiSection} stack>
-                    <div className="flex w-full flex-col gap-2">
-                      <Select
-                        className="w-full"
-                        value={settings.lens?.webSearch?.provider || 'tavily'}
-                        onChange={(provider) => updateLensWebSearch({ provider: provider as 'tavily' | 'exa' })}
-                        options={[
-                          { value: 'tavily', label: 'Tavily' },
-                          { value: 'exa', label: 'Exa' },
-                        ]}
-                      />
-                      <Input
-                        type="password"
-                        value={settings.lens?.webSearch?.provider === 'exa'
-                          ? settings.lens?.webSearch?.exaApiKey || ''
-                          : settings.lens?.webSearch?.tavilyApiKey || ''}
-                        onChange={(value) => {
-                          if (settings.lens?.webSearch?.provider === 'exa') {
-                            updateLensWebSearch({ exaApiKey: value })
-                          } else {
-                            updateLensWebSearch({ tavilyApiKey: value })
-                          }
-                        }}
-                        placeholder={settings.lens?.webSearch?.provider === 'exa' ? 'exa-...' : 'tvly-...'}
-                      />
-                      <div className="grid grid-cols-2 gap-2">
-                        <FieldBlock label={lang.startsWith('zh') ? '最大結果數' : 'Max results'}>
-                          <Input
-                            type="number"
-                            min={1}
-                            max={10}
-                            value={String(settings.lens?.webSearch?.maxResults ?? 5)}
-                            onChange={(value) => updateLensWebSearch({
-                              maxResults: Math.min(10, Math.max(1, Number.parseInt(value, 10) || 5)),
-                            })}
-                          />
-                        </FieldBlock>
-                        {settings.lens?.webSearch?.provider !== 'exa' && (
-                          <FieldBlock label={lang.startsWith('zh') ? '搜尋深度' : 'Search depth'}>
-                            <Select
-                              value={settings.lens?.webSearch?.searchDepth || 'basic'}
-                              onChange={(searchDepth) => updateLensWebSearch({
-                                searchDepth: searchDepth as 'basic' | 'advanced',
-                              })}
-                              options={[
-                                { value: 'basic', label: 'basic' },
-                                { value: 'advanced', label: 'advanced' },
-                              ]}
-                            />
-                          </FieldBlock>
-                        )}
-                      </div>
-                    </div>
                   </SettingRow>
                   <SettingRow label={lang.startsWith('zh') ? '工作區根目錄（可選）' : 'Workspace roots (optional)'} stack>
                     <div className="flex w-full flex-col gap-2">
@@ -4039,82 +3993,14 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
               </>
             )}
 
-            {/* ===== 網路搜尋標籤頁 ===== */}
+            {/* ===== 網路搜尋分頁 ===== */}
             {activeTab === 'webSearch' && (
-              <>
-                <SettingsGroup title={t.webSearchApiSection}>
-                  <SettingRow label={t.lensWebSearchProvider}>
-                    <Select
-                      className="w-44"
-                      value={settings.lens?.webSearch?.provider || 'tavily'}
-                      onChange={(v) => updateLensWebSearch({ provider: v as 'tavily' | 'exa' })}
-                      options={[
-                        { value: 'tavily', label: 'Tavily' },
-                        { value: 'exa', label: 'Exa' },
-                      ]}
-                    />
-                  </SettingRow>
-                  <SettingRow label={t.lensWebSearchApiKey}>
-                    <Input
-                      type="password"
-                      value={settings.lens?.webSearch?.provider === 'exa'
-                        ? settings.lens?.webSearch?.exaApiKey || ''
-                        : settings.lens?.webSearch?.tavilyApiKey || ''}
-                      onChange={(value) => {
-                        if (settings.lens?.webSearch?.provider === 'exa') {
-                          updateLensWebSearch({ exaApiKey: value })
-                        } else {
-                          updateLensWebSearch({ tavilyApiKey: value })
-                        }
-                      }}
-                      placeholder={settings.lens?.webSearch?.provider === 'exa' ? 'exa-...' : 'tvly-...'}
-                      mono
-                    />
-                  </SettingRow>
-                  <SettingRow label={t.lensWebSearchMaxResults}>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={10}
-                      className="w-24"
-                      value={String(settings.lens?.webSearch?.maxResults ?? 5)}
-                      onChange={(value) => updateLensWebSearch({
-                        maxResults: Math.min(10, Math.max(1, Number.parseInt(value, 10) || 1)),
-                      })}
-                    />
-                  </SettingRow>
-                  {settings.lens?.webSearch?.provider !== 'exa' && (
-                    <SettingRow label={t.lensWebSearchDepth}>
-                      <Select
-                        className="w-44"
-                        value={settings.lens?.webSearch?.searchDepth || 'basic'}
-                        onChange={(v) => updateLensWebSearch({ searchDepth: v as 'ultra-fast' | 'fast' | 'basic' | 'advanced' })}
-                        options={[
-                          { value: 'ultra-fast', label: 'Ultra fast' },
-                          { value: 'fast', label: 'Fast' },
-                          { value: 'basic', label: 'Basic' },
-                          { value: 'advanced', label: 'Advanced' },
-                        ]}
-                      />
-                    </SettingRow>
-                  )}
-                </SettingsGroup>
-
-                <SettingsGroup title={t.webSearchLensSection}>
-                  <SettingRow label={t.enabled} description={t.lensWebSearchHint}>
-                    <Toggle
-                      checked={settings.lens?.webSearch?.enabled === true}
-                      onChange={(v) => updateLensWebSearch({ enabled: v })}
-                    />
-                  </SettingRow>
-                </SettingsGroup>
-
-                <p className="kv-row-desc px-1 py-2">
-                  {lang.startsWith('zh')
-                    ? 'Chat 的 web_search / web_fetch 開關在「MCP」→「Kivio 內建工具」中配置。'
-                    : 'Chat web_search / web_fetch toggles live under MCP → Kivio built-in tools.'}
-                </p>
-              </>
+              <WebSearchPanel
+                t={t}
+                lang={lang}
+                webSearch={settings.lens?.webSearch}
+                onChange={updateLensWebSearch}
+              />
             )}
 
             {/* ===== 用量統計標籤頁（內含請求除錯二級檢視） ===== */}
@@ -4172,27 +4058,24 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                     providerNameLabel={t.providerName}
                     onSelect={setSelectedProviderId}
                     onReorder={reorderProviders}
-                  />
-
-                  <div className="kv-provider-list-presets">
-                    <div className="kv-provider-list-section-label">
-                      {lang.startsWith('zh') ? '快速預設' : 'Quick presets'}
-                    </div>
-                    <div className="kv-provider-list-preset-grid">
-                      {PROVIDER_PRESETS.map(preset => (
+                    trailing={PROVIDER_PRESETS
+                      .filter((preset) => !settings.providers.some((p) => p.baseUrl === preset.baseUrl))
+                      .map((preset) => (
                         <button
                           key={preset.name}
                           type="button"
                           onClick={() => addProviderFromPreset(preset)}
-                          className="kv-provider-preset-btn"
+                          className="kv-provider-item"
+                          title={lang.startsWith('zh') ? `新增 ${preset.name}` : `Add ${preset.name}`}
                           data-tauri-drag-region="false"
                         >
-                          <Plus size={11} strokeWidth={2.25} />
-                          <span className="min-w-0 truncate">{preset.name}</span>
+                          <span className="kv-provider-item-select">
+                            <span className="kv-provider-dot off" />
+                            <span className="kv-provider-name">{preset.name}</span>
+                          </span>
                         </button>
                       ))}
-                    </div>
-                  </div>
+                  />
                 </div>
 
                 <div className="kv-provider-detail">
@@ -4238,7 +4121,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                       )
                     })() : (
                       <p className="kv-provider-empty-hint">
-                        {lang.startsWith('zh') ? '在左側選擇供應商，或使用快速預設新增。' : 'Select a provider on the left, or add one from quick presets.'}
+                        {lang.startsWith('zh') ? '在左側選擇供應商，或點選上方「新增」建立。' : 'Select a provider on the left, or click “Add” above.'}
                       </p>
                     )}
                   </SettingsGroup>
@@ -4307,6 +4190,23 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
 
                           <FieldBlock label={t.apiKey} description={t.apiKeysHint}>
                             <div className="space-y-1.5">
+                              {(() => {
+                                // 命中快速預設 baseUrl 時，給出「取得 API Key」外鏈引導使用者申請。
+                                const preset = PROVIDER_PRESETS.find(
+                                  (p) => p.baseUrl === provider.baseUrl && p.apiKeyUrl,
+                                )
+                                if (!preset?.apiKeyUrl) return null
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => void api.openExternal(preset.apiKeyUrl!)}
+                                    className="inline-flex w-fit items-center gap-0.5 text-[12px] text-indigo-500 hover:underline dark:text-indigo-300"
+                                    data-tauri-drag-region="false"
+                                  >
+                                    {lang.startsWith('zh') ? `取得 ${preset.name} API Key ↗` : `Get ${preset.name} API key ↗`}
+                                  </button>
+                                )
+                              })()}
                               {(provider.apiKeys.length > 0 ? provider.apiKeys : ['']).map((key, idx) => {
                                 const total = Math.max(provider.apiKeys.length, 1)
                                 const keyId = `${provider.id}-${idx}`

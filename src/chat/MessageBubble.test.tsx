@@ -239,7 +239,8 @@ describe('MessageBubble timeline grouping', () => {
 
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByText('planning details')).toBeInTheDocument()
-    expect(screen.getByText('read_file')).toBeInTheDocument()
+    // 展開後組內工具塊掛載：Cursor 式動詞 Read + 目標（檔名）
+    expect(screen.getByText('a.ts')).toBeInTheDocument()
   })
 
   it('keeps many collapsed history tools out of the DOM until expanded', async () => {
@@ -293,8 +294,8 @@ describe('MessageBubble timeline grouping', () => {
 
     await user.click(screen.getByRole('button', { name: /編輯 20 個檔案/ }))
 
-    expect(screen.getAllByText('write')).toHaveLength(toolCount)
-    expect(screen.getByText('file-0.ts')).toBeInTheDocument()
+    expect(screen.getAllByText('寫入')).toHaveLength(toolCount)
+    expect(screen.getAllByText('file-0.ts').length).toBeGreaterThan(0)
   })
 
   it('renders tool → text → tool as two separate groups', () => {
@@ -341,8 +342,8 @@ describe('MessageBubble timeline grouping', () => {
 
     render(<MessageBubble message={message} messageStreaming />)
     expect(screen.getByText(/執行 1 條命令/)).toBeInTheDocument()
-    // 展開態：組內工具塊細節仍渲染
-    expect(screen.getByText('run_command')).toBeInTheDocument()
+    // 展開態：組內工具區塊細節仍渲染
+    expect(screen.getByText('執行')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /執行 1 條命令/ })).toHaveAttribute(
       'aria-expanded',
       'true',

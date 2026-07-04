@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { GripHorizontal } from 'lucide-react'
 import type { ModelProvider } from '../api/tauri'
 import { isProviderEnabled } from './utils'
@@ -10,6 +10,8 @@ type ProviderSortableListProps = {
   providerNameLabel: string
   onSelect: (id: string) => void
   onReorder: (fromId: string, toId: string) => void
+  /** 追加在真實供應商項之後、同一列表容器內的節點（如快速預設項），保證連續排列不被撐到底部。 */
+  trailing?: ReactNode
 }
 
 export function ProviderSortableList({
@@ -19,6 +21,7 @@ export function ProviderSortableList({
   providerNameLabel,
   onSelect,
   onReorder,
+  trailing,
 }: ProviderSortableListProps) {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [overIndex, setOverIndex] = useState<number | null>(null)
@@ -122,22 +125,27 @@ export function ProviderSortableList({
             className={`kv-provider-item ${selectedId === provider.id ? 'active' : ''}${isDragging ? ' is-dragging' : ''}`}
             style={transform ? { transform } : undefined}
             data-tauri-drag-region="false"
+            role="button"
+            tabIndex={0}
+            onClick={() => onSelect(provider.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onSelect(provider.id)
+              }
+            }}
           >
-            <button
-              type="button"
-              className="kv-provider-item-select"
-              onClick={() => onSelect(provider.id)}
-              data-tauri-drag-region="false"
-            >
+            <span className="kv-provider-item-select">
               <span className={`kv-provider-dot ${!isProviderEnabled(provider) ? 'off' : configured ? 'on' : 'warn'}`} />
               <span className="kv-provider-name">{provider.name || providerNameLabel}</span>
-            </button>
+            </span>
             <button
               type="button"
               className="kv-provider-drag-handle"
               aria-label={dragLabel}
               title={dragLabel}
               onPointerDown={(e) => handlePointerDown(e, provider.id, index)}
+              onClick={(e) => e.stopPropagation()}
               data-tauri-drag-region="false"
             >
               <GripHorizontal size={13} strokeWidth={2} />
@@ -145,6 +153,7 @@ export function ProviderSortableList({
           </div>
         )
       })}
+      {trailing}
     </div>
   )
 }
