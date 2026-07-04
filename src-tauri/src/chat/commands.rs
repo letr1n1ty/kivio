@@ -39,9 +39,10 @@ use crate::state::AppState;
 use super::storage::{
     archive_assistant, assistant_snapshot, conversation_attachments_dir, create_assistant,
     create_project, create_set, delete_conversation as delete_conv, delete_project, delete_set,
-    duplicate_assistant, find_project_by_id, find_project_by_name, find_reusable_blank_conversation,
-    find_set_by_id, get_assistants, get_conversations as get_convs, get_projects, get_sets,
-    load_conversation, save_conversation, update_assistant, update_project, update_set,
+    duplicate_assistant, find_project_by_id, find_project_by_name,
+    find_reusable_blank_conversation, find_set_by_id, get_assistants,
+    get_conversations as get_convs, get_projects, get_sets, load_conversation, save_conversation,
+    update_assistant, update_project, update_set,
 };
 use super::{
     AgentPlanState, AgentTodoState, Attachment, ChatAssistant, ChatMessage, ChatMessageSegment,
@@ -123,7 +124,8 @@ impl<'a> ChatSendReservation<'a> {
 
 impl Drop for ChatSendReservation<'_> {
     fn drop(&mut self) {
-        self.state.end_chat_reply(&self.conversation_id, &self.run_id);
+        self.state
+            .end_chat_reply(&self.conversation_id, &self.run_id);
     }
 }
 
@@ -159,7 +161,8 @@ impl<'a> ChatReplyGuard<'a> {
 
 impl Drop for ChatReplyGuard<'_> {
     fn drop(&mut self) {
-        self.state.end_chat_reply(&self.conversation_id, &self.run_id);
+        self.state
+            .end_chat_reply(&self.conversation_id, &self.run_id);
         self.state
             .end_chat_generation(&self.conversation_id, self.generation);
     }
@@ -736,10 +739,16 @@ pub(crate) fn chat_create_builder_conversation(
 ) -> Result<serde_json::Value, String> {
     let settings = state.settings_read().clone();
     let (default_provider_id, default_model) = settings.effective_chat_model();
-    let provider_id = provider_id.and_then(non_empty_string).unwrap_or(default_provider_id);
+    let provider_id = provider_id
+        .and_then(non_empty_string)
+        .unwrap_or(default_provider_id);
     let model = model.and_then(non_empty_string).unwrap_or(default_model);
 
-    let project = match project_id.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+    let project = match project_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
         Some(pid) => Some(find_project_by_id(&app, pid)?),
         None => None,
     };
@@ -983,10 +992,7 @@ pub(crate) fn chat_update_set(
 }
 
 #[tauri::command]
-pub(crate) fn chat_delete_set(
-    app: AppHandle,
-    set_id: String,
-) -> Result<serde_json::Value, String> {
+pub(crate) fn chat_delete_set(app: AppHandle, set_id: String) -> Result<serde_json::Value, String> {
     delete_set(&app, &set_id)?;
     Ok(serde_json::json!({ "success": true }))
 }
@@ -1027,8 +1033,12 @@ pub(crate) async fn chat_compress_context(
 ) -> Result<serde_json::Value, String> {
     let mut conversation = load_conversation(&app, &conversation_id)?;
     if conversation.agent_runtime.is_external() {
-        crate::external_agents::compact::request_external_compaction(&app, &state, &mut conversation)
-            .await?;
+        crate::external_agents::compact::request_external_compaction(
+            &app,
+            &state,
+            &mut conversation,
+        )
+        .await?;
         conversation.updated_at = chrono::Local::now().timestamp();
         save_conversation(&app, &conversation)?;
         let context_state = conversation.context_state.clone();
@@ -1119,32 +1129,30 @@ fn approve_agent_plan_for_execution(
     conversation: &mut Conversation,
     message_id: Option<&str>,
 ) -> Result<(), String> {
-    let selected_plan = if let Some(message_id) = message_id
-        .map(str::trim)
-        .filter(|id| !id.is_empty()) {
-        Some({
-            let message = conversation
-                .messages
-                .iter_mut()
-                .find(|message| message.id == message_id && message.role == "assistant")
-                .ok_or_else(|| "计划消息不存在".to_string())?;
-            let plan_state = message
-                .agent_plan
-                .as_ref()
-                .ok_or_else(|| "该消息不是可执行计划".to_string())?;
-            if crate::chat::plan::executable_plan_text(plan_state).is_none() {
-                return Err("该消息不是可执行计划".to_string());
-            }
-            let approved = crate::chat::plan::approve(plan_state);
-            message.agent_plan = Some(approved.clone());
-            approved
-        })
-    } else {
-        None
-    };
-    conversation.agent_plan_state = selected_plan.unwrap_or_else(|| {
-        crate::chat::plan::approve(&conversation.agent_plan_state)
-    });
+    let selected_plan =
+        if let Some(message_id) = message_id.map(str::trim).filter(|id| !id.is_empty()) {
+            Some({
+                let message = conversation
+                    .messages
+                    .iter_mut()
+                    .find(|message| message.id == message_id && message.role == "assistant")
+                    .ok_or_else(|| "计划消息不存在".to_string())?;
+                let plan_state = message
+                    .agent_plan
+                    .as_ref()
+                    .ok_or_else(|| "该消息不是可执行计划".to_string())?;
+                if crate::chat::plan::executable_plan_text(plan_state).is_none() {
+                    return Err("该消息不是可执行计划".to_string());
+                }
+                let approved = crate::chat::plan::approve(plan_state);
+                message.agent_plan = Some(approved.clone());
+                approved
+            })
+        } else {
+            None
+        };
+    conversation.agent_plan_state =
+        selected_plan.unwrap_or_else(|| crate::chat::plan::approve(&conversation.agent_plan_state));
     Ok(())
 }
 
@@ -1478,7 +1486,12 @@ pub(crate) fn chat_list_background_commands(state: State<AppState>) -> Vec<serde
     let map = map.lock().unwrap_or_else(|e| e.into_inner());
     let mut jobs: Vec<&crate::native_tools::BackgroundCommand> = map
         .values()
-        .filter(|j| matches!(j.status, crate::native_tools::BackgroundCommandStatus::Running))
+        .filter(|j| {
+            matches!(
+                j.status,
+                crate::native_tools::BackgroundCommandStatus::Running
+            )
+        })
         .collect();
     jobs.sort_by_key(|j| j.started_at);
     jobs.into_iter()
@@ -1500,7 +1513,8 @@ pub(crate) fn chat_kill_background_command(
     state: State<AppState>,
     job_id: String,
 ) -> Result<(), String> {
-    crate::native_tools::kill_background(&state, &serde_json::json!({ "job_id": job_id })).map(|_| ())
+    crate::native_tools::kill_background(&state, &serde_json::json!({ "job_id": job_id }))
+        .map(|_| ())
 }
 
 /// 响应会话级文件/命令工具授权请求(按 conversation_id)。
@@ -1809,8 +1823,10 @@ async fn complete_assistant_reply_inner(
     let language = crate::settings::resolve_chat_language(&settings);
     let stream_enabled = settings.chat.stream_enabled;
     // 思考：每对话等级覆盖全局开关。None=跟随全局（现状）；"off"=强制关；low/medium/high=按家族注入。
-    let (thinking_enabled, thinking_level) =
-        resolve_thinking(conversation.thinking_level.as_deref(), settings.chat.thinking_enabled);
+    let (thinking_enabled, thinking_level) = resolve_thinking(
+        conversation.thinking_level.as_deref(),
+        settings.chat.thinking_enabled,
+    );
     let retry_attempts = if settings.retry_enabled {
         settings.retry_attempts as usize
     } else {
@@ -2084,10 +2100,9 @@ async fn complete_assistant_reply_inner(
         .filter(|prompt| !prompt.trim().is_empty());
     let obsidian_vault_path = (!settings.obsidian_vault_path.trim().is_empty())
         .then_some(settings.obsidian_vault_path.as_str());
-    let himalaya_binary = crate::connectors::himalaya::resolve_himalaya_binary_when_active(
-        &settings.email_accounts,
-    )
-    .map(|path| path.display().to_string());
+    let himalaya_binary =
+        crate::connectors::himalaya::resolve_himalaya_binary_when_active(&settings.email_accounts)
+            .map(|path| path.display().to_string());
     let email_accounts_prompt = crate::settings::email_accounts_system_prompt(
         &settings.email_accounts,
         &language,
@@ -3342,7 +3357,9 @@ async fn generate_title_with_model(
 }
 
 fn title_summary_system_prompt(language: &str) -> &'static str {
-    if language.starts_with("zh") {
+    if crate::locale::is_traditional_chinese(language) {
+        "你只負責為對話產生簡潔標題。只輸出標題本身，不要解釋。"
+    } else if crate::locale::is_chinese_language(language) {
         "你只负责为对话生成简洁标题。只输出标题本身，不要解释。"
     } else {
         "You only generate concise conversation titles. Output only the title, with no explanation."
@@ -3356,9 +3373,12 @@ fn build_title_summary_prompt(
 ) -> String {
     let user = truncate_chars(user_content.trim(), 1200);
     let assistant = truncate_chars(assistant_content.trim(), 1200);
-    if language.starts_with("zh") {
-        format!(
-            "请根据下面的首轮对话生成一个简洁中文标题。\n要求：只输出标题本身；不要引号；不要句号；不超过 14 个汉字，最多 20 个字符。\n\n用户：{user}\n\n助手：{assistant}"
+    if crate::locale::is_chinese_language(language) {
+        crate::locale::localize_zh_hans(
+            language,
+            format!(
+                "请根据下面的首轮对话生成一个简洁中文标题。\n要求：只输出标题本身；不要引号；不要句号；不超过 14 个汉字，最多 20 个字符。\n\n用户：{user}\n\n助手：{assistant}"
+            ),
         )
     } else {
         format!(
@@ -3427,8 +3447,7 @@ fn try_apply_skill_slash_trigger(
         assistant_snapshot,
         &record.meta.id,
         email_accounts,
-    )
-    {
+    ) {
         // A disabled or out-of-allow-list skill's slash command is left as ordinary text.
         return None;
     }
@@ -4028,10 +4047,9 @@ async fn compute_context_state(
     );
     let obsidian_vault_path = (!settings.obsidian_vault_path.trim().is_empty())
         .then_some(settings.obsidian_vault_path.as_str());
-    let himalaya_binary = crate::connectors::himalaya::resolve_himalaya_binary_when_active(
-        &settings.email_accounts,
-    )
-    .map(|path| path.display().to_string());
+    let himalaya_binary =
+        crate::connectors::himalaya::resolve_himalaya_binary_when_active(&settings.email_accounts)
+            .map(|path| path.display().to_string());
     let email_accounts_prompt = crate::settings::email_accounts_system_prompt(
         &settings.email_accounts,
         &language,
@@ -4509,9 +4527,7 @@ fn group_answer_excluded_from_context(conversation: &Conversation, message: &Cha
             conversation
                 .messages
                 .iter()
-                .find(|m| {
-                    m.role == "assistant" && m.group_id.as_deref() == Some(group_id)
-                })
+                .find(|m| m.role == "assistant" && m.group_id.as_deref() == Some(group_id))
                 .map(|m| m.id.as_str())
         });
     selected != Some(message.id.as_str())
@@ -4846,7 +4862,9 @@ pub(crate) async fn read_image_as_tool_result(
 }
 
 fn auxiliary_vision_system_prompt(language: &str) -> &'static str {
-    if language.starts_with("zh") {
+    if crate::locale::is_traditional_chinese(language) {
+        "你是 Kivio 的視覺副任務模型。你的任務是讀取使用者提供的圖片，並輸出給另一個主對話模型使用的客觀文字觀察。只描述圖片中可見的資訊、文字、結構、物件、介面狀態和與使用者問題相關的細節；不要回答最終問題，不要編造不可見內容。"
+    } else if crate::locale::is_chinese_language(language) {
         "你是 Kivio 的视觉副任务模型。你的任务是读取用户提供的图片，并输出给另一个主对话模型使用的客观文字观察。只描述图片中可见的信息、文字、结构、对象、界面状态和与用户问题相关的细节；不要回答最终问题，不要编造不可见内容。"
     } else {
         "You are Kivio's auxiliary vision model. Read the user's images and produce objective textual observations for another main chat model. Describe visible information, text, layout, objects, UI state, and details relevant to the user's request. Do not answer the final question and do not invent unseen content."
@@ -4858,12 +4876,19 @@ fn auxiliary_vision_user_prompt(last_user_api_content: Option<&str>, language: &
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .unwrap_or_default();
-    if language.starts_with("zh") {
+    if crate::locale::is_chinese_language(language) {
         if content.is_empty() {
-            "请分析这些图片，输出主对话模型回答用户时需要知道的视觉事实。".to_string()
+            crate::locale::localized_zh_or_en(
+                language,
+                "请分析这些图片，输出主对话模型回答用户时需要知道的视觉事实。",
+                "",
+            )
         } else {
-            format!(
-                "用户原始消息如下。请结合图片提取主对话模型回答时需要知道的视觉事实。\n\n{content}"
+            crate::locale::localize_zh_hans(
+                language,
+                format!(
+                    "用户原始消息如下。请结合图片提取主对话模型回答时需要知道的视觉事实。\n\n{content}"
+                ),
             )
         }
     } else if content.is_empty() {
@@ -4884,12 +4909,15 @@ fn user_content_with_auxiliary_vision_result(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .unwrap_or_default();
-    let aux_block = if language.starts_with("zh") {
-        format!(
-            "[混音器视觉副任务结果]\n图片附件已由视觉模型（{} - {}）预先分析。主对话模型不能直接访问图片，请基于以下视觉观察回答用户：\n{}",
-            result.provider_name,
-            result.model,
-            result.content.trim()
+    let aux_block = if crate::locale::is_chinese_language(language) {
+        crate::locale::localize_zh_hans(
+            language,
+            format!(
+                "[混音器视觉副任务结果]\n图片附件已由视觉模型（{} - {}）预先分析。主对话模型不能直接访问图片，请基于以下视觉观察回答用户：\n{}",
+                result.provider_name,
+                result.model,
+                result.content.trim()
+            ),
         )
     } else {
         format!(
@@ -5973,8 +6001,11 @@ pub(crate) async fn chat_regenerate_message(
     // 留下指向已删消息的 group_selections，会让 group_answer_excluded_from_context 把残余
     // 答案全排除出上下文。清掉任何指向已不存在消息的选中记录，回退到「组内第一条」默认。
     if !conversation.group_selections.is_empty() {
-        let existing_ids: std::collections::HashSet<&str> =
-            conversation.messages.iter().map(|m| m.id.as_str()).collect();
+        let existing_ids: std::collections::HashSet<&str> = conversation
+            .messages
+            .iter()
+            .map(|m| m.id.as_str())
+            .collect();
         conversation
             .group_selections
             .retain(|_, msg_id| existing_ids.contains(msg_id.as_str()));
@@ -6073,7 +6104,12 @@ pub(crate) async fn chat_delete_message(
     // group_selections 会指向已删除的 message_id，导致 group_answer_excluded_from_context
     // 把整组答案都排除出下一轮上下文（无任何答案进历史）。
     if let Some(group_id) = removed.group_id.as_deref() {
-        if conversation.group_selections.get(group_id).map(String::as_str) == Some(removed.id.as_str()) {
+        if conversation
+            .group_selections
+            .get(group_id)
+            .map(String::as_str)
+            == Some(removed.id.as_str())
+        {
             conversation.group_selections.remove(group_id);
         }
     }
@@ -6270,9 +6306,7 @@ pub(crate) fn chat_set_group_selection(
     }
     // 校验：该消息必须存在、是 assistant、且属于这个 group。
     let valid = conversation.messages.iter().any(|m| {
-        m.id == message_id
-            && m.role == "assistant"
-            && m.group_id.as_deref() == Some(group_id)
+        m.id == message_id && m.role == "assistant" && m.group_id.as_deref() == Some(group_id)
     });
     if !valid {
         return Err("选中的回答不属于该多答组".to_string());
@@ -6311,8 +6345,14 @@ mod tests {
     #[test]
     fn resolve_thinking_maps_levels_and_defaults_to_high() {
         // 未设置 → 默认档 high，不再跟随全局（全局只服务 lens / 翻译）。
-        assert_eq!(resolve_thinking(None, true), (true, Some("high".to_string())));
-        assert_eq!(resolve_thinking(None, false), (true, Some("high".to_string())));
+        assert_eq!(
+            resolve_thinking(None, true),
+            (true, Some("high".to_string()))
+        );
+        assert_eq!(
+            resolve_thinking(None, false),
+            (true, Some("high".to_string()))
+        );
         // off → 强制关。
         assert_eq!(resolve_thinking(Some("off"), true), (false, None));
         // 具体等级 → 开 + 带等级。
@@ -6334,7 +6374,10 @@ mod tests {
             (true, Some("max".to_string()))
         );
         // 未知值 → 当作未设置，落默认档 high。
-        assert_eq!(resolve_thinking(Some("ultra"), true), (true, Some("high".to_string())));
+        assert_eq!(
+            resolve_thinking(Some("ultra"), true),
+            (true, Some("high".to_string()))
+        );
     }
 
     #[test]
@@ -6360,10 +6403,10 @@ mod tests {
     fn builder_args_reject_missing_required() {
         assert!(assistant_from_builder_args(&serde_json::json!({ "system_prompt": "x" })).is_err());
         assert!(assistant_from_builder_args(&serde_json::json!({ "name": "x" })).is_err());
-        assert!(
-            assistant_from_builder_args(&serde_json::json!({ "name": "x", "system_prompt": "  " }))
-                .is_err()
-        );
+        assert!(assistant_from_builder_args(
+            &serde_json::json!({ "name": "x", "system_prompt": "  " })
+        )
+        .is_err());
     }
     fn slash_skill_record(id: &str, name: &str, triggers: Vec<&str>) -> skills::SkillRecord {
         skills::SkillRecord {
@@ -6396,7 +6439,8 @@ mod tests {
 
     #[test]
     fn slash_trigger_rewrites_body_and_pins_skill() {
-        let registry = slash_skill_registry(slash_skill_record("commit", "Commit", vec!["/commit"]));
+        let registry =
+            slash_skill_registry(slash_skill_record("commit", "Commit", vec!["/commit"]));
         let chat_tools = crate::settings::ChatToolsConfig::default();
 
         let (skill_id, rewritten) =
@@ -6412,20 +6456,31 @@ mod tests {
 
     #[test]
     fn slash_trigger_ignores_non_slash_and_unknown() {
-        let registry = slash_skill_registry(slash_skill_record("commit", "Commit", vec!["/commit"]));
+        let registry =
+            slash_skill_registry(slash_skill_record("commit", "Commit", vec!["/commit"]));
         let chat_tools = crate::settings::ChatToolsConfig::default();
 
-        assert!(try_apply_skill_slash_trigger(&registry, &chat_tools, None, "commit fix", &[]).is_none());
-        assert!(try_apply_skill_slash_trigger(&registry, &chat_tools, None, "/unknown x", &[]).is_none());
+        assert!(
+            try_apply_skill_slash_trigger(&registry, &chat_tools, None, "commit fix", &[])
+                .is_none()
+        );
+        assert!(
+            try_apply_skill_slash_trigger(&registry, &chat_tools, None, "/unknown x", &[])
+                .is_none()
+        );
     }
 
     #[test]
     fn slash_trigger_skips_disabled_skill() {
-        let registry = slash_skill_registry(slash_skill_record("commit", "Commit", vec!["/commit"]));
+        let registry =
+            slash_skill_registry(slash_skill_record("commit", "Commit", vec!["/commit"]));
         let mut chat_tools = crate::settings::ChatToolsConfig::default();
         chat_tools.disabled_skill_ids = vec!["commit".to_string()];
 
-        assert!(try_apply_skill_slash_trigger(&registry, &chat_tools, None, "/commit fix", &[]).is_none());
+        assert!(
+            try_apply_skill_slash_trigger(&registry, &chat_tools, None, "/commit fix", &[])
+                .is_none()
+        );
     }
 
     fn test_provider(id: &str, name: &str, enabled_models: Vec<&str>) -> ModelProvider {
@@ -7385,12 +7440,15 @@ mod tests {
     #[test]
     fn approve_agent_plan_rejects_non_plan_message_target() {
         let mut conversation = test_conversation_with_summary(false);
-        conversation
-            .messages
-            .push(test_chat_message("msg_plain", "assistant", "plain answer", 10));
+        conversation.messages.push(test_chat_message(
+            "msg_plain",
+            "assistant",
+            "plain answer",
+            10,
+        ));
 
-        let error = approve_agent_plan_for_execution(&mut conversation, Some("msg_plain"))
-            .unwrap_err();
+        let error =
+            approve_agent_plan_for_execution(&mut conversation, Some("msg_plain")).unwrap_err();
 
         assert_eq!(error, "该消息不是可执行计划");
     }
@@ -7438,8 +7496,7 @@ mod tests {
             "role": "assistant",
             "content": "final answer"
         })];
-        completed.model_messages =
-            vec![ModelMessage::text(ModelRole::Assistant, "final answer")];
+        completed.model_messages = vec![ModelMessage::text(ModelRole::Assistant, "final answer")];
         completed.stream_outcome = Some("completed".to_string());
 
         let mut draft = test_chat_message("msg_draft", "assistant", "partial answer", 4);
@@ -7452,8 +7509,7 @@ mod tests {
                 "function": { "name": "read_file", "arguments": "{}" }
             }]
         })];
-        draft.model_messages =
-            vec![ModelMessage::text(ModelRole::Assistant, "partial answer")];
+        draft.model_messages = vec![ModelMessage::text(ModelRole::Assistant, "partial answer")];
         draft.stream_outcome = Some("interrupted".to_string());
 
         // 旧对话：完成但没有 model_messages，回放需回落 api_messages，DTO 不应剥。
@@ -7676,7 +7732,7 @@ mod tests {
             agent_todo_state: AgentTodoState::default(),
             agent_plan_state: AgentPlanState::default(),
             knowledge_base_ids: Vec::new(),
-        thinking_level: None,
+            thinking_level: None,
             reply_models: Vec::new(),
             group_selections: std::collections::HashMap::new(),
             agent_runtime: crate::chat::AgentRuntimeConfig::default(),
@@ -8127,10 +8183,22 @@ mod tests {
 
         // 去重（相同 provider+model）、保序、丢空、丢未知 provider。
         let many = vec![
-            ModelRef { provider_id: "openai".to_string(), model: "gpt-4o".to_string() },
-            ModelRef { provider_id: "openai".to_string(), model: "gpt-4o".to_string() }, // dup
-            ModelRef { provider_id: "anthropic".to_string(), model: "claude-3".to_string() },
-            ModelRef { provider_id: "ghost".to_string(), model: "y".to_string() }, // unknown provider
+            ModelRef {
+                provider_id: "openai".to_string(),
+                model: "gpt-4o".to_string(),
+            },
+            ModelRef {
+                provider_id: "openai".to_string(),
+                model: "gpt-4o".to_string(),
+            }, // dup
+            ModelRef {
+                provider_id: "anthropic".to_string(),
+                model: "claude-3".to_string(),
+            },
+            ModelRef {
+                provider_id: "ghost".to_string(),
+                model: "y".to_string(),
+            }, // unknown provider
         ];
         let arms = resolve_reply_arms(&settings, &many).unwrap();
         assert_eq!(
@@ -8143,8 +8211,14 @@ mod tests {
 
         // 空 provider 也被丢弃（单独验证，避免与上面的 4 条上限冲突）。
         let with_empty = vec![
-            ModelRef { provider_id: "openai".to_string(), model: "gpt-4o".to_string() },
-            ModelRef { provider_id: "".to_string(), model: "x".to_string() },
+            ModelRef {
+                provider_id: "openai".to_string(),
+                model: "gpt-4o".to_string(),
+            },
+            ModelRef {
+                provider_id: "".to_string(),
+                model: "x".to_string(),
+            },
         ];
         assert_eq!(resolve_reply_arms(&settings, &with_empty).unwrap().len(), 1);
 
@@ -8235,8 +8309,8 @@ mod tests {
         ];
         let mut conversation = test_conversation_with_messages(messages);
 
-        let built = build_chat_api_messages("system", &conversation, Some(0), None, &[])
-            .expect("build");
+        let built =
+            build_chat_api_messages("system", &conversation, Some(0), None, &[]).expect("build");
         let serialized = serde_json::to_string(&built).unwrap();
         assert!(serialized.contains("answer one"));
         assert!(!serialized.contains("answer two"));
@@ -8246,8 +8320,8 @@ mod tests {
         conversation
             .group_selections
             .insert("grp_1".to_string(), "msg_a2".to_string());
-        let built = build_chat_api_messages("system", &conversation, Some(0), None, &[])
-            .expect("build");
+        let built =
+            build_chat_api_messages("system", &conversation, Some(0), None, &[]).expect("build");
         let serialized = serde_json::to_string(&built).unwrap();
         assert!(!serialized.contains("answer one"));
         assert!(serialized.contains("answer two"));
@@ -8263,8 +8337,8 @@ mod tests {
             grouped_assistant("msg_a3", "answer three", "grp_1", 4),
         ];
         let conversation = test_conversation_with_messages(messages);
-        let built = build_chat_api_messages("system", &conversation, Some(0), None, &[])
-            .expect("build");
+        let built =
+            build_chat_api_messages("system", &conversation, Some(0), None, &[]).expect("build");
         let serialized = serde_json::to_string(&built).unwrap();
         assert!(serialized.contains("answer two"));
         assert!(!serialized.contains("answer three"));
@@ -8278,8 +8352,8 @@ mod tests {
             test_chat_message("msg_a", "assistant", "world", 2),
         ];
         let conversation = test_conversation_with_messages(messages);
-        let built = build_chat_api_messages("system", &conversation, Some(0), None, &[])
-            .expect("build");
+        let built =
+            build_chat_api_messages("system", &conversation, Some(0), None, &[]).expect("build");
         let serialized = serde_json::to_string(&built).unwrap();
         assert!(serialized.contains("hello"));
         assert!(serialized.contains("world"));
@@ -8305,7 +8379,10 @@ mod tests {
         // user 消息（即便带 group_id）永不被该过滤排除。
         let mut user_in_group = test_chat_message("msg_u2", "user", "uq", 4);
         user_in_group.group_id = Some("grp_1".to_string());
-        assert!(!group_answer_excluded_from_context(&conversation, &user_in_group));
+        assert!(!group_answer_excluded_from_context(
+            &conversation,
+            &user_in_group
+        ));
     }
 
     #[test]
@@ -8339,8 +8416,8 @@ mod tests {
             &conversation,
             &conversation.messages[1]
         ));
-        let built = build_chat_api_messages("system", &conversation, Some(0), None, &[])
-            .expect("build");
+        let built =
+            build_chat_api_messages("system", &conversation, Some(0), None, &[]).expect("build");
         let serialized = serde_json::to_string(&built).unwrap();
         assert!(serialized.contains("answer one"));
     }

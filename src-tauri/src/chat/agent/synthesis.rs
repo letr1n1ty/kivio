@@ -7,7 +7,9 @@ use super::finalize::{
     synthesis_failed_fallback_response, RunResultBuilder,
 };
 use super::loop_::{LoopEnv, RunState};
-use super::planning::{call_chat_completion_message_with_usage, stream_scoped_chat_completion_inner};
+use super::planning::{
+    call_chat_completion_message_with_usage, stream_scoped_chat_completion_inner,
+};
 use super::prepare::{prepare_agent_step, PrepareStepInput};
 use super::recovery::{self, RecoveryAction};
 use super::stop::{
@@ -192,10 +194,12 @@ pub(crate) async fn synthesis_step(
             }
         } else {
             if !state.generated_api_messages.is_empty() {
-                state.generated_api_messages.push(final_assistant_api_message(
-                    &response,
-                    final_reasoning_for_api.as_deref(),
-                ));
+                state
+                    .generated_api_messages
+                    .push(final_assistant_api_message(
+                        &response,
+                        final_reasoning_for_api.as_deref(),
+                    ));
             }
             (response, reasoning, final_reasoning_for_api)
         }
@@ -367,16 +371,23 @@ fn gathered_previews(state: &RunState) -> Vec<String> {
 /// 去敏 + 精简的恢复输入:仅用「用户问题 + 工具产出摘要 + 中立指令」重做一次合成,
 /// 去掉触发审核的完整正文/历史。
 fn build_neutral_reduced_messages(state: &RunState, language: &str) -> Vec<Value> {
-    let zh = language.starts_with("zh");
+    let zh = crate::locale::is_chinese_language(language);
     let question = last_user_text(&state.runtime_messages).unwrap_or_default();
     let previews = gathered_previews(state).join("\n\n");
     let system = if zh {
-        "用中立、客观的语气,严格依据下面的检索摘要回答用户的问题。只整理与陈述摘要中已有的信息,不要添加评论、立场或摘要之外的内容。"
+        crate::locale::localized_zh_or_en(
+            language,
+            "用中立、客观的语气,严格依据下面的检索摘要回答用户的问题。只整理与陈述摘要中已有的信息,不要添加评论、立场或摘要之外的内容。",
+            "",
+        )
     } else {
-        "Answer the user's question objectively and neutrally, strictly based on the search snippets below. Only organize and state information already present in the snippets; add no commentary, stance, or outside content."
+        "Answer the user's question objectively and neutrally, strictly based on the search snippets below. Only organize and state information already present in the snippets; add no commentary, stance, or outside content.".to_string()
     };
     let user = if zh {
-        format!("用户的问题:{question}\n\n检索摘要:\n{previews}")
+        crate::locale::localize_zh_hans(
+            language,
+            format!("用户的问题:{question}\n\n检索摘要:\n{previews}"),
+        )
     } else {
         format!("User question: {question}\n\nSearch snippets:\n{previews}")
     };
@@ -405,9 +416,11 @@ pub(crate) async fn recover_synthesis(
     // 都从 false 起算;真正的「只重试一次」守门在各分支内部用本地标志实现。
     match recovery::decide(kind, has_results, false, false) {
         RecoveryAction::Surface => String::new(),
-        RecoveryAction::DegradeToGathered => {
-            recovery::assemble_results_from_tool_records(&state.tool_records, &config.language, kind)
-        }
+        RecoveryAction::DegradeToGathered => recovery::assemble_results_from_tool_records(
+            &state.tool_records,
+            &config.language,
+            kind,
+        ),
         RecoveryAction::CompactAndRetry => recover_overflow_compact_and_retry(env, state).await,
         RecoveryAction::Remediate => recover_remediate(env, state, kind).await,
     }

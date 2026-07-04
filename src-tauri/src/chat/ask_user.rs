@@ -252,12 +252,19 @@ pub fn tool_result_content(response: &AskUserResponseResult) -> String {
 }
 
 pub fn format_prompt(language: &str, available: bool) -> String {
-    if language.starts_with("zh") {
+    if crate::locale::is_chinese_language(language) {
         if available {
-            "结构化澄清：当用户需求存在会阻塞后续工作的产品决策、范围选择或偏好不确定时，使用 ask_user 工具在同一次 run 内向用户提问并等待答案。若用户要求等待选择、点名 ask_user、或给出 A/B/C 等会阻塞后续步骤的选项，必须调用 ask_user，不得在 assistant 正文列出选项让用户打字回复。不要询问可通过阅读文件、检查上下文、运行可用工具或搜索得到的问题。每次优先 1-3 个高价值问题，选项要具体、可执行；只有真实选项无法覆盖用户意图时才允许 Other 自由文本。".to_string()
+            crate::locale::localized_zh_or_en(
+                language,
+                "结构化澄清：当用户需求存在会阻塞后续工作的产品决策、范围选择或偏好不确定时，使用 ask_user 工具在同一次 run 内向用户提问并等待答案。若用户要求等待选择、点名 ask_user、或给出 A/B/C 等会阻塞后续步骤的选项，必须调用 ask_user，不得在 assistant 正文列出选项让用户打字回复。不要询问可通过阅读文件、检查上下文、运行可用工具或搜索得到的问题。每次优先 1-3 个高价值问题，选项要具体、可执行；只有真实选项无法覆盖用户意图时才允许 Other 自由文本。",
+                "",
+            )
         } else {
-            "结构化澄清工具 ask_user 当前不可用；如果必须澄清，只能在自然语言回复中简短提问。"
-                .to_string()
+            crate::locale::localized_zh_or_en(
+                language,
+                "结构化澄清工具 ask_user 当前不可用；如果必须澄清，只能在自然语言回复中简短提问。",
+                "",
+            )
         }
     } else if available {
         "Structured clarification: use the ask_user tool when a product decision, scope choice, or user preference would block useful work in this same run. If the user asks you to wait for a choice, explicitly requests ask_user, or presents A/B/C options that block later steps, you must call ask_user instead of listing options in assistant text for the user to type back. Do not ask questions that can be answered by reading files, inspecting context, using available tools, or searching. Prefer 1-3 high-value questions with concrete actionable options; allow custom text only when realistic options may not cover the user's intent.".to_string()

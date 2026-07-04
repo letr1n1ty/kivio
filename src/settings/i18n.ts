@@ -1,5 +1,16 @@
 export type Lang = 'zh' | 'zh-TW' | 'en'
 
+export function normalizeLang(lang?: string | null): Lang {
+  if (lang === 'zh-TW' || lang === 'zh-Hant') return 'zh-TW'
+  if (lang === 'zh' || lang === 'zh-Hans' || lang === 'zh-CN') return 'zh'
+  if (lang === 'en') return 'en'
+  return 'zh-TW'
+}
+
+export function promptLangKey(lang?: string | null): Lang {
+  return normalizeLang(lang)
+}
+
 export const i18n = {
   zh: {
     settings: '设置',

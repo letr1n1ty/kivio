@@ -25,7 +25,7 @@ import {
   type SkillMeta,
   type SkillDetail,
 } from '../api/tauri'
-import { i18n } from './i18n'
+import { i18n, normalizeLang, promptLangKey } from './i18n'
 import {
   GeneralIcon, TranslateIcon, ScreenshotIcon, LensIcon, ChatIcon, MemoryIcon, MixerIcon,
   CodeIcon, AgentIcon, McpIcon, SkillIcon, WebSearchIcon, ConnectorsIcon, UsageIcon, ProvidersIcon, AboutIcon, KnowledgeIcon,
@@ -115,13 +115,13 @@ function clampSubAgentConcurrency(value: string | number | null | undefined): nu
 }
 
 function formatToolRoundsLabel(rounds: number, lang: string): string {
-  return lang.startsWith('zh') ? `${rounds} 轮` : `${rounds} rounds`
+  return lang.startsWith('zh') ? `${rounds} 輪` : `${rounds} rounds`
 }
 
 function formatToolTimeoutLabel(ms: number, lang: string): string {
   if (ms % 60_000 === 0) {
     const minutes = ms / 60_000
-    return lang.startsWith('zh') ? `${minutes} 分钟` : `${minutes} min`
+    return lang.startsWith('zh') ? `${minutes} 分鐘` : `${minutes} min`
   }
   if (ms % 1000 === 0) {
     const seconds = ms / 1000
@@ -219,7 +219,7 @@ function MemoryEditor({
             data-tauri-drag-region="false"
           >
             <RefreshCw size={10} className={loading ? 'animate-spin' : ''} />
-            {lang.startsWith('zh') ? '重载' : 'Reload'}
+            {lang.startsWith('zh') ? '重載' : 'Reload'}
           </button>
           <button
             type="button"
@@ -244,7 +244,7 @@ function MemoryEditor({
       {overLimit && (
         <p className="mt-1.5 text-[11px] leading-snug text-red-500 dark:text-red-400">
           {lang.startsWith('zh')
-            ? `${layer.toUpperCase()} 超出字节上限，保存前需要精简。`
+            ? `${layer.toUpperCase()} 超出字節上限，保存前需要精簡。`
             : `${layer.toUpperCase()} is over its byte limit.`}
         </p>
       )}
@@ -337,12 +337,12 @@ function isBuiltinSkill(skill: SkillMeta): boolean {
 
 function skillSourceLabel(skill: SkillMeta, lang: string): string {
   if (skill.source === 'builtin') {
-    return lang.startsWith('zh') ? '内置' : 'Built-in'
+    return lang.startsWith('zh') ? '內置' : 'Built-in'
   }
   if (skill.source === 'external') {
     return lang.startsWith('zh') ? '外部' : 'External'
   }
-  return lang.startsWith('zh') ? '用户' : 'User'
+  return lang.startsWith('zh') ? '用戶' : 'User'
 }
 
 function SkillRow({
@@ -390,7 +390,7 @@ function SkillRow({
           }`}
         >
           <span className={`size-1.5 rounded-full ${enabled ? 'bg-emerald-500' : 'bg-neutral-400'}`} />
-          {enabled ? (lang.startsWith('zh') ? '启用' : 'On') : (lang.startsWith('zh') ? '关闭' : 'Off')}
+          {enabled ? (lang.startsWith('zh') ? '啟用' : 'On') : (lang.startsWith('zh') ? '關閉' : 'Off')}
         </span>
         <Toggle checked={enabled} onChange={(nextEnabled) => onToggleEnabled(skill.id, nextEnabled)} />
       </div>
@@ -401,11 +401,11 @@ function SkillRow({
             <span className="kv-chip">{skillSourceLabel(skill, lang)}</span>
             {fileCount > 0 && (
               <span className="kv-chip">
-                {fileCount} {lang.startsWith('zh') ? '个附属文件' : 'files'}
+                {fileCount} {lang.startsWith('zh') ? '個附屬文件' : 'files'}
               </span>
             )}
             {skill.disableModelInvocation && (
-              <span className="kv-chip">{lang.startsWith('zh') ? '仅手动触发' : 'Manual only'}</span>
+              <span className="kv-chip">{lang.startsWith('zh') ? '僅手動觸發' : 'Manual only'}</span>
             )}
             {skill.recommendedTools.map((tool) => (
               <span key={tool} className="kv-chip">{tool}</span>
@@ -418,7 +418,7 @@ function SkillRow({
             data-tauri-drag-region="false"
           >
             <ExternalLink size={10} />
-            {lang.startsWith('zh') ? '查看完整内容' : 'View details'}
+            {lang.startsWith('zh') ? '查看完整內容' : 'View details'}
           </button>
         </div>
       </div>
@@ -659,7 +659,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
   const readyEmittedRef = useRef(false)
   const onSettingsChangeRef = useRef(onSettingsChange)
 
-  const lang = settings?.settingsLanguage || 'zh'
+  const lang = normalizeLang(settings?.settingsLanguage)
   const t = i18n[lang]
   const themeColor = normalizeThemeColorId(settings?.themeColor)
   const hasLoadedSettings = settings !== null
@@ -690,9 +690,9 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
     }
   }, [])
 
-  // 客户端热键冲突检测:在保存前发现"两个启用功能用了同一个组合"。
+  // 客户端热键冲突检测:在保存前发现"兩個啟用功能用了同一個組合"。
   // OS 层面的冲突(Spotlight 占用 Cmd+Space 等)仍需保存后从后端拿到结果。
-  // 返回每个 scope 对应的"和谁冲突"——前端各 HotkeyInput 拿到对应 scope 的伙伴名后,
+  // 返回每个 scope 对应的"和誰衝突"——前端各 HotkeyInput 拿到对应 scope 的伙伴名后,
   // 用 hotkeyScope* 模板自己拼本地化字符串。
   type HotkeyScopeKey = 'main' | 'screenshotTranslation' | 'screenshotTranslationText' | 'screenshotTranslationReplace' | 'lens'
   const hotkeyConflicts = useMemo<Partial<Record<HotkeyScopeKey, HotkeyScopeKey>>>(() => {
@@ -855,7 +855,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings?.autoCheckUpdate, !!settings])
 
-  /** 用户点 "检查更新" 按钮 */
+  /** 用户点 "檢查更新" 按钮 */
   const handleCheckUpdate = useCallback(async () => {
     setUpdateStatus('checking')
     try {
@@ -1003,7 +1003,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
       console.error('Failed to save settings:', err)
       const message = err instanceof Error ? err.message : String(err)
       const translated = formatHotkeyError(message, lang)
-      const prefix = lang.startsWith('zh') ? '保存失败:' : 'Save failed: '
+      const prefix = lang.startsWith('zh') ? '保存失敗:' : 'Save failed: '
       setSaveError(`${prefix}${translated.replace(/\n/g, ' / ')}`)
       setSaveSuccess(false)
       return false
@@ -1229,9 +1229,9 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
       })
       if (!path) return
       await api.exportSettings(path)
-      setBackupStatus({ kind: 'ok', msg: lang.startsWith('zh') ? '设置已导出。' : 'Settings exported.' })
+      setBackupStatus({ kind: 'ok', msg: lang.startsWith('zh') ? '設置已導出。' : 'Settings exported.' })
     } catch (err) {
-      setBackupStatus({ kind: 'err', msg: `${lang.startsWith('zh') ? '导出失败：' : 'Export failed: '}${err}` })
+      setBackupStatus({ kind: 'err', msg: `${lang.startsWith('zh') ? '導出失敗：' : 'Export failed: '}${err}` })
     }
   }, [lang])
 
@@ -1241,9 +1241,9 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
       if (!selected || typeof selected !== 'string') return
       const imported = await api.importSettings(selected)
       setSettings(imported)
-      setBackupStatus({ kind: 'ok', msg: lang.startsWith('zh') ? '设置已导入并生效。' : 'Settings imported and applied.' })
+      setBackupStatus({ kind: 'ok', msg: lang.startsWith('zh') ? '設置已導入並生效。' : 'Settings imported and applied.' })
     } catch (err) {
-      setBackupStatus({ kind: 'err', msg: `${lang.startsWith('zh') ? '导入失败：' : 'Import failed: '}${err}` })
+      setBackupStatus({ kind: 'err', msg: `${lang.startsWith('zh') ? '導入失敗：' : 'Import failed: '}${err}` })
     }
   }, [lang])
 
@@ -1336,7 +1336,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
           setSkillError(result.error)
         }
       } else {
-        setSkillError(result.error || (lang.startsWith('zh') ? 'Skill 列表加载失败' : 'Failed to load skills'))
+        setSkillError(result.error || (lang.startsWith('zh') ? 'Skill 列表加載失敗' : 'Failed to load skills'))
       }
     } catch (err) {
       setSkillError(err instanceof Error ? err.message : String(err))
@@ -1359,7 +1359,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
           ...prev,
           [server.id]: {
             ok: true,
-            message: lang.startsWith('zh') ? `连接成功，发现 ${result.tools.length} 个工具。` : `Connected. ${result.tools.length} tools found.`,
+            message: lang.startsWith('zh') ? `連接成功，發現 ${result.tools.length} 個工具。` : `Connected. ${result.tools.length} tools found.`,
             tools: result.tools,
           },
         }))
@@ -1368,7 +1368,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
           ...prev,
           [server.id]: {
             ok: false,
-            message: result.error || (lang.startsWith('zh') ? '连接失败' : 'Connection failed'),
+            message: result.error || (lang.startsWith('zh') ? '連接失敗' : 'Connection failed'),
             tools: [],
           },
         }))
@@ -1461,7 +1461,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
       if (typeof selected !== 'string') return
       const result = await api.chatMcpImportJson(selected)
       if (!result.success) {
-        setSaveError(result.error || (lang.startsWith('zh') ? '导入 mcp.json 失败' : 'Failed to import mcp.json'))
+        setSaveError(result.error || (lang.startsWith('zh') ? '導入 mcp.json 失敗' : 'Failed to import mcp.json'))
         return
       }
       const chatTools = settings.chatTools || defaultChatTools()
@@ -1480,7 +1480,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
       if (typeof selected !== 'string') return
       const result = await api.chatSkillsImport(selected)
       if (!result.success) {
-        setSkillError(result.error || (lang.startsWith('zh') ? '导入 Skill 失败' : 'Failed to import skill'))
+        setSkillError(result.error || (lang.startsWith('zh') ? '導入 Skill 失敗' : 'Failed to import skill'))
         return
       }
       await refreshChatSkills()
@@ -1500,7 +1500,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
       if (typeof selected !== 'string') return
       const result = await api.chatSkillsImport(selected)
       if (!result.success) {
-        setSkillError(result.error || (lang.startsWith('zh') ? '导入 Skill 失败' : 'Failed to import skill'))
+        setSkillError(result.error || (lang.startsWith('zh') ? '導入 Skill 失敗' : 'Failed to import skill'))
         return
       }
       await refreshChatSkills()
@@ -1515,7 +1515,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
     try {
       const result = await api.chatSkillsOpenFolder()
       if (!result.success) {
-        setSkillError(result.error || (lang.startsWith('zh') ? '打开 Skill 文件夹失败' : 'Failed to open skill folder'))
+        setSkillError(result.error || (lang.startsWith('zh') ? '打開 Skill 文件夾失敗' : 'Failed to open skill folder'))
       }
     } catch (err) {
       setSkillError(err instanceof Error ? err.message : String(err))
@@ -1529,7 +1529,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
       if (result.success && result.skill) {
         setSelectedSkillPreview(result.skill)
       } else {
-        setSkillError(result.error || (lang.startsWith('zh') ? '读取 Skill 失败' : 'Failed to read skill'))
+        setSkillError(result.error || (lang.startsWith('zh') ? '讀取 Skill 失敗' : 'Failed to read skill'))
       }
     } catch (err) {
       setSkillError(err instanceof Error ? err.message : String(err))
@@ -1973,7 +1973,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
     const content = memoryDrafts[layer]
     if (layer === 'l1' && utf8ByteLength(content) > MEMORY_L1_MAX_BYTES) {
       setMemoryError(lang.startsWith('zh')
-        ? `L1 超过 ${MEMORY_L1_MAX_BYTES} 字节，请先精简或归档到 L2。`
+        ? `L1 超過 ${MEMORY_L1_MAX_BYTES} 字節，請先精簡或歸檔到 L2。`
         : `L1 exceeds ${MEMORY_L1_MAX_BYTES} bytes. Shorten it or archive details into L2.`)
       return
     }
@@ -1999,7 +1999,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
     try {
       const result = await api.chatMemoryOpenFolder()
       if (!result.success) {
-        setMemoryError(result.error || (lang.startsWith('zh') ? '打开记忆文件夹失败' : 'Failed to open memory folder'))
+        setMemoryError(result.error || (lang.startsWith('zh') ? '打開記憶文件夾失敗' : 'Failed to open memory folder'))
       } else if (result.path) {
         setMemoryDir(result.path)
       }
@@ -2022,8 +2022,14 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
   }
 
   // 当前语言对应的默认 lens 提示词
-  const lensDefaults = defaultPrompts?.lensPrompts?.[settings?.lens?.defaultLanguage === 'en' ? 'en' : 'zh']
-  const chatLangKey = settings?.chat?.defaultLanguage === 'en' ? 'en' : 'zh'
+  const inheritedPromptLanguage = settings?.targetLang === 'zh-Hant'
+    ? 'zh-TW'
+    : settings?.targetLang === 'en'
+      ? 'en'
+      : settings?.settingsLanguage
+  const lensPromptKey = promptLangKey(settings?.lens?.defaultLanguage || inheritedPromptLanguage)
+  const lensDefaults = defaultPrompts?.lensPrompts?.[lensPromptKey] || defaultPrompts?.lensPrompts?.zh
+  const chatLangKey = promptLangKey(settings?.chat?.defaultLanguage || settings?.lens?.defaultLanguage || inheritedPromptLanguage)
   const chatDefaults = defaultPrompts?.chatPrompts?.[chatLangKey]
   const chatConfig = settings?.chat || defaultChatConfig()
   const chatMemory = settings?.chatMemory || defaultChatMemory()
@@ -2035,10 +2041,10 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
     ? resolveEffectiveChatMaxOutput(settings, chatFallbackMaxOutputTokens)
     : { maxOutput: chatFallbackMaxOutputTokens, source: 'fallback' as const, model: '', provider: undefined }
   const chatMaxOutputSourceLabel = effectiveChatMaxOutput.source === 'override'
-    ? (lang.startsWith('zh') ? '模型参数' : 'Model override')
+    ? (lang.startsWith('zh') ? '模型參數' : 'Model override')
     : effectiveChatMaxOutput.source === 'database'
-      ? (lang.startsWith('zh') ? '内置模型库' : 'Model database')
-      : (lang.startsWith('zh') ? '兜底设置' : 'Fallback setting')
+      ? (lang.startsWith('zh') ? '內置模型庫' : 'Model database')
+      : (lang.startsWith('zh') ? '兜底設置' : 'Fallback setting')
   const chatMaxOutputModelLabel = effectiveChatMaxOutput.model
     ? (effectiveChatMaxOutput.provider?.name
       ? `${effectiveChatMaxOutput.provider.name} / ${effectiveChatMaxOutput.model}`
@@ -2093,7 +2099,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
       <div className={`${loadingShellClass} p-6`}>
         <div className="max-w-sm w-full bg-white dark:bg-[#1C1C1E] rounded-xl shadow-sm border border-black/5 dark:border-white/5 p-5 text-center">
           <div className="text-[14px] font-semibold text-neutral-900 dark:text-neutral-100 mb-1">
-            {lang.startsWith('zh') ? '加载设置失败' : 'Failed to load settings'}
+            {lang.startsWith('zh') ? '加載設置失敗' : 'Failed to load settings'}
           </div>
           <div className="text-[11px] text-rose-600 dark:text-rose-400 mb-4 break-all" title={loadError}>
             {loadError}
@@ -2106,7 +2112,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
               data-tauri-drag-region="false"
             >
               <RefreshCw size={12} />
-              {lang.startsWith('zh') ? '重试' : 'Retry'}
+              {lang.startsWith('zh') ? '重試' : 'Retry'}
             </button>
             <button
               type="button"
@@ -2134,51 +2140,51 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
     { id: 'externalAgents' as const, label: t.tabExternalAgents, icon: AgentIcon },
     { id: 'mcp' as const, label: 'MCP', icon: McpIcon },
     { id: 'connectors' as const, label: t.tabConnectors, icon: ConnectorsIcon },
-    { id: 'knowledge' as const, label: lang.startsWith('zh') ? '知识库' : 'Knowledge', icon: KnowledgeIcon },
+    { id: 'knowledge' as const, label: lang.startsWith('zh') ? '知識庫' : 'Knowledge', icon: KnowledgeIcon },
     { id: 'skill' as const, label: 'Skill', icon: SkillIcon },
     { id: 'webSearch' as const, label: t.tabWebSearch, icon: WebSearchIcon },
-    { id: 'usage' as const, label: lang.startsWith('zh') ? '用量统计' : 'Usage', icon: UsageIcon },
+    { id: 'usage' as const, label: lang.startsWith('zh') ? '用量統計' : 'Usage', icon: UsageIcon },
     { id: 'providers' as const, label: t.tabModels, icon: ProvidersIcon },
   ]
   const pageMeta: Record<typeof activeTab, { title: string; subtitle: string; right?: string }> = {
     general: {
       title: t.tabGeneral,
-      subtitle: lang.startsWith('zh') ? '外观、行为、归档和权限。' : 'Appearance, behavior, archive, and permissions.',
+      subtitle: lang.startsWith('zh') ? '外觀、行為、歸檔和權限。' : 'Appearance, behavior, archive, and permissions.',
     },
     translate: {
       title: t.tabTranslate,
-      subtitle: lang.startsWith('zh') ? '输入翻译的快捷键、语言、模型和提示词。' : 'Shortcut, language, model, and prompt for input translation.',
+      subtitle: lang.startsWith('zh') ? '輸入翻譯的快捷鍵、語言、模型和提示詞。' : 'Shortcut, language, model, and prompt for input translation.',
     },
     screenshot: {
       title: t.tabScreenshot,
-      subtitle: lang.startsWith('zh') ? '截图选择、OCR、输出和翻译模型。' : 'Capture selection, OCR, output, and translation model.',
+      subtitle: lang.startsWith('zh') ? '截圖選擇、OCR、輸出和翻譯模型。' : 'Capture selection, OCR, output, and translation model.',
     },
     lens: {
       title: t.lensTabLabel,
-      subtitle: lang.startsWith('zh') ? '视觉问答的快捷键、响应方式和提示词。' : 'Shortcut, response behavior, and prompts for visual Q&A.',
+      subtitle: lang.startsWith('zh') ? '視覺問答的快捷鍵、響應方式和提示詞。' : 'Shortcut, response behavior, and prompts for visual Q&A.',
     },
     chat: {
       title: t.tabChatClient,
       subtitle: lang.startsWith('zh')
-        ? '主对话模型、流式/思考行为、系统提示词；副任务模型见混音器。'
+        ? '主對話模型、流式/思考行為、系統提示詞；副任務模型見混音器。'
         : 'Main chat model, streaming/thinking, and system prompt; side-task models live under Mixer.',
     },
     memory: {
       title: t.tabMemory,
       subtitle: lang.startsWith('zh')
-        ? 'L1 在线记忆常驻注入；L2 长期记忆只通过工具读取。'
+        ? 'L1 在線記憶常駐注入；L2 長期記憶只通過工具讀取。'
         : 'L1 is always injected when enabled; L2 is read only through tools.',
     },
     mixer: {
       title: t.tabMixer,
       subtitle: lang.startsWith('zh')
-        ? '按副任务路由模型：视觉、标题总结、上下文压缩、生图。'
+        ? '按副任務路由模型：視覺、標題總結、上下文壓縮、生圖。'
         : 'Route models by side task: vision, title summaries, context compression, and image generation.',
     },
     kivioCode: {
       title: 'Kivio Code',
       subtitle: lang.startsWith('zh')
-        ? '终端编码代理的默认模型、工具审批策略与上下文读取。'
+        ? '終端編碼代理的默認模型、工具審批策略與上下文讀取。'
         : 'Default model, tool approval policy, and context reading for the terminal coding agent.',
     },
     externalAgents: {
@@ -2189,43 +2195,43 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
     },
     mcp: {
       title: 'MCP',
-      subtitle: lang.startsWith('zh') ? '管理 MCP 服务器与工具审批策略。' : 'Manage MCP servers and tool approval policy.',
+      subtitle: lang.startsWith('zh') ? '管理 MCP 服務器與工具審批策略。' : 'Manage MCP servers and tool approval policy.',
     },
     connectors: {
       title: t.tabConnectors,
       subtitle: lang.startsWith('zh')
-        ? '连接 Notion、GitHub 等外部数据源；token 存在本机，数据默认直连。'
+        ? '連接 Notion、GitHub 等外部數據源；token 存在本機，數據默認直連。'
         : 'Connect external data sources like Notion and GitHub; tokens stay on your machine, data goes direct by default.',
     },
     skill: {
       title: 'Skill',
-      subtitle: lang.startsWith('zh') ? '管理内置与用户 Skill。' : 'Manage built-in and user Skills.',
+      subtitle: lang.startsWith('zh') ? '管理內置與用戶 Skill。' : 'Manage built-in and user Skills.',
     },
     knowledge: {
-      title: lang.startsWith('zh') ? '知识库' : 'Knowledge',
+      title: lang.startsWith('zh') ? '知識庫' : 'Knowledge',
       subtitle: lang.startsWith('zh')
-        ? '导入文档建立向量知识库，对话中由 agent 检索并标注出处。'
+        ? '導入文檔建立向量知識庫，對話中由 agent 檢索並標註出處。'
         : 'Import documents into vector libraries the agent retrieves and cites in chat.',
     },
     webSearch: {
       title: t.tabWebSearch,
       subtitle: lang.startsWith('zh')
-        ? 'Tavily/Exa 密钥与参数；分别开启 Lens 与 Chat 的联网搜索。'
+        ? 'Tavily/Exa 密鑰與參數；分別開啟 Lens 與 Chat 的聯網搜索。'
         : 'Tavily/Exa keys and parameters; enable web search for Lens and Chat separately.',
     },
     usage: {
-      title: lang.startsWith('zh') ? '用量统计' : 'Usage',
+      title: lang.startsWith('zh') ? '用量統計' : 'Usage',
       subtitle: lang.startsWith('zh')
-        ? '查看本地模型请求、Token、成本估算和来源分布。'
+        ? '查看本地模型請求、Token、成本估算和來源分佈。'
         : 'Inspect local model requests, tokens, estimated cost, and usage distribution.',
     },
     providers: {
       title: t.tabModels,
-      subtitle: lang.startsWith('zh') ? '管理 OpenAI 兼容供应商、密钥和启用模型。' : 'Manage OpenAI-compatible providers, keys, and enabled models.',
+      subtitle: lang.startsWith('zh') ? '管理 OpenAI 兼容供應商、密鑰和啟用模型。' : 'Manage OpenAI-compatible providers, keys, and enabled models.',
     },
     about: {
-      title: lang.startsWith('zh') ? '关于' : 'About',
-      subtitle: lang.startsWith('zh') ? '版本、更新和应用信息。' : 'Version, updates, and application details.',
+      title: lang.startsWith('zh') ? '關於' : 'About',
+      subtitle: lang.startsWith('zh') ? '版本、更新和應用信息。' : 'Version, updates, and application details.',
     },
   }
   const selectedProvider = settings.providers.find((provider) => provider.id === selectedProviderId) ?? settings.providers[0]
@@ -2271,7 +2277,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
             <span className="settings-embedded-nav-icon">
               <AboutIcon size={17} strokeWidth={1.75} />
             </span>
-            <span>{lang.startsWith('zh') ? '关于' : 'About'}</span>
+            <span>{lang.startsWith('zh') ? '關於' : 'About'}</span>
           </button>
         </nav>
       </>
@@ -2305,7 +2311,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
             data-tauri-drag-region="false"
           >
             <AboutIcon strokeWidth={1.7} />
-            <span>{lang.startsWith('zh') ? '关于' : 'About'}</span>
+            <span>{lang.startsWith('zh') ? '關於' : 'About'}</span>
           </button>
         </nav>
       </>
@@ -2328,20 +2334,20 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
             {/* ===== 基础设置标签页 ===== */}
             {activeTab === 'general' && (
               <>
-                <SettingsGroup title={lang.startsWith('zh') ? '外观' : 'Appearance'}>
-                  <SettingRow label={t.language} description={lang.startsWith('zh') ? '设置 Kivio 界面语言。' : 'Used for the Kivio interface.'}>
+                <SettingsGroup title={lang.startsWith('zh') ? '外觀' : 'Appearance'}>
+                  <SettingRow label={t.language} description={lang.startsWith('zh') ? '設置 Kivio 界面語言。' : 'Used for the Kivio interface.'}>
                     <Select
                       className="w-36"
-                      value={settings.settingsLanguage || 'zh'}
+                      value={normalizeLang(settings.settingsLanguage)}
                       onChange={(v) => updateSettings({ settingsLanguage: v as 'zh' | 'zh-TW' | 'en' })}
                       options={[
-                        { value: 'zh', label: '简体中文' },
+                        { value: 'zh', label: '簡體中文' },
                         { value: 'zh-TW', label: '繁體中文' },
                         { value: 'en', label: 'English' },
                       ]}
                     />
                   </SettingRow>
-                  <SettingRow label={t.theme} description={lang.startsWith('zh') ? '跟随系统外观，或固定浅色/深色。' : 'Match system appearance or pick a mode.'}>
+                  <SettingRow label={t.theme} description={lang.startsWith('zh') ? '跟隨系統外觀，或固定淺色/深色。' : 'Match system appearance or pick a mode.'}>
                     <div className="kv-seg">
                       {[
                         { value: 'system', label: t.themeSystem },
@@ -2397,8 +2403,8 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                   </SettingRow>
                 </SettingsGroup>
 
-                <SettingsGroup title={lang.startsWith('zh') ? '行为' : 'Behavior'}>
-                  <SettingRow label={t.launchAtStartup} description={lang.startsWith('zh') ? '登录后在后台启动 Kivio。' : 'Open Kivio in the background when you sign in.'}>
+                <SettingsGroup title={lang.startsWith('zh') ? '行為' : 'Behavior'}>
+                  <SettingRow label={t.launchAtStartup} description={lang.startsWith('zh') ? '登錄後在後臺啟動 Kivio。' : 'Open Kivio in the background when you sign in.'}>
                     <Toggle
                       checked={settings.launchAtStartup ?? false}
                       onChange={(v) => updateSettings({ launchAtStartup: v })}
@@ -2411,7 +2417,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                     />
                   </SettingRow>
                   {settings.retryEnabled !== false && (
-                    <SettingRow label={t.retryAttempts} description={lang.startsWith('zh') ? '范围 1-5 次。' : 'Range: 1-5 attempts.'}>
+                    <SettingRow label={t.retryAttempts} description={lang.startsWith('zh') ? '範圍 1-5 次。' : 'Range: 1-5 attempts.'}>
                       <Input
                         type="number"
                         value={retryAttemptsInput}
@@ -2426,11 +2432,11 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                   )}
                 </SettingsGroup>
 
-                <SettingsGroup title={lang.startsWith('zh') ? '备份与恢复' : 'Backup & Restore'}>
+                <SettingsGroup title={lang.startsWith('zh') ? '備份與恢復' : 'Backup & Restore'}>
                   <FieldBlock
-                    label={lang.startsWith('zh') ? '设置备份' : 'Settings backup'}
+                    label={lang.startsWith('zh') ? '設置備份' : 'Settings backup'}
                     description={lang.startsWith('zh')
-                      ? '导出全部设置（含供应商、模型与 API Key）为 JSON 文件。导入会覆盖当前全部设置并立即生效。'
+                      ? '導出全部設置（含供應商、模型與 API Key）為 JSON 文件。導入會覆蓋當前全部設置並立即生效。'
                       : 'Export all settings (providers, models, and API keys) to a JSON file. Importing overwrites all current settings and takes effect immediately.'}
                   >
                     <div className="flex flex-wrap items-center gap-2">
@@ -2441,7 +2447,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                         data-tauri-drag-region="false"
                       >
                         <Download size={11} />
-                        {lang.startsWith('zh') ? '导出设置' : 'Export'}
+                        {lang.startsWith('zh') ? '導出設置' : 'Export'}
                       </button>
                       <button
                         type="button"
@@ -2450,7 +2456,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                         data-tauri-drag-region="false"
                       >
                         <Upload size={11} />
-                        {lang.startsWith('zh') ? '导入设置' : 'Import'}
+                        {lang.startsWith('zh') ? '導入設置' : 'Import'}
                       </button>
                       {backupStatus && (
                         <span className={`text-[12px] ${backupStatus.kind === 'ok' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
@@ -2500,7 +2506,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
             {activeTab === 'translate' && (
               <>
                 <SettingsGroup title={t.hotkey}>
-                  <SettingRow label={t.hotkey} description={lang.startsWith('zh') ? '翻译当前选中文本或剪贴板内容。' : 'Translates the current selection or clipboard.'} stack>
+                  <SettingRow label={t.hotkey} description={lang.startsWith('zh') ? '翻譯當前選中文本或剪貼板內容。' : 'Translates the current selection or clipboard.'} stack>
                     <HotkeyInput
                       value={settings.hotkey}
                       placeholder={t.hotkeyPlaceholder}
@@ -2516,8 +2522,8 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                   </SettingRow>
                 </SettingsGroup>
 
-                <SettingsGroup title={lang.startsWith('zh') ? '输出' : 'Output'}>
-                  <SettingRow label={t.targetLang} description={lang.startsWith('zh') ? '自动模式会在中英文之间切换。' : 'Auto switches between Chinese and English.'}>
+                <SettingsGroup title={lang.startsWith('zh') ? '輸出' : 'Output'}>
+                  <SettingRow label={t.targetLang} description={lang.startsWith('zh') ? '自動模式會在中英文之間切換。' : 'Auto switches between Chinese and English.'}>
                     <Select
                       className="w-40"
                       value={settings.targetLang || 'auto'}
@@ -2534,7 +2540,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                       ]}
                     />
                   </SettingRow>
-                  <SettingRow label={t.autoPaste} description={lang.startsWith('zh') ? '翻译完成后自动粘贴到当前应用。' : 'Paste translated text into the foreground app after translation completes.'}>
+                  <SettingRow label={t.autoPaste} description={lang.startsWith('zh') ? '翻譯完成後自動粘貼到當前應用。' : 'Paste translated text into the foreground app after translation completes.'}>
                     <Toggle
                       checked={settings.autoPaste ?? true}
                       onChange={(v) => updateSettings({ autoPaste: v })}
@@ -2543,7 +2549,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                 </SettingsGroup>
 
                 <SettingsGroup title={t.engine}>
-                  <SettingRow label={t.selectModelPair} description={lang.startsWith('zh') ? '选择输入翻译使用的供应商和模型。' : 'Choose the provider and model used for input translation.'}>
+                  <SettingRow label={t.selectModelPair} description={lang.startsWith('zh') ? '選擇輸入翻譯使用的供應商和模型。' : 'Choose the provider and model used for input translation.'}>
                     <ModelPairSelect
                       providerId={settings.translatorProviderId}
                       model={settings.translatorModel}
@@ -2595,7 +2601,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
             {activeTab === 'lens' && (
               <>
                 <SettingsGroup title={t.lensSection}>
-                  <SettingRow label={t.enabled} description={lang.startsWith('zh') ? '启用 Lens 截图问答入口。' : 'Enable the Lens screenshot Q&A entry point.'}>
+                  <SettingRow label={t.enabled} description={lang.startsWith('zh') ? '啟用 Lens 截圖問答入口。' : 'Enable the Lens screenshot Q&A entry point.'}>
                     <Toggle
                       checked={settings.lens?.enabled !== false}
                       onChange={(v) => updateLens({ enabled: v })}
@@ -2604,7 +2610,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
 
                   {settings.lens?.enabled !== false && (
                     <>
-                      <SettingRow label={t.hotkey} description={lang.startsWith('zh') ? '进入 Lens 截图选择模式。' : 'Enter Lens screenshot selection mode.'} stack>
+                      <SettingRow label={t.hotkey} description={lang.startsWith('zh') ? '進入 Lens 截圖選擇模式。' : 'Enter Lens screenshot selection mode.'} stack>
                         <HotkeyInput
                           value={settings.lens?.hotkey ?? ''}
                           placeholder="CommandOrControl+Shift+G"
@@ -2618,7 +2624,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                           error={conflictMessageFor('lens')}
                         />
                       </SettingRow>
-                      <SettingRow label={t.lensResponseLanguage} description={lang.startsWith('zh') ? '默认继承输入翻译语言设置。' : 'Defaults to the input translation language setting.'}>
+                      <SettingRow label={t.lensResponseLanguage} description={lang.startsWith('zh') ? '默認繼承輸入翻譯語言設置。' : 'Defaults to the input translation language setting.'}>
                         <Select
                           className="w-44"
                           value={settings.lens?.defaultLanguage || ''}
@@ -2631,7 +2637,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                           ]}
                         />
                       </SettingRow>
-                      <SettingRow label={t.lensStreamEnabled} description={lang.startsWith('zh') ? '模型返回时逐步显示答案。' : 'Show answers progressively as the model responds.'}>
+                      <SettingRow label={t.lensStreamEnabled} description={lang.startsWith('zh') ? '模型返回時逐步顯示答案。' : 'Show answers progressively as the model responds.'}>
                         <Toggle
                           checked={settings.lens?.streamEnabled !== false}
                           onChange={(v) => updateLens({ streamEnabled: v })}
@@ -2649,14 +2655,14 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
 
                 {settings.lens?.enabled !== false && (
                   <>
-                    <SettingsGroup title={lang.startsWith('zh') ? '对话' : 'Conversation'}>
+                    <SettingsGroup title={lang.startsWith('zh') ? '對話' : 'Conversation'}>
                       <SettingRow label={t.lensSendToChat} description={t.lensSendToChatHint}>
                         <Toggle
                           checked={settings.lens?.sendToChat !== false}
                           onChange={(v) => updateLens({ sendToChat: v })}
                         />
                       </SettingRow>
-                      <SettingRow label={t.lensMessageOrder} description={lang.startsWith('zh') ? '控制 Lens 历史消息的排列顺序。' : 'Controls the order of Lens history messages.'}>
+                      <SettingRow label={t.lensMessageOrder} description={lang.startsWith('zh') ? '控制 Lens 歷史消息的排列順序。' : 'Controls the order of Lens history messages.'}>
                         <Select
                           className="w-52"
                           value={settings.lens?.messageOrder ?? 'asc'}
@@ -2684,7 +2690,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                     </SettingsGroup>
 
                     <SettingsGroup title={t.engine}>
-                      <SettingRow label={t.selectModelPair} description={lang.startsWith('zh') ? '留空时继承输入翻译模型。' : 'Leave empty to inherit the input translation model.'}>
+                      <SettingRow label={t.selectModelPair} description={lang.startsWith('zh') ? '留空時繼承輸入翻譯模型。' : 'Leave empty to inherit the input translation model.'}>
                         <ModelPairSelect
                           providerId={settings.lens?.providerId || ''}
                           model={settings.lens?.model || ''}
@@ -2758,20 +2764,20 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
             {/* ===== AI 客户端标签页 ===== */}
             {activeTab === 'chat' && (
               <>
-                <SettingsGroup title={lang.startsWith('zh') ? '个人资料' : 'Profile'}>
+                <SettingsGroup title={lang.startsWith('zh') ? '個人資料' : 'Profile'}>
                   <SettingRow
-                    label={lang.startsWith('zh') ? '用户名' : 'Display name'}
-                    description={lang.startsWith('zh') ? '显示在 Chat 侧栏底部；留空则不显示。' : 'Shown at the bottom of the Chat sidebar; leave empty to hide.'}
+                    label={lang.startsWith('zh') ? '用戶名' : 'Display name'}
+                    description={lang.startsWith('zh') ? '顯示在 Chat 側欄底部；留空則不顯示。' : 'Shown at the bottom of the Chat sidebar; leave empty to hide.'}
                   >
                     <Input
                       value={chatConfig.userDisplayName || ''}
                       onChange={(userDisplayName) => updateChat({ userDisplayName })}
-                      placeholder={lang.startsWith('zh') ? '选填' : 'Optional'}
+                      placeholder={lang.startsWith('zh') ? '選填' : 'Optional'}
                     />
                   </SettingRow>
                   <SettingRow
-                    label={lang.startsWith('zh') ? '头像' : 'Avatar'}
-                    description={lang.startsWith('zh') ? '图片链接或 data URL；留空则使用应用图标。' : 'Image URL or data URL; leave empty to use the app icon.'}
+                    label={lang.startsWith('zh') ? '頭像' : 'Avatar'}
+                    description={lang.startsWith('zh') ? '圖片鏈接或 data URL；留空則使用應用圖標。' : 'Image URL or data URL; leave empty to use the app icon.'}
                     stack
                   >
                     <Input
@@ -2798,19 +2804,19 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                   </SettingRow>
                   {!chatProvider && (
                     <p className="kv-row-desc px-0 pb-2">
-                      {lang.startsWith('zh') ? '请先在「模型」中添加并配置供应商。' : 'Add and configure a provider under Models first.'}
+                      {lang.startsWith('zh') ? '請先在「模型」中添加並配置供應商。' : 'Add and configure a provider under Models first.'}
                     </p>
                   )}
                   {chatProvider && chatProviderSupportsTools === false && (
                     <p className="kv-row-desc px-0 pb-2 text-amber-700 dark:text-amber-400">
                       {lang.startsWith('zh')
-                        ? '当前默认供应商未启用工具调用；MCP / Skill 工具可能不可用。'
+                        ? '當前默認供應商未啟用工具調用；MCP / Skill 工具可能不可用。'
                         : 'The default provider is marked as not supporting tools; MCP / Skill may be unavailable.'}
                     </p>
                   )}
                 </SettingsGroup>
 
-                <SettingsGroup title={lang.startsWith('zh') ? '响应' : 'Response'}>
+                <SettingsGroup title={lang.startsWith('zh') ? '響應' : 'Response'}>
                   <SettingRow label={t.chatStreamEnabled} description={t.chatStreamHint}>
                     <Toggle
                       checked={chatConfig.streamEnabled !== false}
@@ -2835,7 +2841,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                           </span>
                         </div>
                         <p className="kv-row-desc mt-1 min-w-0 break-all">
-                          {lang.startsWith('zh') ? '当前聊天模型：' : 'Current chat model: '}
+                          {lang.startsWith('zh') ? '當前聊天模型：' : 'Current chat model: '}
                           {chatMaxOutputModelLabel}
                         </p>
                       </div>
@@ -2948,52 +2954,52 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                   </div>
                   <SettingRow
                     label={lang.startsWith('zh') ? 'MCP 工具' : 'MCP tools'}
-                    description={lang.startsWith('zh') ? `已配置 ${chatTools.servers.length} 个服务器` : `${chatTools.servers.length} server(s) configured`}
+                    description={lang.startsWith('zh') ? `已配置 ${chatTools.servers.length} 個服務器` : `${chatTools.servers.length} server(s) configured`}
                   >
                     <span className={`kv-tag ${chatTools.enabled ? 'ok' : ''}`}>
                       {chatTools.enabled
-                        ? (lang.startsWith('zh') ? '已启用' : 'On')
-                        : (lang.startsWith('zh') ? '未启用' : 'Off')}
+                        ? (lang.startsWith('zh') ? '已啟用' : 'On')
+                        : (lang.startsWith('zh') ? '未啟用' : 'Off')}
                     </span>
                   </SettingRow>
                   <SettingRow
-                    label={lang.startsWith('zh') ? 'Skill 运行时' : 'Skill runtime'}
-                    description={lang.startsWith('zh') ? '内置 skill_activate / read_file / run_script' : 'Built-in skill_activate / read_file / run_script'}
+                    label={lang.startsWith('zh') ? 'Skill 運行時' : 'Skill runtime'}
+                    description={lang.startsWith('zh') ? '內置 skill_activate / read_file / run_script' : 'Built-in skill_activate / read_file / run_script'}
                   >
                     <span className={`kv-tag ${skillRuntimeEnabled ? 'ok' : ''}`}>
                       {skillRuntimeEnabled
-                        ? (lang.startsWith('zh') ? '已启用' : 'On')
-                        : (lang.startsWith('zh') ? '未启用' : 'Off')}
+                        ? (lang.startsWith('zh') ? '已啟用' : 'On')
+                        : (lang.startsWith('zh') ? '未啟用' : 'Off')}
                     </span>
                   </SettingRow>
                   <SettingRow
-                    label={lang.startsWith('zh') ? '内置工具' : 'Native tools'}
-                    description={lang.startsWith('zh') ? '读写文件、命令、Python、网页抓取等 Chat 工具' : 'Chat tools such as files, commands, Python, and web fetch'}
+                    label={lang.startsWith('zh') ? '內置工具' : 'Native tools'}
+                    description={lang.startsWith('zh') ? '讀寫文件、命令、Python、網頁抓取等 Chat 工具' : 'Chat tools such as files, commands, Python, and web fetch'}
                   >
                     <span className={`kv-tag ${nativeBuiltinToolsEnabled ? 'ok' : ''}`}>
                       {nativeBuiltinToolsEnabled
-                        ? (lang.startsWith('zh') ? '已启用' : 'On')
-                        : (lang.startsWith('zh') ? '未启用' : 'Off')}
+                        ? (lang.startsWith('zh') ? '已啟用' : 'On')
+                        : (lang.startsWith('zh') ? '未啟用' : 'Off')}
                     </span>
                   </SettingRow>
                   <SettingRow
                     label={t.tabMemory}
-                    description={lang.startsWith('zh') ? 'L1 常驻注入，L2 通过 memory_read 按需读取' : 'L1 is injected; L2 is read on demand with memory_read'}
+                    description={lang.startsWith('zh') ? 'L1 常駐注入，L2 通過 memory_read 按需讀取' : 'L1 is injected; L2 is read on demand with memory_read'}
                   >
                     <span className={`kv-tag ${chatMemory.enabled ? 'ok' : ''}`}>
                       {chatMemory.enabled
-                        ? (lang.startsWith('zh') ? '已启用' : 'On')
-                        : (lang.startsWith('zh') ? '未启用' : 'Off')}
+                        ? (lang.startsWith('zh') ? '已啟用' : 'On')
+                        : (lang.startsWith('zh') ? '未啟用' : 'Off')}
                     </span>
                   </SettingRow>
                   <SettingRow
-                    label={lang.startsWith('zh') ? '联网搜索' : 'Web search'}
-                    description={lang.startsWith('zh') ? 'Tavily/Exa 与 Lens、Chat 开关' : 'Tavily/Exa plus Lens and Chat toggles'}
+                    label={lang.startsWith('zh') ? '聯網搜索' : 'Web search'}
+                    description={lang.startsWith('zh') ? 'Tavily/Exa 與 Lens、Chat 開關' : 'Tavily/Exa plus Lens and Chat toggles'}
                   >
                     <span className={`kv-tag ${(settings.lens?.webSearch?.enabled || chatTools.nativeTools?.webSearch) ? 'ok' : ''}`}>
                       {(settings.lens?.webSearch?.enabled || chatTools.nativeTools?.webSearch)
-                        ? (lang.startsWith('zh') ? '部分启用' : 'Partially on')
-                        : (lang.startsWith('zh') ? '未启用' : 'Off')}
+                        ? (lang.startsWith('zh') ? '部分啟用' : 'Partially on')
+                        : (lang.startsWith('zh') ? '未啟用' : 'Off')}
                     </span>
                   </SettingRow>
                 </SettingsGroup>
@@ -3003,11 +3009,11 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
             {/* ===== 记忆标签页 ===== */}
             {activeTab === 'memory' && (
               <>
-                <SettingsGroup title={lang.startsWith('zh') ? '记忆运行' : 'Memory runtime'}>
+                <SettingsGroup title={lang.startsWith('zh') ? '記憶運行' : 'Memory runtime'}>
                   <SettingRow
-                    label={lang.startsWith('zh') ? '启用记忆' : 'Enable memory'}
+                    label={lang.startsWith('zh') ? '啟用記憶' : 'Enable memory'}
                     description={lang.startsWith('zh')
-                      ? '开启后每次 Chat 请求自动注入 L1，并暴露 memory_read / memory_search / memory_modify。'
+                      ? '開啟後每次 Chat 請求自動注入 L1，並暴露 memory_read / memory_search / memory_modify。'
                       : 'When enabled, every Chat request injects L1 and exposes memory_read / memory_search / memory_modify.'}
                   >
                     <Toggle
@@ -3015,7 +3021,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                       onChange={(enabled) => updateChatMemory({ enabled })}
                     />
                   </SettingRow>
-                  <SettingRow label={lang.startsWith('zh') ? '记忆文件夹' : 'Memory folder'} stack>
+                  <SettingRow label={lang.startsWith('zh') ? '記憶文件夾' : 'Memory folder'} stack>
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
                       <button
                         type="button"
@@ -3034,7 +3040,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                         data-tauri-drag-region="false"
                       >
                         <FolderOpen size={11} />
-                        {lang.startsWith('zh') ? '打开文件夹' : 'Open folder'}
+                        {lang.startsWith('zh') ? '打開文件夾' : 'Open folder'}
                       </button>
                       {memoryDir && <span className="kv-row-desc min-w-0 break-all">{memoryDir}</span>}
                     </div>
@@ -3050,9 +3056,9 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                 <SettingsGroup title="L1">
                   <MemoryEditor
                     layer="l1"
-                    title={lang.startsWith('zh') ? 'L1 在线记忆' : 'L1 Online Memory'}
+                    title={lang.startsWith('zh') ? 'L1 在線記憶' : 'L1 Online Memory'}
                     description={lang.startsWith('zh')
-                      ? '短小、高频、会影响每次回答的偏好、约束和当前目标。'
+                      ? '短小、高頻、會影響每次回答的偏好、約束和當前目標。'
                       : 'Short active preferences, constraints, and current goals that should affect every reply.'}
                     value={memoryDrafts.l1}
                     savedValue={memorySnapshots.l1}
@@ -3073,9 +3079,9 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                 <SettingsGroup title="L2">
                   <MemoryEditor
                     layer="l2"
-                    title={lang.startsWith('zh') ? 'L2 长期记忆' : 'L2 Long-Term Memory'}
+                    title={lang.startsWith('zh') ? 'L2 長期記憶' : 'L2 Long-Term Memory'}
                     description={lang.startsWith('zh')
-                      ? '长期流程、决策、排障记录和可复用知识；不会自动进入上下文。'
+                      ? '長期流程、決策、排障記錄和可複用知識；不會自動進入上下文。'
                       : 'Long-term workflows, decisions, troubleshooting notes, and reusable knowledge; never auto-loaded.'}
                     value={memoryDrafts.l2}
                     savedValue={memorySnapshots.l2}
@@ -3171,7 +3177,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                   </SettingRow>
                   {!chatProvider && (
                     <p className="kv-row-desc px-0 pb-2">
-                      {lang.startsWith('zh') ? '请先在「模型」中添加并配置供应商。' : 'Add and configure a provider under Models first.'}
+                      {lang.startsWith('zh') ? '請先在「模型」中添加並配置供應商。' : 'Add and configure a provider under Models first.'}
                     </p>
                   )}
                 </SettingsGroup>
@@ -3194,43 +3200,43 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
 
             {/* ===== MCP 标签页 ===== */}
             {activeTab === 'mcp' && (
-              <>                <SettingsGroup title={lang.startsWith('zh') ? 'Kivio 内置工具' : 'Kivio built-in tools'}>
+              <>                <SettingsGroup title={lang.startsWith('zh') ? 'Kivio 內置工具' : 'Kivio built-in tools'}>
                   <p className="kv-row-desc mb-2">
                     {lang.startsWith('zh')
-                      ? 'Chat 原生工具。启用后，本会话首次使用文件 / 命令工具时会请求一次授权；授权后 Kivio 可读写磁盘任意路径并执行终端命令（不再限制在主目录内，也不再逐次确认）。授权仅本次会话有效，重启后重新请求。'
+                      ? 'Chat 原生工具。啟用後，本會話首次使用文件 / 命令工具時會請求一次授權；授權後 Kivio 可讀寫磁盤任意路徑並執行終端命令（不再限制在主目錄內，也不再逐次確認）。授權僅本次會話有效，重啟後重新請求。'
                       : 'Native Chat tools. When first used in a conversation, file/command tools ask for one-time consent; once granted, Kivio can read/write anywhere on disk and run shell commands (no home-directory limit, no per-call prompts). Consent lasts for that conversation only and is re-requested after restart.'}
                   </p>
-                  <SettingRow label={lang.startsWith('zh') ? '读取文件' : 'Read file'} description={lang.startsWith('zh') ? 'read' : 'read'}>
+                  <SettingRow label={lang.startsWith('zh') ? '讀取文件' : 'Read file'} description={lang.startsWith('zh') ? 'read' : 'read'}>
                     <Toggle
                       checked={chatTools.nativeTools?.readFile === true}
                       onChange={(readFile) => updateNativeTools({ readFile })}
                     />
                   </SettingRow>
-                  <SettingRow label={lang.startsWith('zh') ? '写入文件' : 'Write file'} description={lang.startsWith('zh') ? 'write' : 'write'}>
+                  <SettingRow label={lang.startsWith('zh') ? '寫入文件' : 'Write file'} description={lang.startsWith('zh') ? 'write' : 'write'}>
                     <Toggle
                       checked={chatTools.nativeTools?.writeFile === true}
                       onChange={(writeFile) => updateNativeTools({ writeFile })}
                     />
                   </SettingRow>
-                  <SettingRow label={lang.startsWith('zh') ? '编辑文件' : 'Edit file'} description={lang.startsWith('zh') ? 'edit' : 'edit'}>
+                  <SettingRow label={lang.startsWith('zh') ? '編輯文件' : 'Edit file'} description={lang.startsWith('zh') ? 'edit' : 'edit'}>
                     <Toggle
                       checked={chatTools.nativeTools?.editFile === true}
                       onChange={(editFile) => updateNativeTools({ editFile })}
                     />
                   </SettingRow>
-                  <SettingRow label={lang.startsWith('zh') ? '终端命令' : 'Terminal command'} description={lang.startsWith('zh') ? 'bash' : 'bash'}>
+                  <SettingRow label={lang.startsWith('zh') ? '終端命令' : 'Terminal command'} description={lang.startsWith('zh') ? 'bash' : 'bash'}>
                     <Toggle
                       checked={chatTools.nativeTools?.runCommand === true}
                       onChange={(runCommand) => updateNativeTools({ runCommand })}
                     />
                   </SettingRow>
-                  <SettingRow label={lang.startsWith('zh') ? 'Python (Pyodide)' : 'Python (Pyodide)'} description={lang.startsWith('zh') ? 'run_python 沙盒，首次加载较慢' : 'run_python sandbox; first load is slow'}>
+                  <SettingRow label={lang.startsWith('zh') ? 'Python (Pyodide)' : 'Python (Pyodide)'} description={lang.startsWith('zh') ? 'run_python 沙盒，首次加載較慢' : 'run_python sandbox; first load is slow'}>
                     <Toggle
                       checked={chatTools.nativeTools?.runPython === true}
                       onChange={(runPython) => updateNativeTools({ runPython })}
                     />
                   </SettingRow>
-                  <SettingRow label={lang.startsWith('zh') ? 'Skill 运行时' : 'Skill runtime'} description={lang.startsWith('zh') ? 'skill_activate / read_file / run_script' : 'skill_activate / read_file / run_script'}>
+                  <SettingRow label={lang.startsWith('zh') ? 'Skill 運行時' : 'Skill runtime'} description={lang.startsWith('zh') ? 'skill_activate / read_file / run_script' : 'skill_activate / read_file / run_script'}>
                     <Toggle
                       checked={chatTools.nativeTools?.skillRuntime !== false}
                       onChange={(skillRuntime) => updateNativeTools({ skillRuntime })}
@@ -3241,7 +3247,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                       checked={chatTools.nativeTools?.webSearch === true}
                       onChange={(webSearch) => {
                         if (!chatProviderSupportsTools) {
-                          setSaveError(lang.startsWith('zh') ? '当前 Chat 模型供应商不支持 tools，无法启用联网搜索。' : 'The current Chat provider does not support tools, so web search cannot be enabled.')
+                          setSaveError(lang.startsWith('zh') ? '當前 Chat 模型供應商不支持 tools，無法啟用聯網搜索。' : 'The current Chat provider does not support tools, so web search cannot be enabled.')
                           return
                         }
                         updateNativeTools({ webSearch })
@@ -3299,28 +3305,28 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                         data-tauri-drag-region="false"
                       >
                         <FolderOpen size={11} />
-                        {lang.startsWith('zh') ? '添加工作区目录' : 'Add workspace folder'}
+                        {lang.startsWith('zh') ? '添加工作區目錄' : 'Add workspace folder'}
                       </button>
                     </div>
                   </SettingRow>
                 </SettingsGroup>
 
-                <SettingsGroup title={lang.startsWith('zh') ? '工具运行' : 'Tool Runtime'}>
+                <SettingsGroup title={lang.startsWith('zh') ? '工具運行' : 'Tool Runtime'}>
                   {/* 主开关：MCP 启用与否，单独成行并垂直居中 */}
                   <div className="flex items-center justify-between gap-4 py-3">
                     <div className="min-w-0">
-                      <div className="kv-row-label">{lang.startsWith('zh') ? '启用 MCP' : 'Enable MCP'}</div>
+                      <div className="kv-row-label">{lang.startsWith('zh') ? '啟用 MCP' : 'Enable MCP'}</div>
                       <p className="kv-row-desc">
                         {chatProviderSupportsTools
-                          ? (lang.startsWith('zh') ? '向支持 tools 的模型暴露已启用的 MCP 工具。' : 'Expose enabled MCP tools to models that support tools.')
-                          : (lang.startsWith('zh') ? '当前 Chat 模型供应商不支持 tools；Skill 仍会作为提示词生效。' : 'The current Chat provider does not support tools; Skills still work as prompt injection.')}
+                          ? (lang.startsWith('zh') ? '向支持 tools 的模型暴露已啟用的 MCP 工具。' : 'Expose enabled MCP tools to models that support tools.')
+                          : (lang.startsWith('zh') ? '當前 Chat 模型供應商不支持 tools；Skill 仍會作為提示詞生效。' : 'The current Chat provider does not support tools; Skills still work as prompt injection.')}
                       </p>
                     </div>
                     <Toggle
                       checked={chatTools.enabled}
                       onChange={(enabled) => {
                         if (!chatProviderSupportsTools) {
-                          setSaveError(lang.startsWith('zh') ? '当前 Chat 模型供应商不支持 tools，无法启用 MCP。' : 'The current Chat provider does not support tools, so MCP cannot be enabled.')
+                          setSaveError(lang.startsWith('zh') ? '當前 Chat 模型供應商不支持 tools，無法啟用 MCP。' : 'The current Chat provider does not support tools, so MCP cannot be enabled.')
                           return
                         }
                         updateChatTools({ enabled })
@@ -3333,8 +3339,8 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                     {/* 审批策略 */}
                     <div className="flex h-full flex-col">
                       <div className="mb-2">
-                        <div className="kv-row-label">{lang.startsWith('zh') ? '审批策略' : 'Approval policy'}</div>
-                        <p className="kv-row-desc">{lang.startsWith('zh') ? '文件/命令工具的授权方式；MCP 工具仍按其只读/敏感属性逐次判定。' : 'How file/command tools are authorized; MCP tools still follow their read-only/sensitive hints per call.'}</p>
+                        <div className="kv-row-label">{lang.startsWith('zh') ? '審批策略' : 'Approval policy'}</div>
+                        <p className="kv-row-desc">{lang.startsWith('zh') ? '文件/命令工具的授權方式；MCP 工具仍按其只讀/敏感屬性逐次判定。' : 'How file/command tools are authorized; MCP tools still follow their read-only/sensitive hints per call.'}</p>
                       </div>
                       <div className="mt-auto">
                         <Select
@@ -3344,10 +3350,10 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                           options={[
                             {
                               value: 'readonly_auto_sensitive_confirm',
-                              label: lang.startsWith('zh') ? '会话授权一次（推荐）' : 'Session consent (once)',
+                              label: lang.startsWith('zh') ? '會話授權一次（推薦）' : 'Session consent (once)',
                             },
-                            { value: 'always_confirm', label: lang.startsWith('zh') ? '授权后仍逐次确认' : 'Confirm every call' },
-                            { value: 'auto', label: lang.startsWith('zh') ? '全部自动（不弹授权）' : 'Auto (no prompt)' },
+                            { value: 'always_confirm', label: lang.startsWith('zh') ? '授權後仍逐次確認' : 'Confirm every call' },
+                            { value: 'auto', label: lang.startsWith('zh') ? '全部自動（不彈授權）' : 'Auto (no prompt)' },
                           ]}
                         />
                       </div>
@@ -3356,10 +3362,10 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                     {/* 最大工具轮次 */}
                     <div className="flex h-full flex-col">
                       <div className="mb-2">
-                        <div className="kv-row-label">{lang.startsWith('zh') ? '最大工具轮次' : 'Max tool rounds'}</div>
+                        <div className="kv-row-label">{lang.startsWith('zh') ? '最大工具輪次' : 'Max tool rounds'}</div>
                         <p className="kv-row-desc">
                           {lang.startsWith('zh')
-                            ? '达到上限后停止调用工具，并基于已有结果生成最终回复。'
+                            ? '達到上限後停止調用工具，並基於已有結果生成最終回覆。'
                             : 'After the limit, Chat stops calling tools and synthesizes a final answer from existing tool results.'}
                         </p>
                       </div>
@@ -3375,7 +3381,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                               ? [{
                                   value: String(clampToolRounds(chatTools.maxToolRounds)),
                                   label: lang.startsWith('zh')
-                                    ? `当前 ${formatToolRoundsLabel(clampToolRounds(chatTools.maxToolRounds), lang)}`
+                                    ? `當前 ${formatToolRoundsLabel(clampToolRounds(chatTools.maxToolRounds), lang)}`
                                     : `Current ${formatToolRoundsLabel(clampToolRounds(chatTools.maxToolRounds), lang)}`,
                                 }]
                               : []),
@@ -3383,7 +3389,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                               value: String(rounds),
                               label: formatToolRoundsLabel(rounds, lang),
                             })),
-                            { value: 'unlimited', label: lang.startsWith('zh') ? '无限制' : 'Unlimited' },
+                            { value: 'unlimited', label: lang.startsWith('zh') ? '無限制' : 'Unlimited' },
                           ]}
                         />
                       </div>
@@ -3392,10 +3398,10 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                     {/* 子 agent 并发 */}
                     <div className="flex h-full flex-col">
                       <div className="mb-2">
-                        <div className="kv-row-label">{lang.startsWith('zh') ? 'Subagent 并发' : 'Subagent concurrency'}</div>
+                        <div className="kv-row-label">{lang.startsWith('zh') ? 'Subagent 併發' : 'Subagent concurrency'}</div>
                         <p className="kv-row-desc">
                           {lang.startsWith('zh')
-                            ? '同一时刻最多并行运行的 Subagent 数。调高更快但更吃 API 配额。'
+                            ? '同一時刻最多並行運行的 Subagent 數。調高更快但更吃 API 配額。'
                             : 'Max subagents running at once. Higher is faster but more API-quota intensive.'}
                         </p>
                       </div>
@@ -3409,7 +3415,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                               ? [{
                                   value: String(clampSubAgentConcurrency(chatTools.subAgentConcurrency)),
                                   label: lang.startsWith('zh')
-                                    ? `当前 ${clampSubAgentConcurrency(chatTools.subAgentConcurrency)}`
+                                    ? `當前 ${clampSubAgentConcurrency(chatTools.subAgentConcurrency)}`
                                     : `Current ${clampSubAgentConcurrency(chatTools.subAgentConcurrency)}`,
                                 }]
                               : []),
@@ -3422,8 +3428,8 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                     {/* 工具超时 */}
                     <div className="flex h-full flex-col">
                       <div className="mb-2">
-                        <div className="kv-row-label">{lang.startsWith('zh') ? '工具超时' : 'Tool timeout'}</div>
-                        <p className="kv-row-desc">{lang.startsWith('zh') ? '单次工具调用的最长等待时间。' : 'Maximum wait time for a single tool call.'}</p>
+                        <div className="kv-row-label">{lang.startsWith('zh') ? '工具超時' : 'Tool timeout'}</div>
+                        <p className="kv-row-desc">{lang.startsWith('zh') ? '單次工具調用的最長等待時間。' : 'Maximum wait time for a single tool call.'}</p>
                       </div>
                       <div className="mt-auto">
                         <Select
@@ -3435,7 +3441,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                               ? [{
                                   value: String(clampToolTimeoutMs(chatTools.toolTimeoutMs)),
                                   label: lang.startsWith('zh')
-                                    ? `当前 ${formatToolTimeoutLabel(clampToolTimeoutMs(chatTools.toolTimeoutMs), lang)}`
+                                    ? `當前 ${formatToolTimeoutLabel(clampToolTimeoutMs(chatTools.toolTimeoutMs), lang)}`
                                     : `Current ${formatToolTimeoutLabel(clampToolTimeoutMs(chatTools.toolTimeoutMs), lang)}`,
                                 }]
                               : []),
@@ -3451,10 +3457,10 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                     {/* MCP 空闲超时 */}
                     <div className="flex h-full flex-col">
                       <div className="mb-2">
-                        <div className="kv-row-label">{lang.startsWith('zh') ? 'MCP 空闲超时' : 'MCP idle timeout'}</div>
+                        <div className="kv-row-label">{lang.startsWith('zh') ? 'MCP 空閒超時' : 'MCP idle timeout'}</div>
                         <p className="kv-row-desc">
                           {lang.startsWith('zh')
-                            ? '持久连接空闲超过此值后回收子进程，下次调用透明重连。'
+                            ? '持久連接空閒超過此值後回收子進程，下次調用透明重連。'
                             : 'Persistent MCP connections idle beyond this are recycled; the next call reconnects transparently.'}
                         </p>
                       </div>
@@ -3468,7 +3474,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                               ? [{
                                   value: String(clampMcpIdleTimeoutMs(chatTools.mcpIdleTimeoutMs)),
                                   label: lang.startsWith('zh')
-                                    ? `当前 ${formatToolTimeoutLabel(clampMcpIdleTimeoutMs(chatTools.mcpIdleTimeoutMs), lang)}`
+                                    ? `當前 ${formatToolTimeoutLabel(clampMcpIdleTimeoutMs(chatTools.mcpIdleTimeoutMs), lang)}`
                                     : `Current ${formatToolTimeoutLabel(clampMcpIdleTimeoutMs(chatTools.mcpIdleTimeoutMs), lang)}`,
                                 }]
                               : []),
@@ -3484,19 +3490,19 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                     {/* 结果截断字符 */}
                     <div className="flex h-full flex-col">
                       <div className="mb-2">
-                        <div className="kv-row-label">{lang.startsWith('zh') ? '结果截断字符' : 'Output chars'}</div>
-                        <p className="kv-row-desc">{lang.startsWith('zh') ? '工具结果当前不做截断。' : 'Tool results are not truncated for now.'}</p>
+                        <div className="kv-row-label">{lang.startsWith('zh') ? '結果截斷字符' : 'Output chars'}</div>
+                        <p className="kv-row-desc">{lang.startsWith('zh') ? '工具結果當前不做截斷。' : 'Tool results are not truncated for now.'}</p>
                       </div>
                       <div className="mt-auto">
                         <div className="flex h-[30px] items-center rounded-md border border-[var(--border)] bg-[var(--bg-input-subtle)] px-2.5 text-[12.5px] text-[var(--text-muted)]">
-                          {lang.startsWith('zh') ? '无限制输出' : 'Unlimited output'}
+                          {lang.startsWith('zh') ? '無限制輸出' : 'Unlimited output'}
                         </div>
                       </div>
                     </div>
                   </div>
                 </SettingsGroup>
 
-                <SettingsGroup title={lang.startsWith('zh') ? 'MCP 服务器' : 'MCP Servers'}>
+                <SettingsGroup title={lang.startsWith('zh') ? 'MCP 服務器' : 'MCP Servers'}>
                   <div className="flex flex-wrap gap-2 py-2">
                     <button
                       type="button"
@@ -3505,7 +3511,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                       data-tauri-drag-region="false"
                     >
                       <Plus size={11} />
-                      {lang.startsWith('zh') ? '添加服务器' : 'Add server'}
+                      {lang.startsWith('zh') ? '添加服務器' : 'Add server'}
                     </button>
                     <button
                       type="button"
@@ -3514,15 +3520,15 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                       data-tauri-drag-region="false"
                     >
                       <FolderOpen size={11} />
-                      {lang.startsWith('zh') ? '导入 mcp.json' : 'Import mcp.json'}
+                      {lang.startsWith('zh') ? '導入 mcp.json' : 'Import mcp.json'}
                     </button>
                   </div>
 
                   {chatTools.servers.length === 0 && (
                     <div className="kv-panel">
-                      <div className="kv-panel-title">{lang.startsWith('zh') ? '暂无 MCP 服务器' : 'No MCP servers'}</div>
+                      <div className="kv-panel-title">{lang.startsWith('zh') ? '暫無 MCP 服務器' : 'No MCP servers'}</div>
                       <div className="kv-panel-body">
-                        {lang.startsWith('zh') ? '添加或导入服务器后，需要手动启用才会暴露给模型。' : 'Added or imported servers stay disabled until you enable them.'}
+                        {lang.startsWith('zh') ? '添加或導入服務器後，需要手動啟用才會暴露給模型。' : 'Added or imported servers stay disabled until you enable them.'}
                       </div>
                     </div>
                   )}
@@ -3537,7 +3543,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                           .map((toolName) => ({
                             id: `${server.id}-${toolName}`,
                             name: toolName,
-                            description: lang.startsWith('zh') ? '已保存的工具限制；重新测试连接可刷新描述。' : 'Saved tool limit; test the server to refresh description.',
+                            description: lang.startsWith('zh') ? '已保存的工具限制；重新測試連接可刷新描述。' : 'Saved tool limit; test the server to refresh description.',
                             source: 'mcp',
                             serverId: server.id,
                             serverName: server.name,
@@ -3558,12 +3564,12 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                               : 'off'
                       const stateLabel =
                         stateKind === 'connected'
-                          ? (lang.startsWith('zh') ? '已连接' : 'Connected')
+                          ? (lang.startsWith('zh') ? '已連接' : 'Connected')
                           : stateKind === 'connecting'
-                            ? (lang.startsWith('zh') ? '连接中' : 'Connecting')
+                            ? (lang.startsWith('zh') ? '連接中' : 'Connecting')
                             : stateKind === 'error'
-                              ? (lang.startsWith('zh') ? '错误' : 'Error')
-                              : (lang.startsWith('zh') ? '未连接' : 'Disconnected')
+                              ? (lang.startsWith('zh') ? '錯誤' : 'Error')
+                              : (lang.startsWith('zh') ? '未連接' : 'Disconnected')
                       const stateError = liveState?.kind === 'error' ? liveState.message : ''
                       const stderrTail = mcpStderrTails[server.id] || ''
                       const stderrExpanded = expandedMcpStderrIds.includes(server.id)
@@ -3586,14 +3592,14 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                               onClick={() => updateChatTools({
                                 servers: chatTools.servers.filter((item) => item.id !== server.id),
                               })}
-                              title={lang.startsWith('zh') ? '删除服务器' : 'Delete server'}
-                              aria-label={lang.startsWith('zh') ? '删除服务器' : 'Delete server'}
+                              title={lang.startsWith('zh') ? '刪除服務器' : 'Delete server'}
+                              aria-label={lang.startsWith('zh') ? '刪除服務器' : 'Delete server'}
                               data-tauri-drag-region="false"
                             >
                               <Trash2 size={12} />
                             </button>
                           </div>
-                          <FieldBlock label={lang.startsWith('zh') ? '传输' : 'Transport'}>
+                          <FieldBlock label={lang.startsWith('zh') ? '傳輸' : 'Transport'}>
                             <Select
                               value={isHttpTransport ? 'streamable_http' : 'stdio'}
                               onChange={(transport) => updateMcpServer(server.id, { transport })}
@@ -3615,7 +3621,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                               </FieldBlock>
                               <FieldBlock
                                 label="Headers"
-                                description={lang.startsWith('zh') ? '每行 KEY=value；例如 Authorization=Bearer ...，会随 settings.json 明文保存。' : 'One KEY=value per line, e.g. Authorization=Bearer ...; stored in settings.json as plain text.'}
+                                description={lang.startsWith('zh') ? '每行 KEY=value；例如 Authorization=Bearer ...，會隨 settings.json 明文保存。' : 'One KEY=value per line, e.g. Authorization=Bearer ...; stored in settings.json as plain text.'}
                               >
                                 <TextArea
                                   mono
@@ -3637,7 +3643,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                                     placeholder="npx"
                                   />
                                 </FieldBlock>
-                                <FieldBlock label={lang.startsWith('zh') ? '参数' : 'Arguments'} description={lang.startsWith('zh') ? '每行一个参数；保留参数中的空格和引号。' : 'One argument per line; spaces and quotes inside each argument are preserved.'}>
+                                <FieldBlock label={lang.startsWith('zh') ? '參數' : 'Arguments'} description={lang.startsWith('zh') ? '每行一個參數；保留參數中的空格和引號。' : 'One argument per line; spaces and quotes inside each argument are preserved.'}>
                                   <TextArea
                                     mono
                                     rows={2}
@@ -3649,17 +3655,17 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                                   />
                                 </FieldBlock>
                               </div>
-                              <FieldBlock label={lang.startsWith('zh') ? '工作目录' : 'Working directory'}>
+                              <FieldBlock label={lang.startsWith('zh') ? '工作目錄' : 'Working directory'}>
                                 <Input
                                   mono
                                   value={server.cwd || ''}
                                   onChange={(cwd) => updateMcpServer(server.id, { cwd: cwd.trim() ? cwd : null })}
-                                  placeholder={lang.startsWith('zh') ? '可选' : 'Optional'}
+                                  placeholder={lang.startsWith('zh') ? '可選' : 'Optional'}
                                 />
                               </FieldBlock>
                               <FieldBlock
                                 label="Env"
-                                description={lang.startsWith('zh') ? '每行 KEY=value；这些值会随 settings.json 明文保存。' : 'One KEY=value per line; values are stored in settings.json as plain text.'}
+                                description={lang.startsWith('zh') ? '每行 KEY=value；這些值會隨 settings.json 明文保存。' : 'One KEY=value per line; values are stored in settings.json as plain text.'}
                               >
                                 <TextArea
                                   mono
@@ -3680,7 +3686,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                               data-tauri-drag-region="false"
                             >
                               <RefreshCw size={10} className={testingMcpServerId === server.id ? 'animate-spin' : ''} />
-                              {testingMcpServerId === server.id ? (lang.startsWith('zh') ? '测试中' : 'Testing') : (lang.startsWith('zh') ? '测试连接' : 'Test')}
+                              {testingMcpServerId === server.id ? (lang.startsWith('zh') ? '測試中' : 'Testing') : (lang.startsWith('zh') ? '測試連接' : 'Test')}
                             </button>
                             {feedback && (
                               <span className={`kv-tag ${feedback.ok ? 'ok' : 'warn'}`}>
@@ -3688,7 +3694,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                               </span>
                             )}
                             {server.enabledTools.length === 0 && knownTools.length > 0 && (
-                              <span className="kv-row-desc">{lang.startsWith('zh') ? '当前暴露全部工具。' : 'All tools are exposed.'}</span>
+                              <span className="kv-row-desc">{lang.startsWith('zh') ? '當前暴露全部工具。' : 'All tools are exposed.'}</span>
                             )}
                           </div>
                           {/* 持久连接状态面板：状态点 / lastError / 折叠 stderr / 重连按钮 */}
@@ -3705,7 +3711,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                               data-tauri-drag-region="false"
                             >
                               <RefreshCw size={10} className={reloadingMcpServerId === server.id ? 'animate-spin' : ''} />
-                              {lang.startsWith('zh') ? '重连' : 'Reconnect'}
+                              {lang.startsWith('zh') ? '重連' : 'Reconnect'}
                             </button>
                             {stderrTail.trim() && (
                               <button
@@ -3719,7 +3725,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                                 data-tauri-drag-region="false"
                               >
                                 {stderrExpanded
-                                  ? (lang.startsWith('zh') ? '隐藏日志' : 'Hide log')
+                                  ? (lang.startsWith('zh') ? '隱藏日誌' : 'Hide log')
                                   : (lang.startsWith('zh') ? '查看 stderr' : 'View stderr')}
                               </button>
                             )}
@@ -3832,7 +3838,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                       data-tauri-drag-region="false"
                     >
                       <FolderOpen size={11} />
-                      {lang.startsWith('zh') ? '导入文件夹' : 'Import folder'}
+                      {lang.startsWith('zh') ? '導入文件夾' : 'Import folder'}
                     </button>
                     <button
                       type="button"
@@ -3841,7 +3847,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                       data-tauri-drag-region="false"
                     >
                       <Download size={11} />
-                      {lang.startsWith('zh') ? '导入 zip' : 'Import zip'}
+                      {lang.startsWith('zh') ? '導入 zip' : 'Import zip'}
                     </button>
                     <button
                       type="button"
@@ -3850,10 +3856,10 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                       data-tauri-drag-region="false"
                     >
                       <ExternalLink size={11} />
-                      {lang.startsWith('zh') ? '打开 Skill 文件夹' : 'Open skill folder'}
+                      {lang.startsWith('zh') ? '打開 Skill 文件夾' : 'Open skill folder'}
                     </button>
                   </div>
-                  <SettingRow label={lang.startsWith('zh') ? '额外扫描路径' : 'Extra scan paths'} stack>
+                  <SettingRow label={lang.startsWith('zh') ? '額外掃描路徑' : 'Extra scan paths'} stack>
                     <div className="space-y-1.5">
                       {chatTools.skillScanPaths.map((path, index) => (
                         <div key={`${path}-${index}`} className="flex items-center gap-1.5">
@@ -3874,7 +3880,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                               skillScanPaths: chatTools.skillScanPaths.filter((_, i) => i !== index),
                             })}
                             data-tauri-drag-region="false"
-                            aria-label={lang.startsWith('zh') ? '移除路径' : 'Remove path'}
+                            aria-label={lang.startsWith('zh') ? '移除路徑' : 'Remove path'}
                           >
                             <Trash2 size={12} />
                           </button>
@@ -3892,31 +3898,31 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                         data-tauri-drag-region="false"
                       >
                         <Plus size={11} />
-                        {lang.startsWith('zh') ? '添加扫描路径' : 'Add scan path'}
+                        {lang.startsWith('zh') ? '添加掃描路徑' : 'Add scan path'}
                       </button>
                     </div>
                   </SettingRow>
                   <SettingRow
-                    label={lang.startsWith('zh') ? '自动匹配 Skill' : 'Auto-match skills'}
-                    description={lang.startsWith('zh') ? '允许模型根据 description 自动 activate skill' : 'Allow the model to activate skills from the catalog automatically'}
+                    label={lang.startsWith('zh') ? '自動匹配 Skill' : 'Auto-match skills'}
+                    description={lang.startsWith('zh') ? '允許模型根據 description 自動 activate skill' : 'Allow the model to activate skills from the catalog automatically'}
                   >
                     <Toggle
                       checked={chatTools.skillAutoMatch !== false}
                       onChange={(skillAutoMatch) => updateChatTools({ skillAutoMatch })}
                     />
                   </SettingRow>
-                  <SettingRow label={lang.startsWith('zh') ? '无 Tools 降级模式' : 'Fallback without tools'} stack>
+                  <SettingRow label={lang.startsWith('zh') ? '無 Tools 降級模式' : 'Fallback without tools'} stack>
                     <Select
                       value={chatTools.skillFallbackMode || 'progressive'}
                       onChange={(skillFallbackMode) => updateChatTools({ skillFallbackMode })}
                       options={[
-                        { value: 'progressive', label: lang.startsWith('zh') ? '渐进式（仅 catalog）' : 'Progressive (catalog only)' },
-                        { value: 'skill_md_only', label: lang.startsWith('zh') ? '仅 SKILL.md' : 'SKILL.md only' },
-                        { value: 'legacy_full_body', label: lang.startsWith('zh') ? '旧版全量注入' : 'Legacy full body' },
+                        { value: 'progressive', label: lang.startsWith('zh') ? '漸進式（僅 catalog）' : 'Progressive (catalog only)' },
+                        { value: 'skill_md_only', label: lang.startsWith('zh') ? '僅 SKILL.md' : 'SKILL.md only' },
+                        { value: 'legacy_full_body', label: lang.startsWith('zh') ? '舊版全量注入' : 'Legacy full body' },
                       ]}
                     />
                   </SettingRow>
-                  <SettingRow label={lang.startsWith('zh') ? '脚本解释器白名单' : 'Script interpreter allowlist'} stack>
+                  <SettingRow label={lang.startsWith('zh') ? '腳本解釋器白名單' : 'Script interpreter allowlist'} stack>
                     <Input
                       mono
                       value={(chatTools.skillScriptAllowlist || []).join(', ')}
@@ -3936,22 +3942,22 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                   </SettingRow>
                   {skillsLoading && (
                     <div className="kv-panel chat-motion-fade-up">
-                      <div className="kv-panel-body">{lang.startsWith('zh') ? '正在加载 Skill...' : 'Loading skills...'}</div>
+                      <div className="kv-panel-body">{lang.startsWith('zh') ? '正在加載 Skill...' : 'Loading skills...'}</div>
                     </div>
                   )}
                   {!skillsLoading && skills.length === 0 && (
                     <div className="kv-panel">
-                      <div className="kv-panel-title">{lang.startsWith('zh') ? '暂无 Skill' : 'No skills'}</div>
+                      <div className="kv-panel-title">{lang.startsWith('zh') ? '暫無 Skill' : 'No skills'}</div>
                       <div className="kv-panel-body">
-                        {lang.startsWith('zh') ? '暂无 Skill。可导入文件夹/zip，或打开 Skill 文件夹手动添加后刷新。' : 'No skills yet. Import a folder or zip, or add skills manually and refresh.'}
+                        {lang.startsWith('zh') ? '暫無 Skill。可導入文件夾/zip，或打開 Skill 文件夾手動添加後刷新。' : 'No skills yet. Import a folder or zip, or add skills manually and refresh.'}
                       </div>
                     </div>
                   )}
                   {!skillsLoading && skills.length > 0 && (
                     <div className="space-y-3 py-2">
                       <SkillListSection
-                        title={lang.startsWith('zh') ? '内置 Skill' : 'Built-in skills'}
-                        emptyText={lang.startsWith('zh') ? '当前没有内置 Skill。' : 'No built-in skills.'}
+                        title={lang.startsWith('zh') ? '內置 Skill' : 'Built-in skills'}
+                        emptyText={lang.startsWith('zh') ? '當前沒有內置 Skill。' : 'No built-in skills.'}
                         skills={builtinSkills}
                         lang={lang}
                         expandedSkillIds={expandedSkillIds}
@@ -3961,8 +3967,8 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                         onPreview={handlePreviewSkill}
                       />
                       <SkillListSection
-                        title={lang.startsWith('zh') ? '用户 Skill' : 'User skills'}
-                        emptyText={lang.startsWith('zh') ? '当前没有用户导入的 Skill。' : 'No imported user skills.'}
+                        title={lang.startsWith('zh') ? '用戶 Skill' : 'User skills'}
+                        emptyText={lang.startsWith('zh') ? '當前沒有用戶導入的 Skill。' : 'No imported user skills.'}
                         skills={userSkills}
                         lang={lang}
                         expandedSkillIds={expandedSkillIds}
@@ -4063,14 +4069,14 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                 </div>
 
                 <div className="kv-provider-detail">
-                  <SettingsGroup title={lang.startsWith('zh') ? '供应商' : 'Provider'} className="!pt-0 kv-provider-section">
+                  <SettingsGroup title={lang.startsWith('zh') ? '供應商' : 'Provider'} className="!pt-0 kv-provider-section">
                     {selectedProvider ? (() => {
                       const provider = selectedProvider
                       const configured = provider.apiKeys.some((key) => key.trim())
                       return (
                         <div className="kv-provider-header">
                           <div className="kv-provider-header-toolbar">
-                            <span className="kv-row-label">{lang.startsWith('zh') ? '启用供应商' : 'Enable provider'}</span>
+                            <span className="kv-row-label">{lang.startsWith('zh') ? '啟用供應商' : 'Enable provider'}</span>
                             <Toggle
                               checked={isProviderEnabled(provider)}
                               onChange={(enabled) => updateProvider(provider.id, { enabled })}
@@ -4141,10 +4147,10 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                             label={
                               <span className="flex flex-col gap-1">
                                 <span className="flex items-center gap-1">
-                                  <span>{lang.startsWith('zh') ? '压缩请求体 (gzip)' : 'Compress request body (gzip)'}</span>
+                                  <span>{lang.startsWith('zh') ? '壓縮請求體 (gzip)' : 'Compress request body (gzip)'}</span>
                                   <button
                                     type="button"
-                                    aria-label={lang.startsWith('zh') ? '显示说明' : 'Show details'}
+                                    aria-label={lang.startsWith('zh') ? '顯示說明' : 'Show details'}
                                     className="kv-icon-btn"
                                     onClick={() => setGzipInfoOpen((prev) => {
                                       const next = new Set(prev)
@@ -4159,7 +4165,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                                 {gzipInfoOpen.has(provider.id) && (
                                   <span className="kv-row-desc block mt-1">
                                     {lang.startsWith('zh')
-                                      ? '个别供应商前置的 WAF 会扫描明文请求体，把工具/系统提示里的 shell 命令、文件路径等文本误判为攻击而返回 403。开启后请求体用 gzip 压缩发送（多数网关可正常解压）。若该供应商不接受 gzip 请求（如官方 DeepSeek）会返回 400，请保持关闭。'
+                                      ? '個別供應商前置的 WAF 會掃描明文請求體，把工具/系統提示裡的 shell 命令、文件路徑等文本誤判為攻擊而返回 403。開啟後請求體用 gzip 壓縮發送（多數網關可正常解壓）。若該供應商不接受 gzip 請求（如官方 DeepSeek）會返回 400，請保持關閉。'
                                       : 'Some providers sit behind a WAF that scans the plaintext request body and returns 403 for shell/path text inside tool or system-prompt content. Enable to gzip the request body (most gateways accept it). Keep off for providers that reject gzip requests (e.g. official DeepSeek), which would return 400.'}
                                   </span>
                                 )}
@@ -4212,7 +4218,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                                       type="button"
                                       onClick={() => toggleKeyReveal(keyId)}
                                       className="kv-icon-btn"
-                                      title={revealed ? (lang.startsWith('zh') ? '隐藏密钥' : 'Hide key') : (lang.startsWith('zh') ? '显示密钥' : 'Show key')}
+                                      title={revealed ? (lang.startsWith('zh') ? '隱藏密鑰' : 'Hide key') : (lang.startsWith('zh') ? '顯示密鑰' : 'Show key')}
                                       data-tauri-drag-region="false"
                                     >
                                       {revealed ? <EyeOff size={12} /> : <Eye size={12} />}
@@ -4288,12 +4294,12 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                                 <span className="kv-tag">{provider.enabledModels.length}</span>
                               </span>
                             )}
-                            description={lang.startsWith('zh') ? '这些模型会出现在各功能的模型选择器中。' : 'These models appear in feature model selectors.'}
+                            description={lang.startsWith('zh') ? '這些模型會出現在各功能的模型選擇器中。' : 'These models appear in feature model selectors.'}
                           >
                             <ul className="kv-enabled-model-list">
                               {provider.enabledModels.length === 0 && (
                                 <li className="kv-enabled-model-empty">
-                                  {lang.startsWith('zh') ? '点击上方「获取模型列表」拉取并添加模型。' : 'Use "Fetch Models" above to load and add models.'}
+                                  {lang.startsWith('zh') ? '點擊上方「獲取模型列表」拉取並添加模型。' : 'Use "Fetch Models" above to load and add models.'}
                                 </li>
                               )}
                               {provider.enabledModels.map(model => {
@@ -4334,7 +4340,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
             {/* ===== 关于标签页 ===== */}
             {activeTab === 'about' && (
               <>
-                <SettingsGroup title={lang.startsWith('zh') ? '应用' : 'Application'}>
+                <SettingsGroup title={lang.startsWith('zh') ? '應用' : 'Application'}>
                   <div className="kv-panel mb-2">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-[10px] overflow-hidden shrink-0">
@@ -4342,14 +4348,14 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                       </div>
                       <div className="min-w-0">
                         <div className="kv-page-title">Kivio</div>
-                        <div className="kv-panel-body">{lang.startsWith('zh') ? '屏幕级 AI 助手' : 'Screen-level AI Assistant'}</div>
+                        <div className="kv-panel-body">{lang.startsWith('zh') ? '屏幕級 AI 助手' : 'Screen-level AI Assistant'}</div>
                       </div>
                     </div>
                   </div>
                   <SettingRow label={t.currentVersion}>
                     <span className="kv-tag">v{appVersion}</span>
                   </SettingRow>
-                  <SettingRow label={lang.startsWith('zh') ? '开发者' : 'Developer'}>
+                  <SettingRow label={lang.startsWith('zh') ? '開發者' : 'Developer'}>
                     <span className="kv-row-desc">ZM</span>
                   </SettingRow>
                 </SettingsGroup>
@@ -4548,16 +4554,16 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
           lang={lang}
           labels={{
             title: lang.startsWith('zh') ? '模型' : 'Models',
-            searchPlaceholder: lang.startsWith('zh') ? '搜索模型 ID 或名称' : 'Search model ID or name',
+            searchPlaceholder: lang.startsWith('zh') ? '搜索模型 ID 或名稱' : 'Search model ID or name',
             fetchModels: t.fetchModels,
             fetching: t.fetching,
             addModel: t.addModel,
             manualAddModel: t.manualAddModel,
-            noModels: lang.startsWith('zh') ? '尚未获取模型，请点击上方按钮拉取。' : 'No models yet. Click the button above to fetch.',
-            noSearchResults: lang.startsWith('zh') ? '没有匹配的模型' : 'No matching models',
-            enabled: lang.startsWith('zh') ? '已启用' : 'On',
-            addAllModels: lang.startsWith('zh') ? '添加当前列表中的全部模型' : 'Add all models in the current list',
-            close: lang.startsWith('zh') ? '关闭' : 'Close',
+            noModels: lang.startsWith('zh') ? '尚未獲取模型，請點擊上方按鈕拉取。' : 'No models yet. Click the button above to fetch.',
+            noSearchResults: lang.startsWith('zh') ? '沒有匹配的模型' : 'No matching models',
+            enabled: lang.startsWith('zh') ? '已啟用' : 'On',
+            addAllModels: lang.startsWith('zh') ? '添加當前列表中的全部模型' : 'Add all models in the current list',
+            close: lang.startsWith('zh') ? '關閉' : 'Close',
           }}
           fetching={fetchingProviderId === modelPickerProvider.id}
           onClose={() => setModelPickerProviderId(null)}
@@ -4659,7 +4665,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                 className="kv-icon-btn"
                 onClick={() => setSelectedSkillPreview(null)}
                 data-tauri-drag-region="false"
-                aria-label={lang.startsWith('zh') ? '关闭' : 'Close'}
+                aria-label={lang.startsWith('zh') ? '關閉' : 'Close'}
               >
                 <X size={12} />
               </button>

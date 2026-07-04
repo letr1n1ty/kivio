@@ -25,7 +25,7 @@ use crate::shortcuts::{
     restore_runtime_settings, send_paste_shortcut, setup_tray,
 };
 use crate::state::AppState;
-use crate::utils::{language_name, resolve_target_lang};
+use crate::utils::{language_name, resolve_target_lang_with_preference};
 use crate::windows::get_main_window;
 
 pub(crate) fn apply_launch_at_startup(app: &AppHandle, enabled: bool) -> Result<(), String> {
@@ -120,6 +120,10 @@ pub(crate) fn get_default_prompt_templates() -> serde_json::Value {
           "system": default_lens_system_prompt("zh", true),
           "question": default_question_prompt("zh", true)
         },
+        "zh-TW": {
+          "system": default_lens_system_prompt("zh-Hant", true),
+          "question": default_question_prompt("zh-Hant", true)
+        },
         "en": {
           "system": default_lens_system_prompt("en", true),
           "question": default_question_prompt("en", true)
@@ -127,6 +131,7 @@ pub(crate) fn get_default_prompt_templates() -> serde_json::Value {
       },
       "chatPrompts": {
         "zh": default_chat_system_prompt("zh", false),
+        "zh-TW": default_chat_system_prompt("zh-Hant", false),
         "en": default_chat_system_prompt("en", false)
       }
     })
@@ -264,7 +269,9 @@ pub(crate) async fn translate_text(
         return Ok("Please select a model first".to_string());
     }
 
-    let target_lang = resolve_target_lang(&settings.target_lang, trimmed);
+    let preferred_chinese = settings.settings_language.as_deref().unwrap_or("zh-TW");
+    let target_lang =
+        resolve_target_lang_with_preference(&settings.target_lang, trimmed, preferred_chinese);
     let lang_name = language_name(&target_lang).to_string();
     let prompt =
         build_translation_prompt(trimmed, &lang_name, settings.translator_prompt.as_deref());
