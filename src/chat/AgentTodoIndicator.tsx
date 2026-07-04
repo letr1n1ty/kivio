@@ -68,7 +68,7 @@ export function AgentTodoIndicator({ todoState }: AgentTodoIndicatorProps) {
     [items],
   )
   const updatedAt = formatUpdatedAt(todoState)
-  // 全部解决 = 没有 pending / in_progress（cancelled 视为已解决，不算未完成）。
+  // 全部解決 = 沒有 pending / in_progress（cancelled 視為已解決，不算未完成）。
   const allDone = items.length > 0 && !items.some((item) => item.status === 'pending' || item.status === 'in_progress')
 
   if (items.length === 0) return null
@@ -129,7 +129,7 @@ export function AgentTodoIndicator({ todoState }: AgentTodoIndicatorProps) {
             </button>
           </div>
 
-          <div className="max-h-72 space-y-2 overflow-auto pr-1">
+          <div className="chat-popover-scroll max-h-72 space-y-2 overflow-auto pr-1">
             {items.map((item) => (
               <div key={item.id} className="chat-motion-fade grid grid-cols-[14px_1fr] gap-2 text-[12px] leading-relaxed">
                 <span className={`mt-[7px] size-2.5 rounded-full transition-colors duration-[var(--kv-dur-normal)] ${dotClass(item.status)}`} />

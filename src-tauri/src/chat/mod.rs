@@ -10,6 +10,9 @@ pub mod memory;
 pub mod model;
 pub mod model_metadata;
 pub mod plan;
+#[cfg(debug_assertions)]
+pub mod probe;
+pub mod request_debug;
 pub mod storage;
 pub mod sub_agent;
 pub mod todo;

@@ -1,9 +1,9 @@
 import type { Window } from '@tauri-apps/api/window'
 
 export const CHAT_DEFAULT_SIZE = { width: 1280, height: 800 }
-/** 侧栏收起时可缩到的最小尺寸 */
+/** 側欄收起時可縮到的最小尺寸 */
 export const CHAT_MIN_SIZE_COLLAPSED = { width: 400, height: 400 }
-/** 侧栏展开时整窗最小尺寸（240px 侧栏 + 主内容区） */
+/** 側欄展開時整窗最小尺寸（240px 側欄 + 主內容區） */
 export const CHAT_MIN_SIZE_EXPANDED = { width: 640, height: 400 }
 export const CHAT_MIN_SIZE = CHAT_MIN_SIZE_COLLAPSED
 export function getChatPlatformWindowSize(
@@ -22,10 +22,15 @@ export type ChatWindowGeometry = {
 const CHAT_LAST_ROUTE_KEY = 'kivio-chat-last-route'
 const CHAT_SIDEBAR_COLLAPSED_KEY = 'kivio-chat-sidebar-collapsed'
 const CHAT_WINDOW_GEOMETRY_KEY = 'kivio-chat-window-geometry'
-/** @deprecated 旧版仅持久化尺寸；读取时自动迁移到 geometry key */
+const CHAT_WEBVIEW_ZOOM_KEY = 'kivio-chat-webview-zoom'
+/** @deprecated 舊版僅持久化尺寸；讀取時自動遷移到 geometry key */
 const CHAT_WINDOW_SIZE_KEY = 'kivio-chat-window-size'
 const WINDOWS_MINIMIZED_POSITION_SENTINEL = -10000
 const MIN_VISIBLE_GEOMETRY_EDGE = 80
+export const CHAT_WEBVIEW_ZOOM_DEFAULT = 1
+export const CHAT_WEBVIEW_ZOOM_MIN = 0.5
+export const CHAT_WEBVIEW_ZOOM_MAX = 2
+export const CHAT_WEBVIEW_ZOOM_STEP = 0.2
 
 function isWindowsRuntime(): boolean {
   return typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)
@@ -41,6 +46,10 @@ export function isChatPath(path: string): boolean {
 
 export function isChatSettingsPath(path: string): boolean {
   return path === 'chat/settings' || path.startsWith('chat/settings/')
+}
+
+export function isChatOnboardingPath(path: string): boolean {
+  return path === 'chat/onboarding' || path.startsWith('chat/onboarding/')
 }
 
 function getLocalStorageItem(key: string): string | null {
@@ -76,13 +85,13 @@ export function normalizeStoredChatRoute(value: string | null): string | null {
   if (!value) return null
   const route = value.startsWith('#') ? value : `#${value}`
   const path = route.replace('#', '').split('?')[0]
-  if (!isChatPath(path) || isChatSettingsPath(path)) return null
+  if (!isChatPath(path) || isChatSettingsPath(path) || isChatOnboardingPath(path)) return null
   return route
 }
 
 export function rememberCurrentChatRoute() {
   const path = hashPath()
-  if (!path.startsWith('chat/') || isChatSettingsPath(path)) return
+  if (!path.startsWith('chat/') || isChatSettingsPath(path) || isChatOnboardingPath(path)) return
   setLocalStorageItem(CHAT_LAST_ROUTE_KEY, window.location.hash || '#chat')
 }
 
@@ -100,6 +109,27 @@ export function getRememberedChatSidebarCollapsed(): boolean {
 
 export function rememberChatSidebarCollapsed(collapsed: boolean) {
   setLocalStorageItem(CHAT_SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0')
+}
+
+export function normalizeChatWebviewZoom(value: unknown): number {
+  const zoom = Number(value)
+  if (!Number.isFinite(zoom)) return CHAT_WEBVIEW_ZOOM_DEFAULT
+  const clamped = Math.min(CHAT_WEBVIEW_ZOOM_MAX, Math.max(CHAT_WEBVIEW_ZOOM_MIN, zoom))
+  return Math.round(clamped * 100) / 100
+}
+
+export function getRememberedChatWebviewZoom(): number {
+  return normalizeChatWebviewZoom(getLocalStorageItem(CHAT_WEBVIEW_ZOOM_KEY))
+}
+
+export function rememberChatWebviewZoom(zoom: number) {
+  setLocalStorageItem(CHAT_WEBVIEW_ZOOM_KEY, String(normalizeChatWebviewZoom(zoom)))
+}
+
+export function nextChatWebviewZoom(current: number, direction: 'in' | 'out' | 'reset'): number {
+  if (direction === 'reset') return CHAT_WEBVIEW_ZOOM_DEFAULT
+  const delta = direction === 'in' ? CHAT_WEBVIEW_ZOOM_STEP : -CHAT_WEBVIEW_ZOOM_STEP
+  return normalizeChatWebviewZoom(current + delta)
 }
 
 function normalizeChatWindowGeometry(
@@ -215,7 +245,7 @@ export function rememberChatSize(width: number, height: number) {
   rememberChatGeometry({ ...current, width, height })
 }
 
-/** 在 show 之前恢复上次窗口尺寸与位置，避免先闪默认 1280×800 再跳变。 */
+/** 在 show 之前恢復上次視窗尺寸與位置，避免先閃預設 1280×800 再跳變。 */
 export async function restoreChatWindowGeometry(win: Window): Promise<void> {
   if (await win.isMaximized()) return
 

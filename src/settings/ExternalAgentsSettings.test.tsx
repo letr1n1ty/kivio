@@ -56,8 +56,8 @@ describe('ExternalAgentsSettings', () => {
       expect(screen.getByText('Claude Code')).toBeInTheDocument()
     })
 
-    expect(screen.getByText('已安装')).toBeInTheDocument()
-    expect(screen.getByText('未安装')).toBeInTheDocument()
+    expect(screen.getByText('已安裝')).toBeInTheDocument()
+    expect(screen.getByText('未安裝')).toBeInTheDocument()
     expect(mockDetect).toHaveBeenCalled()
   })
 })

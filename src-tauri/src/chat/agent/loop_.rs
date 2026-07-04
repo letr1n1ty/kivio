@@ -60,6 +60,10 @@ pub(crate) struct RunState {
     pub(crate) tried_skill_only_tools: bool,
     pub(crate) planning_final_message: Option<Value>,
     pub(crate) planning_final_streamed: bool,
+    /// 空响应重试守门（一次）：抽风网关会间歇性返回 200 + 空正文（无文本无工具调用）。
+    /// 第一次遇到时 planning 返回 `RetryEmptyResponse` 原地重试；已重试过则照旧走
+    /// FinalAnswer → finalize 报 "empty assistant response"。
+    pub(crate) planning_empty_retried: bool,
     pub(crate) skill_cache: skills::SkillRunCache,
     /// Count of `activated_allowed_tools` already folded into the effective tool
     /// set (T3). The loop only recomputes when this grows, so the (idempotent)
@@ -76,6 +80,12 @@ pub(crate) struct RunState {
     /// 压成功并降到预算内则清零，否则递增。达到 `COMPACTION_THRASH_LIMIT` 时规划循环优雅收尾
     /// （用已收集的工具结果降级），而不是反复触发压缩并连续失败后才报错。
     pub(crate) compaction_unresolved_rounds: u32,
+    pub(crate) pending_compaction_boundary: Option<crate::chat::types::CompactionBoundaryRecord>,
+    /// L2 压缩产出的落盘 summary（与 boundary 同期生成）。run 结束时由 `attach_usage`
+    /// 挂到 `AgentRunResult.compaction_summary`，commands.rs 据此写回 `context_state.summary`
+    /// + `compression_count`（L2 不再只 push boundary，对齐落盘路径）。
+    pub(crate) pending_compaction_summary:
+        Option<crate::chat::types::ConversationContextSummary>,
 }
 
 /// 连续「需要压缩但压不下去」多少轮后停止工具循环、优雅收尾（Gap 2，Layer 3 anti-thrashing）。
@@ -143,11 +153,14 @@ pub async fn run_agent_loop(
         tried_skill_only_tools: false,
         planning_final_message: None,
         planning_final_streamed: false,
+        planning_empty_retried: false,
         skill_cache: skills::SkillRunCache::default(),
         applied_allowed_tools_len: 0,
         usage: None,
         compacted: false,
         compaction_unresolved_rounds: 0,
+        pending_compaction_boundary: None,
+        pending_compaction_summary: None,
     };
     // 把助手的技能白名单冻结进 skill_cache,作为 skill_activate 执行派发的硬 gate。
     // 无助手 = None = 不限(全局行为)。
@@ -182,6 +195,7 @@ pub async fn run_agent_loop(
                 PlanningStepOutcome::FinalAnswer => break,
                 PlanningStepOutcome::ToolsUnsupported => break,
                 PlanningStepOutcome::RetryWithSkillTools => continue,
+                PlanningStepOutcome::RetryEmptyResponse => continue,
                 PlanningStepOutcome::DraftFailed(result) => {
                     return Ok(attach_usage(result, &mut state))
                 }
@@ -253,13 +267,13 @@ fn attach_usage(mut result: AgentRunResult, state: &mut RunState) -> AgentRunRes
     result.usage = state.usage.take();
     if state.compacted {
         let mut history = std::mem::take(&mut state.runtime_messages);
-        // 追加本轮最终 assistant 回答——它进了 api_messages 但未必落进 runtime_messages，
-        // 补上后 compacted_history 才是下一轮可直接续用的完整历史。
         let final_message =
             super::stop::final_assistant_api_message(&result.content, result.reasoning.as_deref());
         history.push(final_message);
         result.compacted_history = Some(history);
     }
+    result.compaction_boundary = state.pending_compaction_boundary.take();
+    result.compaction_summary = state.pending_compaction_summary.take();
     result
 }
 

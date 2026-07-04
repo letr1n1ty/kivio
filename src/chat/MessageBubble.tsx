@@ -15,6 +15,7 @@ import {
   Globe,
   ImagePlus,
   ListChecks,
+  Pencil,
   Play,
   Plug,
   ScrollText,
@@ -44,7 +45,7 @@ import type { TimelineGroupItem, ToolGroupIcon } from './segments'
 
 const DIRECT_IMAGE_GENERATION_PENDING = '[[KIVIO_DIRECT_IMAGE_GENERATION_PENDING]]'
 
-// 模块级稳定引用：内联箭头每次渲染新建会打穿 ChatMarkdown 的 memo（导致公式重渲）。
+// 模組級穩定引用：內聯箭頭每次渲染新建會打穿 ChatMarkdown 的 memo（導致公式重渲）。
 const handleChatImageClick = (src: string, alt: string, name?: string) =>
   openChatImageViewer({ src, alt, name })
 
@@ -54,14 +55,14 @@ interface MessageBubbleProps {
   tokensPerSec?: number
   reasoningDurationMs?: number | null
   reasoningDurationMsBySegmentId?: Record<string, number>
-  /** 思维链正在流式写入 */
+  /** 思維鏈正在流式寫入 */
   reasoningStreaming?: boolean
-  /** 这条消息整体是否在流式生成中（仅 streaming-assistant bubble 为 true） */
+  /** 這條訊息整體是否在流式生成中（僅 streaming-assistant bubble 為 true） */
   messageStreaming?: boolean
-  /** R8（多模型一问多答）：本条 user 消息这一问发给了哪些模型；多模型时渲染在气泡顶部。 */
+  /** R8（多模型一問多答）：本條 user 訊息這一問發給了哪些模型；多模型時渲染在氣泡頂部。 */
   sentModels?: { providerId: string | null; model: string | null }[]
   onUpdateMessage?: (messageId: string, content: string) => Promise<void>
-  onRegenerateMessage?: (messageId: string) => Promise<void>
+  onRegenerateMessage?: (messageId: string, newContent?: string) => Promise<void>
   onDeleteMessage?: (messageId: string) => Promise<void>
   agentPlanOverride?: AgentPlanState | null
   onExecuteAgentPlan?: (messageId: string) => Promise<void> | void
@@ -113,7 +114,7 @@ function ArtifactImage({
   const inline = artifactDataUrl(artifact)
   const [src, setSrc] = useState<string>(inline)
 
-  // 正常情况下 data_url 是内联缩略图(秒显);仅当缩略图生成失败为空时,用 path 懒加载原图兜底。
+  // 正常情況下 data_url 是內聯縮圖(秒顯);僅當縮圖生成失敗為空時,用 path 懶載入原圖兜底。
   useEffect(() => {
     if (inline) {
       setSrc(inline)
@@ -145,7 +146,7 @@ function ArtifactImage({
             conversationId,
           })
         }
-        aria-label="预览图片"
+        aria-label="預覽圖片"
       >
         <img
           src={src}
@@ -188,14 +189,14 @@ function GeneratedImageArtifacts({
 
 function ImageGenerationPending() {
   return (
-    <section aria-label="图片生成中" className="image-generation-pending">
+    <section aria-label="圖片生成中" className="image-generation-pending">
       <div className="mb-3">
         <div className="flex items-center gap-2 text-[14px] font-medium leading-5 text-neutral-700 dark:text-neutral-300">
           <span className="image-generation-pending-indicator" aria-hidden="true" />
-          <span>正在生成图片</span>
+          <span>正在生成圖片</span>
         </div>
         <div className="mt-1 pl-4 text-[12px] leading-5 text-neutral-400 dark:text-neutral-500">
-          正在细化画面细节，请稍候。
+          正在細化畫面細節，請稍候。
         </div>
       </div>
       <div className="image-generation-pending-frame" aria-hidden="true">
@@ -223,18 +224,18 @@ function AgentPlanAction({
   return (
     <div className="not-prose mt-3 flex max-w-full items-center gap-2 border-l-2 border-emerald-400/70 pl-3 text-[12px] leading-5 text-neutral-500 dark:border-emerald-500/60 dark:text-neutral-400">
       <ListChecks size={14} strokeWidth={2} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
-      <span className="min-w-0 flex-1 truncate">{approved ? '已按这条计划执行' : '计划草案'}</span>
+      <span className="min-w-0 flex-1 truncate">{approved ? '已按這條計劃執行' : '計劃草案'}</span>
       {!approved && onExecute && (
         <button
           type="button"
           onClick={() => void onExecute(messageId)}
           disabled={disabled}
           className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-neutral-900 px-2.5 text-[12px] font-medium text-white transition-colors hover:bg-neutral-700 disabled:bg-neutral-200 disabled:text-neutral-400 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200 dark:disabled:bg-neutral-700 dark:disabled:text-neutral-500"
-          title="执行这条计划"
-          aria-label="执行这条计划"
+          title="執行這條計劃"
+          aria-label="執行這條計劃"
         >
           <Play size={12} strokeWidth={2.2} fill="currentColor" />
-          执行这条计划
+          執行這條計劃
         </button>
       )}
     </div>
@@ -253,7 +254,7 @@ function MissingToolSegment({ toolCallId }: { toolCallId: string }) {
   return (
     <div className="not-prose mb-2 inline-flex max-w-full items-center gap-1.5 rounded-md py-0.5 text-[11.5px] leading-5 text-neutral-400 dark:text-neutral-500">
       <AlertCircle size={12} strokeWidth={1.9} className="shrink-0" />
-      <span className="truncate">工具记录缺失{toolCallId ? ` · ${toolCallId}` : ''}</span>
+      <span className="truncate">工具記錄缺失{toolCallId ? ` · ${toolCallId}` : ''}</span>
     </div>
   )
 }
@@ -368,7 +369,7 @@ function TimelineStepsIcon({ size = 16, className }: { size?: number; className?
   )
 }
 
-/** macOS 经典放射状短线 spinner：8 根短线绕中心放射、透明度阶梯递增，整体步进旋转。 */
+/** macOS 經典放射狀短線 spinner：8 根短線繞中心放射、透明度階梯遞增，整體步進旋轉。 */
 function TimelineSpinner({ size = 16, className }: { size?: number; className?: string }) {
   return (
     <svg
@@ -397,8 +398,8 @@ function TimelineSpinner({ size = 16, className }: { size?: number; className?: 
 }
 
 /**
- * 分组头折叠态图标：按摘要代表类别选 lucide 图标，与 ToolCallBlock 的单工具图标观感一致。
- * `other`（通用/混合兜底）保留自绘 TimelineStepsIcon。
+ * 分組頭摺疊態圖示：按摘要代表類別選 lucide 圖示，與 ToolCallBlock 的單工具圖示觀感一致。
+ * `other`（通用/混合兜底）保留自繪 TimelineStepsIcon。
  */
 const GROUP_ICON_BY_CATEGORY: Record<
   ToolGroupIcon,
@@ -426,13 +427,13 @@ const GROUP_ICON_BY_CATEGORY: Record<
 }
 
 /**
- * 一组「连续的 thinking + tool 段」= 单一可折叠单元。
- * - 「生成中」= 这条消息还在流式生成、且这是末组（messageStreaming && isLastGroup）：
- *   始终保持展开，不受工具间隙/reasoning 是否在流影响，避免抖动。
- * - 后面出现正文/别的块（非末组）或消息流式结束（含历史消息）→ 折叠成一行摘要。
- * - 用户手动点过开关后以用户操作为准（userToggledRef，参考 ReasoningBlock）。
- * - 历史折叠态只保留摘要 header，不挂载组内 ReasoningBlock / ToolCallBlock；
- *   展开后再原样平铺，避免重历史消息默认挂满工具/Markdown/Diff 子树。
+ * 一組「連續的 thinking + tool 段」= 單一可摺疊單元。
+ * - 「生成中」= 這條訊息還在流式生成、且這是末組（messageStreaming && isLastGroup）：
+ *   始終保持展開，不受工具間隙/reasoning 是否在流影響，避免抖動。
+ * - 後面出現正文/別的塊（非末組）或訊息流式結束（含歷史訊息）→ 摺疊成一行摘要。
+ * - 使用者手動點過開關後以使用者操作為準（userToggledRef，參考 ReasoningBlock）。
+ * - 歷史摺疊態只保留摘要 header，不掛載組內 ReasoningBlock / ToolCallBlock；
+ *   展開後再原樣平鋪，避免重歷史訊息預設掛滿工具/Markdown/Diff 子樹。
  */
 function TimelineGroupBlock({
   segments,
@@ -463,7 +464,7 @@ function TimelineGroupBlock({
   const [open, setOpen] = useState(generating)
   const userToggledRef = useRef(false)
 
-  // 生成中默认展开、完成自动折叠；用户手动操作后不再覆盖。
+  // 生成中預設展開、完成自動摺疊；使用者手動操作後不再覆蓋。
   useEffect(() => {
     if (userToggledRef.current) return
     setOpen(generating)
@@ -475,7 +476,7 @@ function TimelineGroupBlock({
   }
 
   return (
-    <section aria-label="过程分组" className="not-prose">
+    <section aria-label="過程分組" className="not-prose">
       <button
         type="button"
         onClick={handleToggle}
@@ -537,8 +538,8 @@ function TimelineGroupBlock({
   )
 }
 
-/** 汇总本条消息所有 knowledge_search 命中，按 n 建索引，供答案里的 `[n]` 角标查源。
- *  多次检索 n 会重叠 —— 后写覆盖（罕见，且只影响弹窗预览内容）。 */
+/** 彙總本條訊息所有 knowledge_search 命中，按 n 建索引，供答案裡的 `[n]` 角標查源。
+ *  多次檢索 n 會重疊 —— 後寫覆蓋（罕見，且隻影響彈窗預覽內容）。 */
 function buildCitationMap(toolCalls: ToolCallRecord[]): Map<number, KbHitView> {
   const map = new Map<number, KbHitView>()
   for (const toolCall of toolCalls) {
@@ -593,11 +594,11 @@ function TimelineSegments({
   )
 
   return (
-    <section aria-label="回答时间线" className="space-y-1.5">
+    <section aria-label="回答時間線" className="space-y-1.5">
       {groupItems.map((item: TimelineGroupItem, index) => {
         if (item.type === 'text') {
           if (!segmentText(item.segment).trim()) return null
-          // 每个时间线分段单独淡入：流式中新分段顺次出现而非"啪"地弹出。
+          // 每個時間線分段單獨淡入：流式中新分段順次出現而非"啪"地彈出。
           return (
             <div key={item.segment.id} className="chat-motion-fade">
               <TimelineTextSegment segment={item.segment} artifacts={artifacts} citations={citations} />
@@ -675,7 +676,7 @@ function MessageBubbleComponent({
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState(false)
   const [toolsExpanded, setToolsExpanded] = useState(false)
-  // 工具调用超过 4 个时默认折叠（与思考过程一致）
+  // 工具呼叫超過 4 個時預設摺疊（與思考過程一致）
   const toolsCollapsible = toolCalls.length > 4
   const agentPlan = message.agent_plan ?? message.agentPlan ?? agentPlanOverride
   const isAgentPlanMessage = isExecutableAgentPlanText(agentPlan?.plan)
@@ -697,13 +698,24 @@ function MessageBubbleComponent({
 
   if (isUser) {
     const hasText = message.content.trim().length > 0
-    // R8（多模型一问多答）：本问发给 ≥2 个模型时，在 user 气泡顶部渲染模型标签行（如 @deepseek @qwen）。
-    // 单模型不显示这行（sentModels 缺省或 <2）。
+    const canEditUser = Boolean(onRegenerateMessage)
+    const handleEditAndRegenerate = () => {
+      const trimmed = draft.trim()
+      if (!trimmed || !onRegenerateMessage) return
+      // regenerate 的 Promise 要等整個生成結束才 resolve（agent run 可能數分鐘），編輯框不陪跑：
+      // 樂觀關閉編輯態（handleRegenerateMessage 的樂觀截斷會同步重渲本氣泡）。失敗時它內部
+      // 會 reload 會話恢復原文，並線上程裡展示錯誤 + 重試。
+      // 內容沒變 → 純重新生成；變了 → 編輯並重新生成（後端原子替換+截斷）。
+      setIsEditing(false)
+      void onRegenerateMessage(message.id, trimmed === message.content ? undefined : trimmed)
+    }
+    // R8（多模型一問多答）：本問發給 ≥2 個模型時，在 user 氣泡頂部渲染模型標籤行（如 @deepseek @qwen）。
+    // 單模型不顯示這行（sentModels 預設或 <2）。
     const replyModelTags = (sentModels ?? []).filter((m) => (m.model ?? '').trim().length > 0)
     const showModelTags = replyModelTags.length >= 2
     return (
       <div className="group chat-motion-fade-up flex justify-end py-2">
-        <div className="flex min-w-0 max-w-[85%] flex-col items-end gap-1">
+        <div className={`flex min-w-0 flex-col items-end gap-1 ${isEditing ? 'w-full max-w-full' : 'max-w-[85%]'}`}>
           {showModelTags && (
             <div className="flex flex-wrap items-center justify-end gap-1.5 pr-0.5">
               {replyModelTags.map((tag, index) => (
@@ -725,31 +737,77 @@ function MessageBubbleComponent({
               variant="user"
             />
           )}
-          {hasText && (
-            <div className="rounded-[20px] bg-neutral-100 px-4 py-2.5 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100">
-              <div className="whitespace-pre-wrap [overflow-wrap:anywhere] text-[15px] leading-relaxed">
-                {message.content}
+          {isEditing ? (
+            <div className="w-full space-y-2">
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                rows={4}
+                autoFocus
+                className="w-full resize-y rounded-[20px] border border-neutral-200/90 bg-neutral-50 px-4 py-2.5 text-[15px] leading-relaxed text-neutral-900 outline-none focus:border-neutral-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-500"
+              />
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraft(message.content)
+                    setIsEditing(false)
+                  }}
+                  className="rounded-lg px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-100 disabled:opacity-40 dark:text-neutral-400 dark:hover:bg-neutral-800"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  // 編輯中若本會話起了新 run（如輸入欄又發了一條），回撥被 MessageList 收走
+                  // （canEditUser 變 false）→ 停用儲存避免靜默 no-op；取消仍可退出。
+                  disabled={!draft.trim() || !canEditUser}
+                  onClick={handleEditAndRegenerate}
+                  className="rounded-lg bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40 dark:bg-neutral-100 dark:text-neutral-900"
+                  title="替換這條提問，並丟棄其後的回覆重新生成"
+                >
+                  儲存並重新生成
+                </button>
               </div>
             </div>
+          ) : (
+            hasText && (
+              <div className="rounded-[20px] bg-neutral-100 px-4 py-2.5 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100">
+                <div className="whitespace-pre-wrap [overflow-wrap:anywhere] text-[15px] leading-relaxed">
+                  {message.content}
+                </div>
+              </div>
+            )
           )}
-          {hasText && (
+          {hasText && !isEditing && (
             <div className="flex items-center gap-0.5 pr-0.5 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover:opacity-100">
               <button
                 type="button"
                 onClick={() => void handleCopy()}
                 className={bubbleActionBtn}
-                title={copied ? '已复制' : '复制'}
-                aria-label={copied ? '已复制' : '复制'}
+                title={copied ? '已複製' : '複製'}
+                aria-label={copied ? '已複製' : '複製'}
               >
                 {copied ? <Check size={14} strokeWidth={2} className="chat-motion-pop" /> : <Copy size={14} strokeWidth={2} />}
               </button>
+              {canEditUser && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className={bubbleActionBtn}
+                  title="編輯並重新生成"
+                  aria-label="編輯並重新生成"
+                >
+                  <Pencil size={14} strokeWidth={2} />
+                </button>
+              )}
               {onDeleteMessage && (
                 <button
                   type="button"
                   onClick={() => void onDeleteMessage(message.id)}
                   className={bubbleActionBtn}
-                  title="删除"
-                  aria-label="删除"
+                  title="刪除"
+                  aria-label="刪除"
                 >
                   <Trash2 size={14} strokeWidth={2} />
                 </button>
@@ -773,7 +831,7 @@ function MessageBubbleComponent({
     }
   }
 
-  // 折叠时仅隐藏较早的，始终保留最新 4 个可见
+  // 摺疊時僅隱藏較早的，始終保留最新 4 個可見
   const RECENT_TOOL_COUNT = 4
   const olderToolCalls = toolsCollapsible ? toolCalls.slice(0, toolCalls.length - RECENT_TOOL_COUNT) : []
   const recentToolCalls = toolsCollapsible ? toolCalls.slice(toolCalls.length - RECENT_TOOL_COUNT) : toolCalls
@@ -788,7 +846,7 @@ function MessageBubbleComponent({
       <div className="w-full min-w-0">
         {toolCalls.length > 0 && !isEditing && !hasTimelineSegments && (
           <section
-            aria-label="工具调用"
+            aria-label="工具呼叫"
             className={message.content.trim().length > 0 || message.reasoning ? 'mb-3' : ''}
           >
             {toolsCollapsible ? (
@@ -800,8 +858,8 @@ function MessageBubbleComponent({
                 data-tauri-drag-region="false"
               >
                 <span>
-                  工具调用 · {toolCalls.length} 个
-                  {!toolsExpanded ? ` · 显示最新 ${RECENT_TOOL_COUNT} 个` : ''}
+                  工具呼叫 · {toolCalls.length} 個
+                  {!toolsExpanded ? ` · 顯示最新 ${RECENT_TOOL_COUNT} 個` : ''}
                 </span>
                 <ChevronDown
                   size={12}
@@ -811,7 +869,7 @@ function MessageBubbleComponent({
               </button>
             ) : (
               <div className="mb-1 text-[11px] font-medium text-neutral-400 dark:text-neutral-500">
-                工具调用
+                工具呼叫
               </div>
             )}
             {toolsCollapsible && toolsExpanded && (
@@ -849,7 +907,7 @@ function MessageBubbleComponent({
                 onClick={() => void handleSaveEdit()}
                 className="rounded-lg bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40 dark:bg-neutral-100 dark:text-neutral-900"
               >
-                {saving ? '保存中…' : '保存'}
+                {saving ? '儲存中…' : '儲存'}
               </button>
               <button
                 type="button"
@@ -959,5 +1017,5 @@ function MessageBubbleComponent({
   )
 }
 
-// memo：流式生成时历史消息 props 不变 → 跳过重渲染，避免每个 token 重新解析 Markdown
+// memo：流式生成時歷史訊息 props 不變 → 跳過重渲染，避免每個 token 重新解析 Markdown
 export const MessageBubble = memo(MessageBubbleComponent)

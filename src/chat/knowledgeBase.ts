@@ -1,5 +1,5 @@
-// 知识库（RAG）前端 API：库 CRUD、文档导入/列举/删除、索引进度事件。
-// 后端命令在 src-tauri/src/chat/knowledge_base/。
+// 知識庫（RAG）前端 API：庫 CRUD、檔案匯入/列舉/刪除、索引進度事件。
+// 後端命令在 src-tauri/src/chat/knowledge_base/。
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
@@ -30,7 +30,7 @@ export interface KnowledgeDocument {
   createdAt: number
 }
 
-// `kb-index` 事件 payload（后端 ingest.rs::KbIndexEvent 的镜像）。
+// `kb-index` 事件 payload（後端 ingest.rs::KbIndexEvent 的映象）。
 export interface KbIndexEvent {
   kbId: string
   docId: string

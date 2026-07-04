@@ -3,9 +3,9 @@ import { ChevronDown } from 'lucide-react'
 
 type ReasoningBlockProps = {
   reasoning: string
-  /** 思维链正在流式写入 */
+  /** 思維鏈正在流式寫入 */
   streaming?: boolean
-  /** 已知思考耗时，用于流式完成后继续展示 */
+  /** 已知思考耗時，用於流式完成後繼續展示 */
   durationMs?: number | null
 }
 
@@ -30,7 +30,7 @@ export function ReasoningBlock({ reasoning, streaming = false, durationMs = null
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const showCollapsed = collapsible && !open
-  /** 生成完毕的折叠态只留标题行，正文完全隐藏 */
+  /** 生成完畢的摺疊態只留標題行，正文完全隱藏 */
   const hideBody = !streaming && showCollapsed
 
   useEffect(() => {

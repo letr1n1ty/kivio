@@ -39,7 +39,7 @@ export function WindowControls() {
           type="button"
           className="chat-win-btn chat-win-btn--close"
           onClick={handleClose}
-          aria-label="关闭"
+          aria-label="關閉"
         >
           <X size={14} strokeWidth={2.1} aria-hidden />
         </button>
@@ -62,7 +62,7 @@ export function WindowControls() {
                 ? handleMinimize
                 : handleMaximize
           }
-          aria-label={kind === 'close' ? '关闭' : kind === 'minimize' ? '最小化' : '最大化'}
+          aria-label={kind === 'close' ? '關閉' : kind === 'minimize' ? '最小化' : '最大化'}
         />
       ))}
     </div>

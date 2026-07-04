@@ -332,6 +332,63 @@ impl RapidOcrClient {
 
         Ok(text)
     }
+
+    /// 带 bbox 的行级 OCR，供替换翻译在原位绘制译文。与 `ocr_image` 共用 pipeline。
+    pub async fn ocr_image_lines(
+        self: &Arc<Self>,
+        image_path: &std::path::Path,
+    ) -> Result<Vec<RapidOcrLine>, String> {
+        let dir = self.model_dir()?;
+        if !download_files()
+            .iter()
+            .all(|file| file_is_ready(&dir.join(file.name)))
+        {
+            return Err("rapidocr_models_missing".into());
+        }
+
+        let pipeline = self
+            .pipeline
+            .get_or_try_init(|| async {
+                prepare_onnxruntime_dll_dir(&dir)?;
+                ort::init_from(dir.join(DYLIB_NAME))
+                    .map_err(|e| format!("ort init_from failed: {e}"))?
+                    .commit();
+                let p = OAROCRBuilder::new(
+                    dir.join("det.onnx").to_string_lossy().into_owned(),
+                    dir.join("rec.onnx").to_string_lossy().into_owned(),
+                    dir.join("keys.txt").to_string_lossy().into_owned(),
+                )
+                .build()
+                .map_err(|e| format!("OAROCRBuilder failed: {e}"))?;
+                Ok::<_, String>(Arc::new(p))
+            })
+            .await?;
+
+        let pipeline = pipeline.clone();
+        let path = image_path.to_owned();
+        let lines = tokio::task::spawn_blocking(move || -> Result<Vec<RapidOcrLine>, String> {
+            let img = oar_ocr::utils::load_image(&path).map_err(|e| format!("load_image: {e}"))?;
+            let results = pipeline
+                .predict(vec![img])
+                .map_err(|e| format!("predict: {e}"))?;
+            Ok(lines_from_results(&results))
+        })
+        .await
+        .map_err(|e| format!("spawn_blocking: {e}"))??;
+
+        Ok(lines)
+    }
+}
+
+/// 单行 OCR 结果（带屏幕坐标），供替换翻译 Canvas 覆盖层使用。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RapidOcrLine {
+    pub text: String,
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
 }
 
 async fn download_bytes(http: &reqwest::Client, name: &str, url: &str) -> Result<Vec<u8>, String> {
@@ -479,13 +536,8 @@ impl OcrLine {
     }
 }
 
-/// 把所有 OCR 结果按阅读顺序拼成 Markdown-friendly 纯文本。
-///
-/// DBNet 返回的是一组文本框,不是排版树。这里做轻量几何后处理:
-/// 1. 先按动态行高聚合同一视觉行,避免固定 30px 桶把大/小字号混在一起。
-/// 2. 再按行距和右边界判断软换行/段落断开。
-/// 3. 常见项目符号转成 Markdown list,让前端原文区和翻译模型都更容易理解结构。
-fn join_text_regions(results: &[oar_ocr::oarocr::OAROCRResult]) -> String {
+/// 从 OCR 原始结果提取带 bbox 的文本块（每个 DBNet 检测框一块）。
+fn collect_ocr_spans(results: &[oar_ocr::oarocr::OAROCRResult]) -> (Vec<OcrSpan>, Vec<String>) {
     let mut spans = Vec::new();
     let mut fallback = Vec::new();
 
@@ -524,8 +576,15 @@ fn join_text_regions(results: &[oar_ocr::oarocr::OAROCRResult]) -> String {
         }
     }
 
+    (spans, fallback)
+}
+
+/// 从 OCR 原始结果提取带 bbox 的视觉行（共享几何聚合逻辑）。
+fn collect_ocr_lines(results: &[oar_ocr::oarocr::OAROCRResult]) -> (Vec<OcrLine>, Vec<String>) {
+    let (mut spans, fallback) = collect_ocr_spans(results);
+
     if spans.is_empty() {
-        return fallback.join("\n\n");
+        return (Vec::new(), fallback);
     }
 
     let median_height = median(spans.iter().map(OcrSpan::height).collect()).unwrap_or(20.0);
@@ -545,6 +604,43 @@ fn join_text_regions(results: &[oar_ocr::oarocr::OAROCRResult]) -> String {
 
     let mut lines: Vec<OcrLine> = grouped.into_iter().map(OcrLine::from_spans).collect();
     lines.sort_by(|a, b| cmp_f32(a.center_y(), b.center_y()).then(cmp_f32(a.x_min, b.x_min)));
+    (lines, fallback)
+}
+
+/// 替换翻译用：返回带坐标的 OCR 文本块（每个检测框一块，不合并同行多列）。
+///
+/// 表格/多栏布局若按视觉行合并，会把整行合成一个大框；逐块输出才能按单元格原位覆盖。
+pub fn lines_from_results(results: &[oar_ocr::oarocr::OAROCRResult]) -> Vec<RapidOcrLine> {
+    let (mut spans, _) = collect_ocr_spans(results);
+    spans.sort_by(|a, b| cmp_f32(a.center_y(), b.center_y()).then(cmp_f32(a.x_min, b.x_min)));
+    spans
+        .iter()
+        .map(|span| {
+            let text = collapse_spaces(&span.text);
+            RapidOcrLine {
+                text: text.clone(),
+                x: span.x_min,
+                y: span.y_min,
+                width: (span.x_max - span.x_min).max(1.0),
+                height: (span.y_max - span.y_min).max(1.0),
+            }
+        })
+        .filter(|line| !line.text.is_empty())
+        .collect()
+}
+
+/// 把所有 OCR 结果按阅读顺序拼成 Markdown-friendly 纯文本。
+///
+/// DBNet 返回的是一组文本框,不是排版树。这里做轻量几何后处理:
+/// 1. 先按动态行高聚合同一视觉行,避免固定 30px 桶把大/小字号混在一起。
+/// 2. 再按行距和右边界判断软换行/段落断开。
+/// 3. 常见项目符号转成 Markdown list,让前端原文区和翻译模型都更容易理解结构。
+fn join_text_regions(results: &[oar_ocr::oarocr::OAROCRResult]) -> String {
+    let (lines, fallback) = collect_ocr_lines(results);
+
+    if lines.is_empty() {
+        return fallback.join("\n\n");
+    }
 
     let mut out = format_ocr_lines(&lines);
     if !fallback.is_empty() {
@@ -972,4 +1068,14 @@ fn is_cjk(c: char) -> bool {
         c as u32,
         0x3400..=0x4dbf | 0x4e00..=0x9fff | 0xf900..=0xfaff | 0x3040..=0x30ff | 0xac00..=0xd7af
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lines_from_results_empty_input() {
+        assert!(lines_from_results(&[]).is_empty());
+    }
 }

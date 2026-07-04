@@ -1454,6 +1454,8 @@ mod tests {
             stream_outcome: String::new(),
             usage: None,
             compacted_history: None,
+            compaction_boundary: None,
+            compaction_summary: None,
         })
     }
 
@@ -1473,6 +1475,8 @@ mod tests {
             stream_outcome: "cancelled".to_string(),
             usage: None,
             compacted_history: None,
+            compaction_boundary: None,
+            compaction_summary: None,
         })
     }
 

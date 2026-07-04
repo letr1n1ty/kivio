@@ -1788,6 +1788,8 @@ mod tests {
             stream_outcome: "completed".to_string(),
             usage: None,
             compacted_history: None,
+            compaction_boundary: None,
+            compaction_summary: None,
         }
     }
 

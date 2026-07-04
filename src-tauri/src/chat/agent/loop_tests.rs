@@ -519,6 +519,7 @@
             background_commands: std::sync::Arc::new(std::sync::Mutex::new(
                 std::collections::HashMap::new(),
             )),
+            request_debug: Mutex::new(std::collections::VecDeque::new()),
         }
     }
 
@@ -582,6 +583,19 @@
         }
     }
 
+    /// 构造一条 SSE delta，其 content 为 `prefix + 240 个填充字符`（总 ≥200 chars），
+    /// 满足 compaction 质量兜底 `MIN_SUMMARY_CHARS`。L2 摘要 mock 用它返回达标摘要。
+    fn long_summary_sse(prefix: &str) -> String {
+        let pad = "细节填充".repeat(60);
+        format!(r#"{{"choices":[{{"delta":{{"content":"{prefix}{pad}"}}}}]}}"#)
+    }
+
+    /// 同上，但 content 包在 `<summary>...</summary>` 内（验证 extract_summary_text 抽签）。
+    fn long_summary_sse_tagged(prefix: &str) -> String {
+        let pad = "细节填充".repeat(60);
+        format!(r#"{{"choices":[{{"delta":{{"content":"<summary>\n{prefix}{pad}\n</summary>"}}}}]}}"#)
+    }
+
     /// Streaming planning step: one `read` tool call, then `[DONE]`.
     fn planning_tool_call_sse_events() -> Vec<String> {
         vec![
@@ -635,6 +649,7 @@
             arguments_raw: serde_json::to_string(&arguments).expect("serialize test arguments"),
             arguments,
             arguments_parse_error: None,
+            signature: None,
         }
     }
 
@@ -1054,6 +1069,57 @@
             .filter(|event| event.starts_with("start:"))
             .collect::<Vec<_>>();
         assert_eq!(start_events.len(), 4, "only executable tools should run");
+
+        // 喂回自愈（对齐 opencode）：未知工具的 tool result 必须列出已声明工具，
+        // 让模型下一轮自我纠正，而不是只丢一句 Unknown。
+        let unknown_message = result
+            .response_messages
+            .iter()
+            .find(|message| message["tool_call_id"] == "call_missing")
+            .expect("unknown tool response present");
+        let content = unknown_message["content"].as_str().unwrap_or_default();
+        assert!(content.contains("Unknown tool: missing_tool"), "{content}");
+        assert!(content.contains("Available tools:"), "{content}");
+        assert!(content.contains("read"), "{content}");
+        assert!(content.contains("web_fetch"), "{content}");
+    }
+
+    #[tokio::test]
+    async fn tool_round_matches_capitalized_tool_names_case_insensitively() {
+        // Cursor 系模型（grok-composer 等）会按训练时的大写工具名出牌（Read/Grep）。
+        // 唯一命中时按声明工具执行，不走未知工具路径。
+        let host = TestHost::default();
+        let executor = RecordingExecutor::default();
+        let settings = Settings::default();
+        let tools = vec![native_read_file_tool(), native_web_fetch_tool()];
+        let mut skill_cache = skills::SkillRunCache::default();
+
+        let result = execute_tool_round(
+            &host,
+            &executor,
+            &settings,
+            test_round_context(),
+            &tools,
+            &[],
+            vec![pending_tool_call("call_cap_read", "Read")],
+            &mut skill_cache,
+        )
+        .await;
+
+        assert!(
+            result
+                .tool_records
+                .iter()
+                .all(|record| !matches!(record.status, ToolCallStatus::Error)),
+            "capitalized Read must execute, not error: {:?}",
+            result.tool_records
+        );
+        let start_events = executor
+            .events()
+            .into_iter()
+            .filter(|event| event.starts_with("start:"))
+            .collect::<Vec<_>>();
+        assert_eq!(start_events.len(), 1, "the case-variant call executes");
     }
 
     #[tokio::test]
@@ -1866,7 +1932,7 @@
         let server = MockModelServer::start(vec![
             // 1) L2 摘要请求（**流式 SSE**）——压缩摘要调用现在走流式路径。
             MockResponse::Sse(vec![
-                r#"{"choices":[{"delta":{"content":"SUMMARY_MARKER: 早前轮次摘要"}}]}"#.to_string(),
+                long_summary_sse("SUMMARY_MARKER: 早前轮次摘要。"),
                 "[DONE]".to_string(),
             ]),
             // 2) 压缩后的规划请求 → 发起一次 read 工具调用。
@@ -2009,7 +2075,7 @@
         let server = MockModelServer::start(vec![
             // 1) Layer2 摘要请求（**流式 SSE**）——压缩摘要调用现在走流式路径。
             MockResponse::Sse(vec![
-                r#"{"choices":[{"delta":{"content":"SUMMARY_MARKER: 早前轮次已读取大文件"}}]}"#.to_string(),
+                long_summary_sse("SUMMARY_MARKER: 早前轮次已读取大文件。"),
                 "[DONE]".to_string(),
             ]),
             // 2) 压缩后的规划请求 → 直接给出最终回答（无工具调用）。
@@ -2090,7 +2156,7 @@
         let server = MockModelServer::start(vec![
             // 1) 摘要请求：仅以 SSE 提供（模拟仅支持流式的 provider）。
             MockResponse::Sse(vec![
-                r#"{"choices":[{"delta":{"content":"<summary>\nSUMMARY_MARKER: streamed summary\n</summary>"}}]}"#.to_string(),
+                long_summary_sse_tagged("SUMMARY_MARKER: streamed summary. "),
                 "[DONE]".to_string(),
             ]),
             // 2) 压缩后的规划请求 → 直接给出最终回答（无工具调用）。
@@ -2544,11 +2610,14 @@
             tried_skill_only_tools: false,
             planning_final_message: None,
             planning_final_streamed: false,
+            planning_empty_retried: false,
             skill_cache: skills::SkillRunCache::default(),
             applied_allowed_tools_len: 0,
             usage: None,
             compacted: false,
             compaction_unresolved_rounds: 0,
+            pending_compaction_boundary: None,
+            pending_compaction_summary: None,
         }
     }
 

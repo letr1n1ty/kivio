@@ -1,22 +1,43 @@
 use serde_json::{json, Value};
 
-use crate::chat::model_metadata::{context_window_for_model, safe_context_window_for_model};
+use crate::chat::model_metadata::{
+    chat_max_output_tokens_for_model, context_window_for_model,
+};
+use crate::chat::types::{
+    ChatMessage, CompactionBoundaryRecord, Conversation, ConversationContextSummary,
+};
+use crate::settings::Settings;
+use crate::state::AppState;
+use tauri::{AppHandle, Emitter};
 
 use super::loop_::{LoopEnv, RunState};
 use super::planning::call_chat_completion_message_streamed;
 use super::prepare::estimate_tokens;
 
 /// 近期窗口（tokens）：从尾部往前累积整条消息，~该预算内的为受保护近期窗口、原样保留，
-/// 其余旧段才进摘要。取代旧的固定 `KEEP_RECENT_RAW_MESSAGES` 条数（R7）。对齐 OpenCode
-/// `DEFAULT_KEEP_TOKENS = 8_000`。
-pub(crate) const RECENT_KEEP_TOKENS: usize = 8_000;
-/// 估算占用超过窗口的该比例才触发压缩。
-pub(crate) const COMPACT_TRIGGER_RATIO: f32 = 0.85;
+/// 其余旧段才进摘要。取代旧的固定 `KEEP_RECENT_RAW_MESSAGES` 条数（R7）。对齐 Codex
+/// `COMPACT_USER_MESSAGE_MAX_TOKENS ≈ 20_000` 量级（含 user+assistant 整条）。
+pub(crate) const RECENT_KEEP_TOKENS: usize = 20_000;
+/// 估算占用超过**裸**窗口的该比例才触发自动压缩。对齐 Codex `AUTO_COMPACT_RATIO = 0.90`
+/// （用裸窗口而非 safe_window 折扣，统一落盘 / L2 / 手动三处触发基准）。
+pub(crate) const AUTO_COMPACT_RATIO: f32 = 0.90;
+/// 摘要内容字符数下限（质量兜底）：低于此值视为烂摘要，拒绝覆盖旧 summary。
+/// 修复「收到 ✅」式过短摘要污染落盘 context_state.summary 的问题。
+const MIN_SUMMARY_CHARS: usize = 200;
+/// 链式重摘衰减告警阈值：累计压缩次数达到此值后，给用户一条 `context_state.warning`
+/// 提示多次压缩可能降低准确性（对齐 Codex 的 WarningEvent）。摘要是有损的，反复 summary-of-summary
+/// 会累积漂移/细节流失。
+const DECAY_WARNING_COMPRESSION_COUNT: usize = 3;
 /// 序列化喂给摘要模型时，单条 `[Tool result]` / `[Tool error]` 的字符上限（R5）。
 /// 仅截工具输出——用户/助手/推理/工具入参全文保留。对齐 OpenCode `TOOL_OUTPUT_MAX_CHARS = 2_000`。
 const TOOL_OUTPUT_SUMMARY_MAX_CHARS: usize = 2_000;
-/// 摘要调用允许产生的最大输出 token 数（R9）。对齐 OpenCode `SUMMARY_OUTPUT_TOKENS = 4_096`。
-const SUMMARY_OUTPUT_TOKENS: u32 = 4_096;
+/// Microcompact（R-1）降级旧工具结果时替换成的短标记。触发压缩时先把 old_segment 里的工具结果
+/// 换成此标记、重估预算；够了就跳过昂贵的 LLM 摘要（对齐 Claude Code 的 microcompact）。
+const MICROCOMPACT_TOOL_MARKER: &str = "[earlier tool result omitted to save context]";
+/// 摘要调用允许产生的最大输出 token 数（R9）。Claude Code 9 段 prompt 先吐 `<analysis>`
+/// 再吐 `<summary>`，真实大旧段时二者合计易超 4096 被截——提到 8192 以容纳完整产出
+/// （仍远小于窗口，安全）。`summary_output_tokens` 保持 `min()`：真实上限更小的模型不受影响。
+const SUMMARY_OUTPUT_TOKENS: u32 = 8_192;
 
 /// 摘要**输入** token 预算占窗口的比例（R1）。摘要请求自身**绝不能**超窗——否则就是
 /// "用超窗的请求去救超窗"，每次压缩都失败、降级返回原始视图，最终主调用仍超窗报错。
@@ -426,6 +447,59 @@ fn replace_with_summary(system_prefix: Vec<Value>, summary: &str, recent: Vec<Va
     out
 }
 
+/// Microcompact 增量降级（R-1）：触发压缩时、发起 LLM 摘要**之前**的轻量兜底。
+/// 把 old_segment（近期 `keep_tokens` 尾窗**之前**的段）里的 `role=="tool"` 结果内容换成
+/// `MICROCOMPACT_TOOL_MARKER`，组回完整视图并重估 token。
+///
+/// **仅当降级足以把整体压回 `budget` 内才返回 `Some(view)`（= 可跳过昂贵摘要）**；否则 `None`，
+/// 调用方落到既有 LLM 摘要路径。近期尾窗原样保留（近期工具结果不动）；不拆 tool_call↔tool 配对
+/// （复用 `select_recent_by_tokens` 的切分与配对保护）；已是标记的工具结果不再重复降级（幂等）。
+fn microcompact_send_view(
+    messages: &[Value],
+    keep_tokens: usize,
+    budget: usize,
+) -> Option<Vec<Value>> {
+    let (system_prefix, old_segment, recent) = select_recent_by_tokens(messages, keep_tokens);
+    if old_segment.is_empty() {
+        return None;
+    }
+    let mut degraded_any = false;
+    let degraded_old: Vec<Value> = old_segment
+        .into_iter()
+        .map(|message| {
+            if !is_tool_result(&message) {
+                return message;
+            }
+            let already_marker = message.get("content").and_then(Value::as_str)
+                == Some(MICROCOMPACT_TOOL_MARKER);
+            if already_marker {
+                return message;
+            }
+            let mut degraded = message;
+            if let Some(obj) = degraded.as_object_mut() {
+                obj.insert(
+                    "content".to_string(),
+                    Value::String(MICROCOMPACT_TOOL_MARKER.to_string()),
+                );
+                degraded_any = true;
+            }
+            degraded
+        })
+        .collect();
+    if !degraded_any {
+        // old_segment 里没有可降级的工具结果——microcompact 无能为力，交给摘要。
+        return None;
+    }
+    let mut view = system_prefix;
+    view.extend(degraded_old);
+    view.extend(recent);
+    if estimate_messages_tokens(&view) <= budget {
+        Some(view)
+    } else {
+        None
+    }
+}
+
 /// 构造摘要请求的 user 指令体（R5/R6/R8/R10）：序列化后的旧段对话历史 + Claude Code 9 段 prompt；
 /// 存在上一份摘要时把它作为 `<previous-summary>` 让模型合并更新；`focus`（手动 `/compact <focus>`）
 /// 透传为 `## Compact Instructions`。
@@ -479,45 +553,183 @@ fn summary_output_tokens(config_max: u32) -> u32 {
 /// `window * SUMMARY_INPUT_BUDGET_RATIO`（R1/R2），保证摘要调用绝不超窗（"用超窗请求救超窗"的根因）。
 /// `window == 0`（未知）时用 `SUMMARY_INPUT_BUDGET_FALLBACK_TOKENS` 兜底。
 /// `cancel`：进行中取消的 future——自动路径传 host 的取消等待，手动路径传 `None`（强制压缩不取消）。
+/// runtime 消息上的来源 UI 消息 id 标注（由 `commands.rs::build_chat_api_messages` 注入；
+/// 一条 UI 消息展开出的多条 runtime 消息共享同一 id）。发给 provider 前该字段会被
+/// `model_message_from_openai_message` 剥离，绝不进 wire 请求。
+pub(crate) const UI_MESSAGE_ID_KEY: &str = "_ui_message_id";
+
+fn ui_message_id_of(message: &Value) -> Option<&str> {
+    message.get(UI_MESSAGE_ID_KEY).and_then(Value::as_str)
+}
+
+/// 把 runtime 切分映射回 UI 消息：返回「其 runtime 展开**完全**落入旧段」的最后一条
+/// UI 消息 id。旧实现按 user|assistant 条数当 `ui_message_order` 下标推算，工具多轮
+/// 展开/多答组剔除/摘要锚点都会错位（错位的 boundary 落盘后会静默丢上下文）；现改为
+/// 读 `_ui_message_id` 标注精确映射。
+///
+/// 若旧段末尾的 UI 消息有展开条残留在近期窗口（横跨边界），回退到旧段内上一个不同的
+/// 完整 id。旧段无任何带标注消息（只有摘要锚点/系统注入）→ None（调用方不落盘
+/// boundary，运行时压缩视图照常生效）。
+pub(crate) fn source_until_message_id_for_split(
+    runtime_messages: &[Value],
+    keep_tokens: usize,
+) -> Option<String> {
+    let (_system_prefix, old_segment, recent) =
+        select_recent_by_tokens(runtime_messages, keep_tokens);
+    if old_segment.is_empty() {
+        return None;
+    }
+    // 近期窗口里出现过的 id：这些 UI 消息有展开条不在旧段里，不能作为 boundary。
+    let ids_in_recent: std::collections::HashSet<&str> =
+        recent.iter().filter_map(ui_message_id_of).collect();
+    old_segment
+        .iter()
+        .rev()
+        .filter_map(ui_message_id_of)
+        .find(|id| !ids_in_recent.contains(id))
+        .map(str::to_string)
+}
+
+/// 把单条 UI `ChatMessage` 估算成 token 数：content + reasoning + 工具入参全文 + 结果预览。
+/// 与 `estimate_message_tokens`（Value 版）口径一致，供落盘路径的 token 切点复用。
+fn estimate_chat_message_tokens(message: &ChatMessage) -> usize {
+    let mut total = estimate_tokens(&message.content);
+    if let Some(reasoning) = message.reasoning.as_deref() {
+        total += estimate_tokens(reasoning);
+    }
+    for tool in &message.tool_calls {
+        total += estimate_tokens(&tool.name);
+        total += estimate_tokens(&tool.arguments);
+        if let Some(preview) = tool.result_preview.as_deref() {
+            total += estimate_tokens(preview);
+        }
+        if let Some(err) = tool.error.as_deref() {
+            total += estimate_tokens(err);
+        }
+    }
+    total + 4
+}
+
+/// 落盘路径的 token 切点：在 `[summary_start, len)` 区间内，从尾部往前累积整条
+/// `ChatMessage` 的 `estimate_chat_message_tokens`，直到 ~`keep_tokens` 预算用尽。
+/// 返回 old_segment 末尾下标（含）；越界或无旧段返回 None。
+///
+/// 与 L2 `select_recent_by_tokens` 同语义：不切断单条消息；越预算的那条整体归入旧段。
+pub(crate) fn token_split_chat_messages(
+    messages: &[ChatMessage],
+    summary_start: usize,
+    keep_tokens: usize,
+) -> Option<usize> {
+    let len = messages.len();
+    if summary_start >= len {
+        return None;
+    }
+    let mut total = 0usize;
+    let mut split = len; // recent 起始（含）；split-1 = old_segment 末尾
+    let mut idx = len;
+    while idx > summary_start {
+        idx -= 1;
+        let next = total + estimate_chat_message_tokens(&messages[idx]);
+        if next > keep_tokens && idx + 1 < len {
+            split = idx + 1;
+            break;
+        }
+        total = next;
+        split = idx;
+    }
+    if split <= summary_start {
+        // 整段都进了近期窗口——没有可摘要旧段。
+        return None;
+    }
+    Some(split - 1)
+}
+
+/// 把 UI `ChatMessage` 序列化成喂给摘要模型的角色标注文本。对齐 L2 `serialize_message`：
+/// user/assistant/reasoning/工具入参**全文保留**；`result_preview` / `error` 截到
+/// `TOOL_OUTPUT_SUMMARY_MAX_CHARS`（尾部加 `[truncated]`）。这是修复「收到 ✅」式烂摘要的根因——
+/// 旧落盘路径只发 UI 文本 + 500 字工具预览，工具入参完全丢失；现在与 L2 等价。
+fn serialize_chat_message_for_summary(message: &ChatMessage) -> String {
+    let role = if message.role == "assistant" {
+        "assistant"
+    } else {
+        "user"
+    };
+    let mut lines: Vec<String> = Vec::new();
+
+    let text = message.content.trim();
+    if !text.is_empty() {
+        lines.push(format!("[{}]: {text}", capitalize_role(role)));
+    }
+    if let Some(reasoning) = message.reasoning.as_deref() {
+        if !reasoning.trim().is_empty() {
+            lines.push(format!("[Assistant reasoning]: {reasoning}"));
+        }
+    }
+    for tool in &message.tool_calls {
+        // 工具入参全文保留（不截断）——让摘要模型能看到具体读了哪个文件 / 跑了什么命令。
+        lines.push(format!(
+            "[Assistant tool call]: {}({})",
+            tool.name, tool.arguments
+        ));
+        let output = tool
+            .result_preview
+            .clone()
+            .or_else(|| tool.error.clone())
+            .unwrap_or_default();
+        if !output.trim().is_empty() {
+            let clipped = clip_tool_output(&output);
+            if tool.error.is_some() {
+                lines.push(format!("[Tool error]: {clipped}"));
+            } else {
+                lines.push(format!("[Tool result]: {clipped}"));
+            }
+        }
+    }
+
+    lines.join("\n")
+}
+
+fn capitalize_role(role: &str) -> &'static str {
+    match role {
+        "assistant" => "Assistant",
+        "user" => "User",
+        _ => "User",
+    }
+}
+
+/// 把旧段 `ChatMessage` 序列化成角色标注文本（每条一段，空行分隔）。
+fn serialize_chat_messages_for_summary(messages: &[ChatMessage]) -> String {
+    messages
+        .iter()
+        .map(serialize_chat_message_for_summary)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n\n")
+}
+
+/// 统一摘要调用核心（落盘 / L2 / 手动三处共用）：
+/// 1. 把序列化后的旧段头尾裁剪到摘要**输入**预算（`window * SUMMARY_INPUT_BUDGET_RATIO`），
+///    保证摘要请求自身绝不超窗（R1/R2）；`window == 0` 用兜底常量。
+/// 2. 拼 Claude 9 段 prompt + anchored `<previous-summary>` + `focus`。
+/// 3. **流式**调用压缩模型（`call_chat_completion_message_streamed`），抽 `<summary>` 正文。
+/// 4. 质量兜底：空 / 过短 / 相对旧 summary 显著劣化 → 返回 None，**不覆盖**旧 summary。
+///
+/// 返回 summary 文本（已 trim）；失败 / 取消 / 质量不达标返回 None（调用方据此降级）。
 #[allow(clippy::too_many_arguments)]
-async fn summarize_history(
-    state: &crate::state::AppState,
+async fn compact_with_summary_model(
+    state: &AppState,
     provider: &crate::settings::ModelProvider,
     model: &str,
-    messages: &[Value],
-    keep_tokens: usize,
+    serialized_old_segment: &str,
+    previous_summary: Option<&str>,
+    focus: Option<&str>,
     window: usize,
     config_max_output_tokens: u32,
     retry_attempts: usize,
     conversation_id: &str,
     message_id: &str,
-    focus: Option<&str>,
     cancel: Option<std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + '_>>>,
-) -> Option<Vec<Value>> {
-    let (system_prefix, old_segment, recent) = select_recent_by_tokens(messages, keep_tokens);
-    if old_segment.is_empty() {
-        // 没有可摘要的旧段（全在受保护近期窗口里）——压缩无能为力。
-        return None;
-    }
-
-    // anchored 链式摘要（R8）：若旧段含上一份摘要，作为 previous_summary 合并更新，且不重复进 head。
-    let previous_summary = extract_previous_summary(&old_segment);
-    let head: Vec<Value> = if previous_summary.is_some() {
-        old_segment
-            .iter()
-            .filter(|m| {
-                !(m.get("role").and_then(Value::as_str) == Some("user")
-                    && m.get("content")
-                        .and_then(Value::as_str)
-                        .map(|c| c.trim_start().starts_with(SUMMARY_MARKER_PREFIX))
-                        .unwrap_or(false))
-            })
-            .cloned()
-            .collect()
-    } else {
-        old_segment.clone()
-    };
-
+) -> Option<String> {
     // 摘要**输入**预算（R1）：window * ratio，未知窗口用兜底常量。
     let summary_input_budget = if window == 0 {
         SUMMARY_INPUT_BUDGET_FALLBACK_TOKENS
@@ -528,28 +740,22 @@ async fn summarize_history(
     // 预留预算（R4：previous_summary 不被裁掉），剩余给序列化旧段 head。
     let fixed_overhead = estimate_tokens(SUMMARY_SYSTEM_PROMPT)
         + estimate_tokens(CLAUDE_CODE_SUMMARY_PROMPT)
-        + previous_summary
-            .as_deref()
-            .map(estimate_tokens)
-            .unwrap_or(0)
+        + previous_summary.map(estimate_tokens).unwrap_or(0)
         + focus.map(estimate_tokens).unwrap_or(0);
     // head 预算 = 总输入预算 - 固定开销；至少保留一点，避免开销吃光预算时退化为 0。
     let head_budget = summary_input_budget
         .saturating_sub(fixed_overhead)
         .max(summary_input_budget / 4);
 
-    // 序列化旧段，超 head 预算时头尾裁剪（R2）；未超则原样（R5，零变化）。
-    let serialized = clip_serialized_to_budget(&serialize_for_summary(&head), head_budget);
-    let user_content =
-        build_summary_user_content(&serialized, previous_summary.as_deref(), focus);
+    // 序列化旧段，超 head 预算时头尾裁剪（R2）；未超则原样（R5）。
+    let serialized = clip_serialized_to_budget(serialized_old_segment, head_budget);
+    let user_content = build_summary_user_content(&serialized, previous_summary, focus);
     let summary_request = vec![
         json!({ "role": "system", "content": SUMMARY_SYSTEM_PROMPT }),
         json!({ "role": "user", "content": user_content }),
     ];
 
-    // 摘要调用走**流式**路径（`call_chat_completion_message_streamed`）而非非流式 `generate`：
-    // 部分 provider（如 openai_responses 代理）只可靠服务流式，非流式摘要调用会失败、导致压缩永远
-    // 摘不动；agent 的 planning/synthesis 已证明流式可用。流式被普遍支持，对支持非流式的 provider 无退化。
+    // 流式调用：部分 provider（如 openai_responses 代理）只可靠服务流式，非流式会失败。
     let call = call_chat_completion_message_streamed(
         state,
         provider,
@@ -577,20 +783,156 @@ async fn summarize_history(
         None => call.await,
     };
 
-    match summary {
-        Ok(message) => {
-            let raw = super::stop::assistant_content_from_api_message(&message);
-            let text = extract_summary_text(&raw);
-            if text.trim().is_empty() {
-                eprintln!("Chat context compaction returned empty summary; keeping raw view");
-                return None;
-            }
-            Some(replace_with_summary(system_prefix, text.trim(), recent))
-        }
+    let raw = match summary {
+        Ok(message) => super::stop::assistant_content_from_api_message(&message),
         Err(err) => {
             eprintln!("Chat context compaction failed: {err}; keeping raw view");
+            return None;
+        }
+    };
+    let text = extract_summary_text(&raw);
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        eprintln!("Chat context compaction returned empty summary; keeping raw view");
+        return None;
+    }
+    // 质量兜底（修复「收到 ✅」）：过短 / 相对旧 summary 显著劣化 → 拒绝覆盖。
+    match summary_quality_guard(trimmed, previous_summary) {
+        SummaryQuality::Ok => Some(trimmed.to_string()),
+        SummaryQuality::Truncated => {
+            eprintln!(
+                "Chat context compaction summary truncated (<analysis> without <summary>); rejecting"
+            );
             None
         }
+        SummaryQuality::TooShort => {
+            eprintln!(
+                "Chat context compaction summary too short ({} chars < {MIN_SUMMARY_CHARS}); rejecting",
+                trimmed.chars().count()
+            );
+            None
+        }
+        SummaryQuality::Degraded => {
+            eprintln!(
+                "Chat context compaction summary degraded ({} < 30% of previous {}); keeping previous",
+                trimmed.chars().count(),
+                previous_summary.map(|p| p.trim().chars().count()).unwrap_or(0)
+            );
+            None
+        }
+    }
+}
+
+/// 摘要质量判定结果（`compact_with_summary_model` 的质量兜底）。
+#[derive(Debug, PartialEq, Eq)]
+enum SummaryQuality {
+    Ok,
+    TooShort,
+    Truncated,
+    Degraded,
+}
+
+/// 纯函数质量兜底：
+/// - 截断（含 `<analysis>` 却无 `<summary>`）：Claude 9 段格式先吐 `<analysis>` 再吐 `<summary>`，
+///   流被截在两者之间时 `extract_summary_text` 回退返回整段 analysis 前言，可能 >200 字骗过长度闸 →
+///   拒绝（`Truncated`）。非 9 段格式的纯摘要不含 `<analysis>`，不受影响。
+/// - 过短（< `MIN_SUMMARY_CHARS`）→ `TooShort`。
+/// - 相对旧 summary 显著劣化（< 旧 summary 长度 30%，且旧 summary 本身达标）→ `Degraded`。
+///
+/// 抽成纯函数便于单元测试「截断拒绝」「过短拒绝」「劣化拒绝」「链式合并达标通过」等用例。
+fn summary_quality_guard(trimmed: &str, previous_summary: Option<&str>) -> SummaryQuality {
+    if trimmed.contains("<analysis>") && !trimmed.contains("<summary>") {
+        return SummaryQuality::Truncated;
+    }
+    let trimmed_len = trimmed.chars().count();
+    if trimmed_len < MIN_SUMMARY_CHARS {
+        return SummaryQuality::TooShort;
+    }
+    if let Some(previous) = previous_summary {
+        let prev_len = previous.trim().chars().count();
+        // 仅当旧 summary 本身达标时才用「30%」门槛——避免用一份烂旧 summary 卡死新摘要。
+        if prev_len >= MIN_SUMMARY_CHARS && trimmed_len * 10 < prev_len * 3 {
+            return SummaryQuality::Degraded;
+        }
+    }
+    SummaryQuality::Ok
+}
+
+/// 链式重摘衰减告警（R-4）：累计压缩次数达 `DECAY_WARNING_COMPRESSION_COUNT` 时返回一条英文
+/// `context_state.warning`（沿用现有告警都是后端原始英文串的惯例），否则 None。压缩成功后由
+/// 两条落盘路径（`compact_conversation` + L2 写回）调用，替代无条件的 `warning = None`。
+pub(crate) fn decay_warning_for(compression_count: usize) -> Option<String> {
+    if compression_count >= DECAY_WARNING_COMPRESSION_COUNT {
+        Some(format!(
+            "This conversation has been compressed {compression_count} times; repeated compression can reduce accuracy. Consider starting a new conversation."
+        ))
+    } else {
+        None
+    }
+}
+
+async fn summarize_history(
+    state: &crate::state::AppState,
+    provider: &crate::settings::ModelProvider,
+    model: &str,
+    messages: &[Value],
+    keep_tokens: usize,
+    window: usize,
+    config_max_output_tokens: u32,
+    retry_attempts: usize,
+    conversation_id: &str,
+    message_id: &str,
+    focus: Option<&str>,
+    cancel: Option<std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + '_>>>,
+) -> Option<(Vec<Value>, String)> {
+    let (system_prefix, old_segment, recent) = select_recent_by_tokens(messages, keep_tokens);
+    if old_segment.is_empty() {
+        // 没有可摘要的旧段（全在受保护近期窗口里）——压缩无能为力。
+        return None;
+    }
+
+    // anchored 链式摘要（R8）：若旧段含上一份摘要，作为 previous_summary 合并更新，且不重复进 head。
+    let previous_summary = extract_previous_summary(&old_segment);
+    let head: Vec<Value> = if previous_summary.is_some() {
+        old_segment
+            .iter()
+            .filter(|m| {
+                !(m.get("role").and_then(Value::as_str) == Some("user")
+                    && m.get("content")
+                        .and_then(Value::as_str)
+                        .map(|c| c.trim_start().starts_with(SUMMARY_MARKER_PREFIX))
+                        .unwrap_or(false))
+            })
+            .cloned()
+            .collect()
+    } else {
+        old_segment.clone()
+    };
+
+    // 序列化旧段 head（未裁剪），统一交由 `compact_with_summary_model` 做预算封顶 + 流式调用 + 质量兜底。
+    let serialized_head = serialize_for_summary(&head);
+    let summary_text = compact_with_summary_model(
+        state,
+        provider,
+        model,
+        &serialized_head,
+        previous_summary.as_deref(),
+        focus,
+        window,
+        config_max_output_tokens,
+        retry_attempts,
+        conversation_id,
+        message_id,
+        cancel,
+    )
+    .await;
+
+    match summary_text {
+        Some(text) => Some((
+            replace_with_summary(system_prefix, &text, recent),
+            text,
+        )),
+        None => None,
     }
 }
 
@@ -604,14 +946,13 @@ async fn summarize_history(
 /// `generated_api_messages`（持久化镜像）在任何分支都不被触碰。
 pub(crate) async fn maybe_compact_send_view(env: &LoopEnv<'_>, state: &mut RunState) -> Vec<Value> {
     let config = env.config;
-    // Gap 3: 用 safe_window（裸窗口 × SAFE_WINDOW_RATIO）作为所有压缩预算的基准——模型窗口
-    // 元数据偏乐观，安全折扣给元数据偏差留余量。触发预算、摘要输入封顶都基于同一个 safe_window。
+    // 统一基准：裸窗口 × AUTO_COMPACT_RATIO（0.90），对齐 Codex。去掉 safe_window 折扣——
+    // 触发 / 摘要输入封顶都用同一个裸窗口，三处触发（落盘 / L2 / 手动）口径一致。
     let window = context_window_for_model(Some(&config.provider), &config.model).0;
-    let safe_window = safe_context_window_for_model(Some(&config.provider), &config.model);
-    if safe_window == 0 {
+    if window == 0 {
         return state.runtime_messages.clone();
     }
-    let budget = (safe_window as f32 * COMPACT_TRIGGER_RATIO) as usize;
+    let budget = (window as f32 * AUTO_COMPACT_RATIO) as usize;
     let estimated = estimate_messages_tokens(&state.runtime_messages);
     if estimated <= budget {
         // 未超预算：本步无需压缩。重置 anti-thrashing 计数（Gap 2）——上下文已回到预算内。
@@ -620,23 +961,56 @@ pub(crate) async fn maybe_compact_send_view(env: &LoopEnv<'_>, state: &mut RunSt
     }
 
     eprintln!(
-        "Chat context compaction: est {estimated} tokens over budget {budget} (safe_window {safe_window}, window {window}); summarizing old history"
+        "Chat context compaction: est {estimated} tokens over budget {budget} (window {window}); summarizing old history"
     );
 
+    env.host.emit_compaction_status(
+        &config.conversation_id,
+        "started",
+        Some("agent_loop"),
+        None,
+    );
+
+    // 受保护近期窗口默认 20k token，但不得超过压缩预算——否则小窗口模型上整段历史会被近期窗口
+    // 吞掉，没有可摘要的旧段，压缩永远救不了超窗。
+    let keep_tokens = RECENT_KEEP_TOKENS.min(budget);
+
+    // Microcompact（R-1）：先尝试把旧段工具结果降级成标记，够了就跳过昂贵的 LLM 摘要
+    // （对齐 Claude Code "能拖就拖、便宜优先"）。仅当降级足以回到预算内才走此分支。
+    if let Some(degraded) = microcompact_send_view(&state.runtime_messages, keep_tokens, budget) {
+        let after = estimate_messages_tokens(&degraded);
+        eprintln!("Chat context microcompaction: est {estimated} -> {after} tokens (skipped summary)");
+        state.runtime_messages = degraded.clone();
+        state.compacted = true;
+        state.compaction_unresolved_rounds = 0;
+        env.host.emit_compaction_status(
+            &config.conversation_id,
+            "microcompacted",
+            Some("agent_loop"),
+            None,
+        );
+        return degraded;
+    }
+
+    // 降级不足以回到预算内——走重型 LLM 摘要。取消 future 只在这条路径需要。
     let cancel = env
         .host
         .wait_for_generation_inactive(&config.conversation_id, config.generation);
-    // 受保护近期窗口默认 8000 token，但不得超过压缩预算——否则窗口比 8000 还小的模型上，
-    // 整段历史会被近期窗口吞掉，没有可摘要的旧段，压缩永远救不了超窗。
-    let keep_tokens = RECENT_KEEP_TOKENS.min(budget);
+    let runtime_before_compact = state.runtime_messages.clone();
     let compacted = summarize_history(
         config.state,
         &config.provider,
         &config.model,
         &state.runtime_messages,
         keep_tokens,
-        safe_window,
-        config.max_output_tokens,
+        window,
+        // 用模型真实 max output（而非 run 的 config.max_output_tokens），与持久化路径
+        // compact_conversation 口径统一——否则 run 配的小输出会把摘要卡短、9 段产出被截。
+        chat_max_output_tokens_for_model(
+            Some(&config.provider),
+            &config.model,
+            config.max_output_tokens,
+        ),
         config.retry_attempts,
         &config.conversation_id,
         &config.message_id,
@@ -646,30 +1020,82 @@ pub(crate) async fn maybe_compact_send_view(env: &LoopEnv<'_>, state: &mut RunSt
     .await;
 
     match compacted {
-        Some(compacted) => {
+        Some((compacted, summary_text)) => {
             let after = estimate_messages_tokens(&compacted);
             eprintln!("Chat context compaction: est {estimated} -> {after} tokens");
-            // 摘要写回工作副本：后续轮次基于压缩后的历史继续，避免每轮重复摘要。
-            // 置 compacted 标志：finalize 据此把压缩后的完整历史回传给跨轮调用方
-            // （交互模式据 compacted_history 替换其累积历史，让压缩真正跨轮生效）。
             state.runtime_messages = compacted.clone();
             state.compacted = true;
-            // Gap 2: 压缩确实把上下文压到了预算内吗？是 → anti-thrashing 计数清零；
-            // 否（摘要成功但仍超预算，例如近期窗口本身已超）→ 计为一次未解决，防止后续轮空转。
             if after <= budget {
                 state.compaction_unresolved_rounds = 0;
             } else {
                 state.compaction_unresolved_rounds =
                     state.compaction_unresolved_rounds.saturating_add(1);
             }
+            if let Some(source_until_message_id) =
+                source_until_message_id_for_split(&runtime_before_compact, keep_tokens)
+            {
+                let created_at = chrono::Local::now().timestamp();
+                let summary_record = ConversationContextSummary {
+                    id: format!("ctxsum_{}", uuid::Uuid::new_v4()),
+                    content: summary_text.clone(),
+                    source_message_ids: Vec::new(),
+                    source_until_message_id: source_until_message_id.clone(),
+                    token_estimate_before: estimated,
+                    token_estimate_after: estimate_tokens(&summary_text),
+                    created_at,
+                    provider_id: config.provider.id.clone(),
+                    model: config.model.clone(),
+                    stale: false,
+                };
+                let boundary = CompactionBoundaryRecord {
+                    id: format!("ctxbd_{}", uuid::Uuid::new_v4()),
+                    source_until_message_id,
+                    // 时间线锚点：触发压缩时 runtime 里最后一条可映射的 UI 消息（run 进行中
+                    // assistant 尚未落库，即最后一条 user）——divider 标记压缩发生的时刻。
+                    display_after_message_id: runtime_before_compact
+                        .iter()
+                        .rev()
+                        .find_map(|m| m.get(UI_MESSAGE_ID_KEY).and_then(Value::as_str))
+                        .map(str::to_string),
+                    token_estimate_before: estimated,
+                    token_estimate_after: after,
+                    summary_content: summary_text,
+                    trigger: "agent_loop".to_string(),
+                    created_at,
+                };
+                env.host.emit_compaction_status(
+                    &config.conversation_id,
+                    "completed",
+                    Some("agent_loop"),
+                    Some(&boundary),
+                );
+                state.pending_compaction_boundary = Some(boundary);
+                state.pending_compaction_summary = Some(summary_record);
+            } else {
+                // 压缩视图已生效但无法可靠映射回 UI 消息（旧段只有摘要锚点/系统注入）——
+                // 不落盘 boundary，但必须发终止事件让前端"压缩中"归位。
+                env.host.emit_compaction_status(
+                    &config.conversation_id,
+                    "completed",
+                    Some("agent_loop"),
+                    None,
+                );
+            }
             compacted
         }
         None => {
-            // Gap 2: 需要压缩（超预算）但压缩没能减小上下文（摘要调用失败/为空/无旧段）——
+            // Gap 2: 需要压缩（超预算）但压缩没能减小上下文（摘要调用失败/为空/过短/无旧段）——
             // 计为一次「未解决」。连续达到 COMPACTION_THRASH_LIMIT 次时，规划循环会据此优雅收尾，
             // 而不是反复触发压缩并失败 6+ 次后才报错。
             state.compaction_unresolved_rounds =
                 state.compaction_unresolved_rounds.saturating_add(1);
+            // started 已发——失败也必须发终止事件，否则前端"压缩中"状态永久卡死。
+            env.host.emit_compaction_status(
+                &config.conversation_id,
+                "failed",
+                Some("agent_loop"),
+                None,
+            );
             state.runtime_messages.clone()
         }
     }
@@ -691,17 +1117,14 @@ pub(crate) async fn force_compact(
     message_id: &str,
     focus: Option<&str>,
 ) -> Option<Vec<Value>> {
-    // 手动路径自行计算窗口（自动路径已有 window；此处与触发判定同源的元数据查询）。
-    // Gap 3：摘要输入封顶基于 safe_window（裸窗口 × SAFE_WINDOW_RATIO），与自动路径同源，
-    // 保证两条路径的摘要请求预算一致。safe_window == 0（未知模型）时 summarize_history 用兜底常量。
-    let safe_window = safe_context_window_for_model(Some(provider), model);
+    let window = context_window_for_model(Some(provider), model).0;
     summarize_history(
         state,
         provider,
         model,
         messages,
         RECENT_KEEP_TOKENS,
-        safe_window,
+        window,
         config_max_output_tokens,
         retry_attempts,
         conversation_id,
@@ -710,11 +1133,571 @@ pub(crate) async fn force_compact(
         None,
     )
     .await
+    .map(|(messages, _summary)| messages)
+}
+
+/// 手动压缩的保底切分（R4）：token 尾窗覆盖全部消息（无旧段）时，`/compact` 不该直接报
+/// "没有足够的旧消息可以压缩"——旧行为（≤v2.7 落盘路径）小对话也可压。仅 `trigger == "manual"`
+/// 且 `summary_start..len` 区间 UI 消息数 > 4 时生效：保留最后一条 user 及其后消息为近期窗口，
+/// 其余进 old_segment；返回 old_segment 末尾下标。区间太短或末尾无可切点 → None（保持原报错）。
+/// auto / agent_loop 触发条件不受影响（它们要超 90% 窗口才会走到这里）。
+fn manual_fallback_split(
+    messages: &[ChatMessage],
+    summary_start: usize,
+    trigger: &str,
+) -> Option<usize> {
+    if trigger != "manual" {
+        return None;
+    }
+    let len = messages.len();
+    if len.saturating_sub(summary_start) <= 4 {
+        return None;
+    }
+    let last_user = messages[summary_start..]
+        .iter()
+        .rposition(|m| m.role == "user")
+        .map(|offset| summary_start + offset)?;
+    // 最后一条 user 之前必须还有可摘要内容。
+    if last_user <= summary_start {
+        return None;
+    }
+    Some(last_user - 1)
+}
+
+/// 落盘压缩统一入口（手动 `chat_compress_context` / 自动发送前 / L2 run 结束三处共用）。
+/// 按 token 尾窗切 old_segment / recent_tail，序列化 old_segment（含完整工具转录，工具结果截 2000 字），
+/// 调统一核心 `compact_with_summary_model`（Claude 9 段 prompt + 流式 + 质量兜底），写回
+/// `context_state.summary` + `compaction_boundaries` + `compression_count`，发 `chat-compaction` 事件。
+///
+/// `trigger`: `"manual"` | `"auto"`。`focus`：手动 `/compact <focus>` 聚焦指令（自动为 None）。
+/// 失败 / 无可摘要旧段 / 摘要质量不达标 → `Err`，**不覆盖**旧 summary。
+///
+/// 事件配对保证：入口发 `started`，任何 `Err` 出口发 `failed`，成功出口发 `completed`
+/// （由 `compact_conversation_inner` 发）。前端靠终止事件把"压缩中"状态归位——
+/// 缺失终止事件会让 UI 永久卡在压缩中。
+pub(crate) async fn compact_conversation(
+    app: &AppHandle,
+    state: &AppState,
+    settings: &Settings,
+    conversation: &mut Conversation,
+    trigger: &str,
+    focus: Option<&str>,
+) -> Result<(), String> {
+    emit_compaction_event(app, &conversation.id, "started", Some(trigger), None);
+    let result = compact_conversation_inner(app, state, settings, conversation, trigger, focus).await;
+    if result.is_err() {
+        emit_compaction_event(app, &conversation.id, "failed", Some(trigger), None);
+    }
+    result
+}
+
+async fn compact_conversation_inner(
+    app: &AppHandle,
+    state: &AppState,
+    settings: &Settings,
+    conversation: &mut Conversation,
+    trigger: &str,
+    focus: Option<&str>,
+) -> Result<(), String> {
+    // 上一份落盘 summary 之后才进 old_segment；其之前已被摘要覆盖，不重复进。
+    let summary_start = conversation
+        .context_state
+        .summary
+        .as_ref()
+        .filter(|s| !s.stale)
+        .and_then(|s| {
+            conversation
+                .messages
+                .iter()
+                .position(|m| m.id == s.source_until_message_id)
+        })
+        .map(|idx| idx + 1)
+        .unwrap_or(0);
+
+    let split = token_split_chat_messages(&conversation.messages, summary_start, RECENT_KEEP_TOKENS)
+        .or_else(|| manual_fallback_split(&conversation.messages, summary_start, trigger))
+        .ok_or_else(|| "没有足够的旧消息可以压缩".to_string())?;
+    let old_segment = &conversation.messages[summary_start..=split];
+    if old_segment.is_empty() {
+        return Err("没有足够的旧消息可以压缩".to_string());
+    }
+    let source_until_message_id = old_segment
+        .last()
+        .map(|m| m.id.clone())
+        .ok_or_else(|| "没有足够的旧消息可以压缩".to_string())?;
+
+    // 摘要模型：mixer 选 auto 时跟随当前会话主模型（effective_compression_model_for_session）。
+    let (provider_id, model) =
+        settings.effective_compression_model_for_session(Some(session_model_for(conversation)));
+    let provider = settings
+        .get_provider(&provider_id)
+        .ok_or_else(|| "Compression provider not found".to_string())?
+        .clone();
+    if provider.api_keys.is_empty() {
+        return Err(format_chat_missing_api_key_error(&provider.name));
+    }
+    if model.trim().is_empty() {
+        return Err(chat_missing_model_error());
+    }
+    let retry_attempts = if settings.retry_enabled {
+        settings.retry_attempts as usize
+    } else {
+        1
+    };
+    let window = context_window_for_model(Some(&provider), &model).0;
+
+    let previous_summary = conversation
+        .context_state
+        .summary
+        .as_ref()
+        .filter(|s| !s.stale)
+        .map(|s| s.content.clone());
+    let serialized_head = serialize_chat_messages_for_summary(old_segment);
+    let message_id = source_until_message_id.clone();
+    let summary_text = compact_with_summary_model(
+        state,
+        &provider,
+        &model,
+        &serialized_head,
+        previous_summary.as_deref(),
+        focus,
+        window,
+        chat_max_output_tokens_for_model(
+            Some(&provider),
+            &model,
+            settings.chat.max_output_tokens,
+        ),
+        retry_attempts,
+        &conversation.id,
+        &message_id,
+        None,
+    )
+    .await
+    .ok_or_else(|| "Compression model returned an overly short or empty summary".to_string())?;
+
+    let created_at = chrono::Local::now().timestamp();
+    let token_estimate_before = previous_summary
+        .as_deref()
+        .map(estimate_tokens)
+        .unwrap_or(0)
+        + estimate_tokens(&serialized_head);
+    let token_estimate_after = estimate_tokens(&summary_text);
+
+    let mut source_message_ids = conversation
+        .context_state
+        .summary
+        .as_ref()
+        .filter(|s| !s.stale)
+        .map(|s| s.source_message_ids.clone())
+        .unwrap_or_default();
+    source_message_ids.extend(old_segment.iter().map(|m| m.id.clone()));
+    let compressed_message_count = source_message_ids.len();
+
+    conversation.context_state.summary = Some(ConversationContextSummary {
+        id: format!("ctxsum_{}", uuid::Uuid::new_v4()),
+        content: summary_text.clone(),
+        source_message_ids,
+        source_until_message_id: source_until_message_id.clone(),
+        token_estimate_before,
+        token_estimate_after,
+        created_at,
+        provider_id,
+        model,
+        stale: false,
+    });
+    conversation.context_state.last_compressed_at = Some(created_at);
+    conversation.context_state.compressed_message_count = compressed_message_count;
+    conversation.context_state.compression_count = conversation
+        .context_state
+        .compression_count
+        .saturating_add(1);
+
+    let boundary_record = CompactionBoundaryRecord {
+        id: format!("ctxbd_{}", uuid::Uuid::new_v4()),
+        source_until_message_id,
+        // 时间线锚点：divider 显示在「触发压缩时的最后一条消息」之后——标记压缩发生的
+        // 时刻，而非 token 切分落点（切分落点在长对话里远高于触发点，观感是"横线跑上面去"）。
+        display_after_message_id: conversation.messages.last().map(|m| m.id.clone()),
+        token_estimate_before,
+        token_estimate_after,
+        summary_content: summary_text,
+        trigger: trigger.to_string(),
+        created_at,
+    };
+    conversation
+        .context_state
+        .compaction_boundaries
+        .push(boundary_record.clone());
+    // R-4：多次链式压缩后提示准确性下降；未达阈值则清空告警（清掉上一轮"压缩失败但已发送"等旧警告）。
+    conversation.context_state.warning =
+        decay_warning_for(conversation.context_state.compression_count);
+
+    emit_compaction_event(
+        app,
+        &conversation.id,
+        "completed",
+        Some(trigger),
+        Some(&boundary_record),
+    );
+    Ok(())
+}
+
+/// 发 `chat-compaction` 事件（与 commands.rs 的 `emit_chat_compaction_state` 同 payload）。
+fn emit_compaction_event(
+    app: &AppHandle,
+    conversation_id: &str,
+    phase: &str,
+    trigger: Option<&str>,
+    boundary: Option<&CompactionBoundaryRecord>,
+) {
+    let _ = app.emit(
+        "chat-compaction",
+        serde_json::json!({
+            "conversationId": conversation_id,
+            "phase": phase,
+            "trigger": trigger,
+            "boundary": boundary,
+        }),
+    );
+}
+
+/// 由当前会话解析出主模型（供 compression/title 等 auxiliary 任务在 mixer 选 auto 时跟随）。
+fn session_model_for(conversation: &Conversation) -> crate::settings::SessionModel<'_> {
+    crate::settings::SessionModel {
+        provider_id: &conversation.provider_id,
+        model: &conversation.model,
+    }
+}
+
+/// 落盘路径「是否有可压缩旧段」判定（供 `should_auto_compress_context` 用）：
+/// 在上一份未过期 summary 之后、按 `RECENT_KEEP_TOKENS` 尾窗切分后，是否还存在 old_segment。
+pub(crate) fn has_compressible_old_segment(conversation: &Conversation) -> bool {
+    let summary_start = conversation
+        .context_state
+        .summary
+        .as_ref()
+        .filter(|s| !s.stale)
+        .and_then(|s| {
+            conversation
+                .messages
+                .iter()
+                .position(|m| m.id == s.source_until_message_id)
+        })
+        .map(|idx| idx + 1)
+        .unwrap_or(0);
+    token_split_chat_messages(&conversation.messages, summary_start, RECENT_KEEP_TOKENS).is_some()
+}
+
+fn format_chat_missing_api_key_error(provider_name: &str) -> String {
+    format!(
+        "Provider 「{provider_name}」未配置 API Key，无法执行上下文压缩。请在设置中添加该 Provider 的密钥。"
+    )
+}
+
+fn chat_missing_model_error() -> String {
+    "未选择压缩模型，请在设置中指定或保持 auto 跟随当前会话模型。".to_string()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::chat::types::{ToolCallRecord, ToolCallStatus};
+
+    fn chat_msg(id: &str, role: &str, content: &str) -> ChatMessage {
+        ChatMessage {
+            id: id.to_string(),
+            role: role.to_string(),
+            content: content.to_string(),
+            attachments: Vec::new(),
+            reasoning: None,
+            artifacts: Vec::new(),
+            tool_calls: Vec::new(),
+            segments: Vec::new(),
+            agent_plan: None,
+            api_messages: Vec::new(),
+            model_messages: Vec::new(),
+            active_skill_id: None,
+            run_entry: None,
+            stream_outcome: None,
+            usage: None,
+            group_id: None,
+            provider_id: None,
+            model: None,
+            timestamp: 0,
+        }
+    }
+
+    #[test]
+    fn estimate_chat_message_tokens_counts_content_and_tools() {
+        let mut m = chat_msg("m1", "assistant", &"abcd".repeat(100));
+        m.reasoning = Some("r".repeat(40));
+        m.tool_calls.push(ToolCallRecord {
+            id: "c1".to_string(),
+            name: "read".to_string(),
+            source: String::new(),
+            server_id: None,
+            arguments: "{\"path\":\"/tmp/x\"}".to_string(),
+            status: ToolCallStatus::Success,
+            result_preview: Some("p".repeat(80)),
+            error: None,
+            duration_ms: None,
+            started_at: None,
+            completed_at: None,
+            round: 0,
+            sensitive: false,
+            artifacts: Vec::new(),
+            trace_id: None,
+            span_id: None,
+            structured_content: None,
+        });
+        let tokens = estimate_chat_message_tokens(&m);
+        // content 100/4=25, reasoning 40/4=10, tool name+args+preview ~ 25+, +1
+        assert!(tokens > 60);
+    }
+
+    #[test]
+    fn token_split_chat_messages_keeps_recent_tail_in_budget() {
+        // 每条 5004 tokens（20000 chars/4 + 4 每条开销）；3 条总 15012 ≤ 20000 → 全在尾窗 → None。
+        let small: Vec<ChatMessage> = (0..3)
+            .map(|i| chat_msg(&format!("s{i}"), "user", &"a".repeat(20_000)))
+            .collect();
+        assert!(token_split_chat_messages(&small, 0, RECENT_KEEP_TOKENS).is_none());
+
+        // 5 条各 5004 tokens。从尾累积 3 条(15012) 后第 4 条 → 20016 > 20000 越预算 →
+        // old_segment=[b0,b1], recent=[b2..b4], boundary=1。
+        let big: Vec<ChatMessage> = (0..5)
+            .map(|i| chat_msg(&format!("b{i}"), "user", &"a".repeat(20_000)))
+            .collect();
+        let split = token_split_chat_messages(&big, 0, RECENT_KEEP_TOKENS).expect("split");
+        assert_eq!(split, 1);
+    }
+
+    #[test]
+    fn token_split_chat_messages_respects_summary_start() {
+        // summary_start=2：index 0/1 属于上一份 summary、不参与本次；只从 index 2 起往尾扫。
+        // 6 条各 ~20004 tokens（80000 chars），尾窗 20000 只容 1 条 → 其余进 old_segment，
+        // boundary 落在倒数第 2 条(index 4)，且必然 > summary_start。
+        let msgs: Vec<ChatMessage> = (0..6)
+            .map(|i| chat_msg(&format!("m{i}"), "user", &"a".repeat(80_000)))
+            .collect();
+        let split = token_split_chat_messages(&msgs, 2, RECENT_KEEP_TOKENS).expect("split");
+        assert_eq!(split, msgs.len() - 2);
+        assert!(split > 2);
+    }
+
+    #[test]
+    fn serialize_chat_message_includes_full_tool_args_and_clipped_result() {
+        let mut m = chat_msg("m1", "assistant", "let me read it");
+        m.tool_calls.push(ToolCallRecord {
+            id: "c1".to_string(),
+            name: "read".to_string(),
+            source: "native".to_string(),
+            server_id: None,
+            arguments: "{\"path\":\"/tmp/important.txt\"}".to_string(),
+            status: ToolCallStatus::Success,
+            result_preview: Some("T".repeat(10_000)),
+            error: None,
+            duration_ms: None,
+            started_at: None,
+            completed_at: None,
+            round: 0,
+            sensitive: false,
+            artifacts: Vec::new(),
+            trace_id: None,
+            span_id: None,
+            structured_content: None,
+        });
+        let s = serialize_chat_message_for_summary(&m);
+        // 工具入参全文保留（修复「收到 ✅」根因）。
+        assert!(s.contains("\"/tmp/important.txt\""));
+        // 工具结果截到 2000 字（[truncated] 标记）。
+        assert!(s.contains("[truncated]"));
+        assert!(!s.contains(&"T".repeat(TOOL_OUTPUT_SUMMARY_MAX_CHARS + 1)));
+    }
+
+    #[test]
+    fn summary_quality_guard_rejects_too_short() {
+        // 「收到 ✅」式过短摘要 → TooShort，不覆盖旧 summary。
+        let short = "收到 ✅";
+        assert_eq!(
+            summary_quality_guard(short, None),
+            SummaryQuality::TooShort
+        );
+    }
+
+    #[test]
+    fn summary_output_tokens_caps_at_8192() {
+        // R-3：容纳 9 段 analysis+summary，上限 8192；min() 语义保留。
+        assert_eq!(SUMMARY_OUTPUT_TOKENS, 8_192);
+        assert_eq!(summary_output_tokens(20_000), 8_192);
+        assert_eq!(summary_output_tokens(200_000), 8_192);
+        assert_eq!(summary_output_tokens(4_096), 4_096); // 真实上限更小的模型不受影响
+    }
+
+    #[test]
+    fn decay_warning_for_fires_at_threshold() {
+        // R-4：阈值 3；未达 → None；达到/超过 → Some 且含实际次数。
+        assert_eq!(DECAY_WARNING_COMPRESSION_COUNT, 3);
+        assert_eq!(decay_warning_for(0), None);
+        assert_eq!(decay_warning_for(2), None);
+        let w3 = decay_warning_for(3).expect("warning at threshold");
+        assert!(w3.contains('3'));
+        let w5 = decay_warning_for(5).expect("warning above threshold");
+        assert!(w5.contains('5'));
+    }
+
+    #[test]
+    fn summary_quality_guard_rejects_truncated_analysis() {
+        // 截断的 9 段输出：吐了 <analysis> 前言但流断在 <summary> 之前，
+        // extract_summary_text 回退返回整段 analysis（>200 字，能骗过长度闸）→ Truncated。
+        let truncated = format!("<analysis>\n{}", "分析前言细节".repeat(60));
+        assert!(truncated.chars().count() >= MIN_SUMMARY_CHARS);
+        assert_eq!(
+            summary_quality_guard(&truncated, None),
+            SummaryQuality::Truncated
+        );
+    }
+
+    #[test]
+    fn summary_quality_guard_accepts_long_fresh_summary() {
+        let long = "x".repeat(MIN_SUMMARY_CHARS + 10);
+        assert_eq!(
+            summary_quality_guard(&long, None),
+            SummaryQuality::Ok
+        );
+    }
+
+    #[test]
+    fn summary_quality_guard_rejects_degraded_vs_previous() {
+        // 旧 summary 达标（300 字），新 summary 仅 50 字 < 30%×300=90 → Degraded。
+        let previous = "p".repeat(300);
+        let degraded = "n".repeat(50);
+        assert_eq!(
+            summary_quality_guard(&degraded, Some(&previous)),
+            SummaryQuality::Degraded
+        );
+    }
+
+    #[test]
+    fn summary_quality_guard_accepts_chain_merge_when_comparable() {
+        // 链式合并：新 summary 与旧 summary 长度相当 → Ok（允许覆盖更新）。
+        let previous = "p".repeat(300);
+        let merged = "m".repeat(280);
+        assert_eq!(
+            summary_quality_guard(&merged, Some(&previous)),
+            SummaryQuality::Ok
+        );
+    }
+
+    #[test]
+    fn summary_quality_guard_skips_30pct_gate_when_previous_short() {
+        // 旧 summary 本身不达标 → 不用 30% 门槛，只要新 summary 达标即 Ok
+        // （避免一份烂旧 summary 卡死新摘要）。
+        let previous = "p".repeat(50);
+        let fresh = "n".repeat(MIN_SUMMARY_CHARS + 5);
+        assert_eq!(
+            summary_quality_guard(&fresh, Some(&previous)),
+            SummaryQuality::Ok
+        );
+    }
+
+    /// 构造带 `_ui_message_id` 标注的 runtime 消息（模拟 build_chat_api_messages 的注入）。
+    fn tagged(ui_id: &str, role: &str, content: &str) -> Value {
+        json!({ "role": role, "content": content, UI_MESSAGE_ID_KEY: ui_id })
+    }
+
+    #[test]
+    fn source_until_maps_by_ui_tag_with_tool_expansion() {
+        // UI 消息 m2（assistant）展开成 3 条 runtime（tool_calls / tool / 最终答复），
+        // 全部落在旧段 → boundary 精确落在 m2；旧的条数推算会把展开的每条都计数而错位。
+        let messages = vec![
+            json!({ "role": "system", "content": "sys" }),
+            tagged("m1", "user", &"a".repeat(4_000)),
+            {
+                let mut m = json!({ "role": "assistant", "content": "", "tool_calls": [{ "id": "c1", "type": "function", "function": { "name": "read", "arguments": "{}" } }] });
+                m.as_object_mut().unwrap().insert(UI_MESSAGE_ID_KEY.into(), json!("m2"));
+                m
+            },
+            {
+                let mut m = json!({ "role": "tool", "tool_call_id": "c1", "content": "b".repeat(4_000) });
+                m.as_object_mut().unwrap().insert(UI_MESSAGE_ID_KEY.into(), json!("m2"));
+                m
+            },
+            tagged("m2", "assistant", &"c".repeat(4_000)),
+            tagged("m3", "user", "recent"),
+        ];
+        let until = source_until_message_id_for_split(&messages, 500);
+        assert_eq!(until.as_deref(), Some("m2"));
+    }
+
+    #[test]
+    fn source_until_skips_ui_message_straddling_boundary() {
+        // m2 的展开条横跨边界（一部分在近期窗口）→ 不能作为 boundary，回退到 m1。
+        let messages = vec![
+            json!({ "role": "system", "content": "sys" }),
+            tagged("m1", "user", &"a".repeat(8_000)),
+            tagged("m2", "assistant", &"b".repeat(8_000)),
+            tagged("m2", "assistant", "tail piece in recent"),
+            tagged("m3", "user", "recent"),
+        ];
+        // keep=1000：recent 从尾部起 ~2 条小消息（m2 尾块 + m3），m2 首块在旧段 → 跨边界。
+        let until = source_until_message_id_for_split(&messages, 1_000);
+        assert_eq!(until.as_deref(), Some("m1"));
+    }
+
+    #[test]
+    fn source_until_none_when_old_segment_untagged() {
+        // 旧段只有摘要锚点/系统注入（无 _ui_message_id）→ None，调用方不落盘 boundary。
+        let messages = vec![
+            json!({ "role": "system", "content": "sys" }),
+            json!({ "role": "user", "content": format!("{SUMMARY_MARKER_PREFIX} 摘要：\n{}", "s".repeat(8_000)) }),
+            json!({ "role": "assistant", "content": "已了解早前对话的摘要，继续当前任务。" }),
+            tagged("m9", "user", "recent question"),
+        ];
+        assert!(source_until_message_id_for_split(&messages, 1_000).is_none());
+    }
+
+    #[test]
+    fn source_until_none_when_no_old_segment() {
+        let messages = vec![
+            json!({ "role": "system", "content": "sys" }),
+            tagged("m1", "user", "hi"),
+            tagged("m2", "assistant", "hello"),
+        ];
+        assert!(source_until_message_id_for_split(&messages, 8_000).is_none());
+    }
+
+    #[test]
+    fn manual_fallback_split_keeps_last_user_pair() {
+        // 6 条小消息（token 尾窗覆盖全部）：manual 保底切到最后一条 user 之前。
+        let msgs: Vec<ChatMessage> = [
+            ("m0", "user"), ("m1", "assistant"), ("m2", "user"),
+            ("m3", "assistant"), ("m4", "user"), ("m5", "assistant"),
+        ]
+        .iter()
+        .map(|(id, role)| chat_msg(id, role, "short"))
+        .collect();
+        assert!(token_split_chat_messages(&msgs, 0, RECENT_KEEP_TOKENS).is_none());
+        // 最后一条 user 是 m4(index 4) → old_segment 末尾 = index 3。
+        assert_eq!(manual_fallback_split(&msgs, 0, "manual"), Some(3));
+        // 非手动触发不放宽。
+        assert_eq!(manual_fallback_split(&msgs, 0, "auto"), None);
+    }
+
+    #[test]
+    fn manual_fallback_split_rejects_short_conversations() {
+        let msgs: Vec<ChatMessage> = [("m0", "user"), ("m1", "assistant"), ("m2", "user"), ("m3", "assistant")]
+            .iter()
+            .map(|(id, role)| chat_msg(id, role, "short"))
+            .collect();
+        // ≤ 4 条 → None（保持"没有足够的旧消息可以压缩"报错）。
+        assert_eq!(manual_fallback_split(&msgs, 0, "manual"), None);
+        // summary_start 之后区间太短同样拒绝。
+        let six: Vec<ChatMessage> = (0..6)
+            .map(|i| chat_msg(&format!("m{i}"), if i % 2 == 0 { "user" } else { "assistant" }, "s"))
+            .collect();
+        assert_eq!(manual_fallback_split(&six, 2, "manual"), None);
+    }
 
     #[test]
     fn estimate_counts_content_and_structured_fields() {
@@ -803,6 +1786,69 @@ mod tests {
         // Order preserved: old then recent reconstruct the post-system messages.
         assert_eq!(old[0]["content"], messages[1]["content"]);
         assert_eq!(recent.last().unwrap()["content"], messages[40]["content"]);
+    }
+
+    #[test]
+    fn microcompact_reclaims_old_tool_results_and_skips_summary() {
+        // old_segment 由两条大工具结果主导；降级后应回到预算内 → Some（可跳过摘要）。
+        let messages = vec![
+            json!({ "role": "system", "content": "sys" }),
+            json!({ "role": "assistant", "content": "", "tool_calls": [{ "id": "c1", "type": "function", "function": { "name": "read", "arguments": "{}" } }] }),
+            json!({ "role": "tool", "tool_call_id": "c1", "content": "T".repeat(40_000) }),
+            json!({ "role": "assistant", "content": "", "tool_calls": [{ "id": "c2", "type": "function", "function": { "name": "read", "arguments": "{}" } }] }),
+            json!({ "role": "tool", "tool_call_id": "c2", "content": "T".repeat(40_000) }),
+            json!({ "role": "user", "content": "recent question" }),
+            json!({ "role": "assistant", "content": "recent answer" }),
+        ];
+        // 总 ~20000 tok，budget 12000 → 超；keep 8000 → recent = 末尾两条小消息，两条大工具结果进 old。
+        let view = microcompact_send_view(&messages, 8_000, 12_000).expect("microcompact should suffice");
+        assert!(estimate_messages_tokens(&view) <= 12_000, "degraded view within budget");
+        let markers = view
+            .iter()
+            .filter(|m| m.get("content").and_then(Value::as_str) == Some(MICROCOMPACT_TOOL_MARKER))
+            .count();
+        assert_eq!(markers, 2, "both old tool results degraded");
+        assert_eq!(view[view.len() - 2]["content"], "recent question");
+        assert_eq!(view[view.len() - 1]["content"], "recent answer");
+    }
+
+    #[test]
+    fn microcompact_returns_none_when_insufficient() {
+        // old 段含可降级工具结果 + 一条无法降级的大 user 文本；降级工具后仍超 budget → None。
+        // keep_tokens 取小，确保大 user + 工具结果都落在 old（不被拉进近期窗口）。
+        let messages = vec![
+            json!({ "role": "system", "content": "sys" }),
+            json!({ "role": "user", "content": "U".repeat(80_000) }), // ~20000 tok，无法降级
+            json!({ "role": "tool", "tool_call_id": "c1", "content": "T".repeat(4_000) }), // 可降级
+            json!({ "role": "assistant", "content": "recent answer" }),
+        ];
+        assert!(microcompact_send_view(&messages, 100, 12_000).is_none());
+    }
+
+    #[test]
+    fn microcompact_returns_none_when_no_old_segment() {
+        // 全在近期窗口内（无旧段）→ None。
+        let messages = vec![
+            json!({ "role": "system", "content": "sys" }),
+            json!({ "role": "user", "content": "hi" }),
+            json!({ "role": "assistant", "content": "hello" }),
+        ];
+        assert!(microcompact_send_view(&messages, 8_000, 12_000).is_none());
+    }
+
+    #[test]
+    fn microcompact_leaves_recent_tool_results_untouched() {
+        // 近期窗口里的工具结果不降级——只降 old_segment。
+        let messages = vec![
+            json!({ "role": "system", "content": "sys" }),
+            json!({ "role": "tool", "tool_call_id": "old", "content": "T".repeat(40_000) }),
+            json!({ "role": "user", "content": "q" }),
+            json!({ "role": "tool", "tool_call_id": "recent", "content": "recent tool output kept" }),
+            json!({ "role": "assistant", "content": "a" }),
+        ];
+        let view = microcompact_send_view(&messages, 8_000, 12_000).expect("suffices");
+        assert!(view.iter().any(|m| m.get("content").and_then(Value::as_str) == Some(MICROCOMPACT_TOOL_MARKER)));
+        assert!(view.iter().any(|m| m.get("content").and_then(Value::as_str) == Some("recent tool output kept")));
     }
 
     #[test]

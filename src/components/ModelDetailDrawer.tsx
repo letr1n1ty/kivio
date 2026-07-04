@@ -76,7 +76,7 @@ export function ModelDetailDrawer({
     contextWindow: lang.startsWith('zh') ? '上下文長度' : 'Context Window',
     maxOutput: lang.startsWith('zh') ? '最大輸出' : 'Max Output',
     capabilities: lang.startsWith('zh') ? '功能' : 'Capabilities',
-    vision: lang.startsWith('zh') ? '圖像輸入' : 'Image Input',
+    vision: lang.startsWith('zh') ? '影像輸入' : 'Image Input',
     functionCalling: lang.startsWith('zh') ? '工具呼叫' : 'Tool Calling',
     reasoning: lang.startsWith('zh') ? '推理模式' : 'Reasoning',
     streaming: lang.startsWith('zh') ? '串流輸出' : 'Streaming',
@@ -88,7 +88,7 @@ export function ModelDetailDrawer({
     cachedInput: lang.startsWith('zh') ? '快取輸入' : 'Cached Input',
     save: lang.startsWith('zh') ? '儲存' : 'Save',
     reset: lang.startsWith('zh') ? '重設為預設值' : 'Reset to Defaults',
-    noDatabase: lang.startsWith('zh') ? '未在資料庫中找到此模型，可手動填寫參數。' : 'Model not found in database. You can fill in parameters manually.',
+    noDatabase: lang.startsWith('zh') ? '未在資料庫中找到此模型，可手動填寫引數。' : 'Model not found in database. You can fill in parameters manually.',
   }
 
   return (

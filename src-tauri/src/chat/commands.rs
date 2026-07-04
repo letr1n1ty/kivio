@@ -32,7 +32,7 @@ use crate::chat::model_metadata::{
 use crate::external_agents::detection::EXTERNAL_AGENT_MODELS_CACHE_TTL;
 use crate::mcp::types::ChatToolArtifact;
 use crate::mcp::{self, ChatToolDefinition};
-use crate::settings::{ModelProvider, ProviderApiFormat, Settings};
+use crate::settings::{ModelProvider, ProviderApiFormat, SessionModel, Settings};
 use crate::skills;
 use crate::state::AppState;
 
@@ -47,7 +47,7 @@ use super::storage::{
 use super::{
     AgentPlanState, AgentTodoState, Attachment, ChatAssistant, ChatMessage, ChatMessageSegment,
     ChatMessageSegmentKind, ChatMessageSegmentPhase, ContextUsageSegment, Conversation,
-    ConversationContextState, ConversationContextSummary, ToolCallRecord, ToolCallStatus,
+    ConversationContextState, ConversationContextSummary, CompactionBoundaryRecord, ToolCallRecord, ToolCallStatus,
 };
 
 const DIRECT_IMAGE_GENERATION_PENDING: &str = "[[KIVIO_DIRECT_IMAGE_GENERATION_PENDING]]";
@@ -1050,8 +1050,7 @@ pub(crate) async fn chat_compress_context(
             "conversation": conversation,
         }));
     }
-    compress_conversation_context(&app, &state, &mut conversation).await?;
-    conversation.context_state.warning = None;
+    compress_conversation_context(&app, &state, &mut conversation, "manual").await?;
     let context_state = compute_context_state(&app, &state, &conversation, None, &[]).await?;
     conversation.context_state = context_state.clone();
     conversation.updated_at = chrono::Local::now().timestamp();
@@ -1300,7 +1299,7 @@ pub(crate) async fn chat_send_message(
         Ok(context_state) => {
             conversation.context_state = context_state;
             if should_auto_compress_context(&conversation.context_state, &conversation) {
-                match compress_conversation_context(&app, &state, &mut conversation).await {
+                match compress_conversation_context(&app, &state, &mut conversation, "auto").await {
                     Ok(()) => {
                         let refreshed = compute_context_state(
                             &app,
@@ -1465,6 +1464,20 @@ pub(crate) fn chat_confirm_tool_call(
     Ok(())
 }
 
+/// 返回开发者「请求调试」缓冲快照（最新在前）。仅内存，未开启开关时通常为空。
+#[tauri::command]
+pub(crate) fn get_request_debug_records(
+    state: State<AppState>,
+) -> Vec<crate::chat::request_debug::RequestDebugRecord> {
+    crate::chat::request_debug::snapshot(&state)
+}
+
+/// 清空开发者「请求调试」缓冲。
+#[tauri::command]
+pub(crate) fn clear_request_debug_records(state: State<AppState>) {
+    crate::chat::request_debug::clear(&state);
+}
+
 /// 列出当前仍在运行的后台命令（chat agent 用 `run_command background:true` 起的）。
 /// 只返回 Running 的——UI 仅在有后台任务时才显示指示器，终止/退出的不必展示。
 #[tauri::command]
@@ -1586,9 +1599,7 @@ pub(crate) fn chat_python_complete(
     Ok(())
 }
 
-const AUTO_COMPRESS_RATIO: f32 = 0.85;
 const CONTEXT_BLOCK_RATIO: f32 = 1.0;
-const KEEP_RECENT_RAW_MESSAGES: usize = 8;
 const IMAGE_ATTACHMENT_TOKEN_ESTIMATE: usize = 1_600;
 const AUXILIARY_VISION_RESULT_TOKEN_ESTIMATE: usize = 800;
 
@@ -1740,6 +1751,7 @@ async fn complete_assistant_reply(
         active_skill_id,
         entry,
         None,
+        false,
     )
     .await
     .map(|_| ())
@@ -1758,6 +1770,7 @@ async fn complete_assistant_reply_inner(
     active_skill_id: Option<&str>,
     entry: crate::chat::agent::AgentRunEntry,
     arm: Option<&ReplyArm>,
+    probe: bool,
 ) -> Result<ArmReplyOutcome, String> {
     if conversation.agent_runtime.is_external() {
         // 外部 CLI 路径在 run.rs 内自带 generation；这里登记一条 per-run 回复槽位，
@@ -1857,11 +1870,13 @@ async fn complete_assistant_reply_inner(
         .await
         .map(|_| ArmReplyOutcome { message: None });
     }
+    let session = session_model_for_conversation(conversation);
     let auxiliary_vision_model = auxiliary_vision_model_for_images(
         &settings,
         Some(&provider),
         &resolved_model,
         last_user_image_paths,
+        Some(session),
     );
     let mut auxiliary_tool_records = Vec::new();
     let auxiliary_vision_result = if let Some(auxiliary_vision_model) = auxiliary_vision_model {
@@ -1994,9 +2009,10 @@ async fn complete_assistant_reply_inner(
         skills::read_skill_detail(app, &settings.chat_tools.skill_scan_paths, id).ok()
     });
     let mut effective_chat_tools = settings.chat_tools.clone();
-    if arm.is_some() {
+    if arm.is_some() || probe {
         // 多答 fan-out（决策 D1 注）：N 条并行 run 若各自弹工具审批会产生 N 倍弹窗、
         // 且无法对应到具体列。多模型臂内一律自动批准（静默执行）。单模型保持原审批策略。
+        // probe（无头测试通道）同理：无 GUI 可应答审批，必须自动放行，否则挂起。
         effective_chat_tools.approval_policy = "auto".to_string();
     }
     let (memory_prompt, memory_warning) = chat_memory_prompt_for_request(app, &settings);
@@ -2007,10 +2023,19 @@ async fn complete_assistant_reply_inner(
         &provider,
         &effective_chat_tools,
         settings.chat_memory.enabled,
-        crate::settings::chat_image_generation_enabled(&settings),
+        crate::settings::chat_image_generation_enabled_for_session(
+            &settings,
+            Some(session_model_for_conversation(conversation)),
+        ),
     );
-    let mut tools =
-        list_tools_for_chat(app, state.inner(), &settings, provider.supports_tools).await;
+    let mut tools = list_tools_for_chat(
+        app,
+        state.inner(),
+        &settings,
+        provider.supports_tools,
+        Some(session_model_for_conversation(conversation)),
+    )
+    .await;
     agent_prepare::apply_assistant_mcp_restrictions(
         &mut tools,
         conversation.assistant_snapshot.as_ref(),
@@ -2146,12 +2171,31 @@ async fn complete_assistant_reply_inner(
         email_accounts_prompt.as_deref(),
     );
 
-    let host = ChatAgentHost {
+    let chat_host = ChatAgentHost {
         app: app.clone(),
         state: state.inner(),
         // 多模型臂不直接落盘（最终由协调者统一 upsert + save），因此抑制 loop 的
         // mid-run 部分快照写盘，避免 N 条并发 run 同写 conversations/{id}.json 的竞态。
         suppress_partial_persist: arm.is_some(),
+    };
+    // probe（无头测试通道，仅 debug）：换用自动放行审批/consent/ask_user 的 host，
+    // 否则模型调用敏感工具或 ask_user 会 await GUI 应答而永久挂起。
+    #[cfg(debug_assertions)]
+    let probe_host = ProbeAgentHost { state: state.inner() };
+    let host: &dyn crate::chat::agent::AgentHost = {
+        #[cfg(debug_assertions)]
+        {
+            if probe {
+                &probe_host
+            } else {
+                &chat_host
+            }
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            let _ = probe;
+            &chat_host
+        }
     };
     let executor = RegistryToolExecutor {
         app: app.clone(),
@@ -2193,7 +2237,7 @@ async fn complete_assistant_reply_inner(
             custom_system_prompt: settings.chat.system_prompt.clone(),
             provider_tools_fallback_system_prompt,
         },
-        &host,
+        host,
         &executor,
     )
     .await;
@@ -2237,6 +2281,27 @@ async fn complete_assistant_reply_inner(
         return Ok(ArmReplyOutcome {
             message: Some(message),
         });
+    }
+    if let Some(boundary) = result.compaction_boundary.clone() {
+        conversation
+            .context_state
+            .compaction_boundaries
+            .push(boundary);
+    }
+    // L2 压缩对齐落盘路径：run 结束时把 L2 产出的 summary 写回 context_state.summary +
+    // compression_count（不再只 push boundary）。质量兜底已在 compaction 核心拦截，此处直接采用。
+    if let Some(summary) = result.compaction_summary.clone() {
+        conversation.context_state.last_compressed_at = Some(summary.created_at);
+        conversation.context_state.compressed_message_count = summary.source_message_ids.len();
+        conversation.context_state.compression_count = conversation
+            .context_state
+            .compression_count
+            .saturating_add(1);
+        conversation.context_state.summary = Some(summary);
+        // R-4：多次链式压缩后提示准确性下降（与 compact_conversation 口径一致）。
+        conversation.context_state.warning = crate::chat::agent::compaction::decay_warning_for(
+            conversation.context_state.compression_count,
+        );
     }
     push_assistant_message(
         app,
@@ -2305,6 +2370,7 @@ async fn run_reply_fan_out(
                 active_skill_id,
                 crate::chat::agent::AgentRunEntry::Send,
                 Some(&arm),
+                false,
             )
             .await;
             (outcome, arm_conversation)
@@ -2633,7 +2699,7 @@ pub(crate) async fn push_assistant_message(
                     resolve_conversation_title(
                         settings,
                         state,
-                        &conversation.id,
+                        conversation,
                         user_content,
                         &stored_content,
                     )
@@ -2656,7 +2722,8 @@ pub(crate) async fn push_assistant_message(
     match compute_context_state(app, state, conversation, None, &[]).await {
         Ok(context_state) => {
             conversation.context_state = context_state.clone();
-            emit_chat_context_state(app, &conversation.id, &context_state);
+            try_auto_compress_context_after_update(app, state, conversation, None, &[]).await;
+            emit_chat_context_state(app, &conversation.id, &conversation.context_state);
         }
         Err(err) => {
             eprintln!("Context usage estimate failed after assistant reply: {err}");
@@ -3171,16 +3238,21 @@ fn mark_tool_result_errors(messages: &mut [ModelMessage], tool_calls: &[ToolCall
 async fn resolve_conversation_title(
     settings: &Settings,
     state: &State<'_, AppState>,
-    conversation_id: &str,
+    conversation: &Conversation,
     user_content: &str,
     assistant_content: &str,
 ) -> String {
+    let session = SessionModel {
+        provider_id: conversation.provider_id.as_str(),
+        model: conversation.model.as_str(),
+    };
     match timeout(
         Duration::from_secs(8),
         generate_title_with_model(
             settings,
             state,
-            conversation_id,
+            &conversation.id,
+            Some(session),
             user_content,
             assistant_content,
         ),
@@ -3197,10 +3269,11 @@ async fn generate_title_with_model(
     settings: &Settings,
     state: &State<'_, AppState>,
     conversation_id: &str,
+    session: Option<SessionModel<'_>>,
     user_content: &str,
     assistant_content: &str,
 ) -> Option<String> {
-    let (provider_id, model) = settings.effective_title_summary_model();
+    let (provider_id, model) = settings.effective_title_summary_model_for_session(session);
     let provider = settings.get_provider(&provider_id)?.clone();
     if provider.api_keys.is_empty() || model.trim().is_empty() {
         return None;
@@ -3732,6 +3805,7 @@ fn auxiliary_vision_model_for_images(
     main_provider: Option<&ModelProvider>,
     main_model: &str,
     image_paths: &[PathBuf],
+    session: Option<SessionModel<'_>>,
 ) -> Option<AuxiliaryVisionModel> {
     if image_paths.is_empty() {
         return None;
@@ -3744,7 +3818,7 @@ fn auxiliary_vision_model_for_images(
     }
 
     if settings.has_explicit_vision_model() {
-        let (provider_id, model) = settings.effective_vision_model();
+        let (provider_id, model) = settings.effective_vision_model_for_session(session);
         return auxiliary_vision_model_from_selection(settings, &provider_id, &model);
     }
 
@@ -3859,12 +3933,21 @@ async fn compute_context_state(
                 provider,
                 &effective_chat_tools,
                 settings.chat_memory.enabled,
-                crate::settings::chat_image_generation_enabled(&settings),
+                crate::settings::chat_image_generation_enabled_for_session(
+                    &settings,
+                    Some(session_model_for_conversation(conversation)),
+                ),
             )
         })
         .unwrap_or(false);
-    let mut tools =
-        list_tools_for_chat(app, state.inner(), &settings, provider_supports_tools).await;
+    let mut tools = list_tools_for_chat(
+        app,
+        state.inner(),
+        &settings,
+        provider_supports_tools,
+        Some(session_model_for_conversation(conversation)),
+    )
+    .await;
     agent_prepare::apply_assistant_mcp_restrictions(
         &mut tools,
         conversation.assistant_snapshot.as_ref(),
@@ -3898,6 +3981,7 @@ async fn compute_context_state(
         provider.as_ref(),
         &conversation.model,
         last_user_image_paths,
+        Some(session_model_for_conversation(conversation)),
     )
     .is_some();
     let empty_image_paths: &[PathBuf] = &[];
@@ -4012,6 +4096,10 @@ async fn compute_context_state(
         .filter(|summary| !summary.stale)
         .map(|summary| summary.source_message_ids.len())
         .unwrap_or_default();
+    let mut compression_count = conversation.context_state.compression_count;
+    if compression_count == 0 && active_summary(conversation).is_some() {
+        compression_count = 1;
+    }
 
     Ok(ConversationContextState {
         estimated_input_tokens,
@@ -4023,7 +4111,9 @@ async fn compute_context_state(
         last_measured_at: chrono::Local::now().timestamp(),
         last_compressed_at,
         compressed_message_count,
+        compression_count,
         summary,
+        compaction_boundaries: conversation.context_state.compaction_boundaries.clone(),
         warning: memory_warning.or_else(|| conversation.context_state.warning.clone()),
         context_source: Some(crate::external_agents::context::CONTEXT_SOURCE_BUILTIN.to_string()),
         token_count_source: None,
@@ -4074,188 +4164,76 @@ fn should_auto_compress_context(
     let Some(ratio) = context_state.usage_ratio else {
         return false;
     };
-    if ratio < AUTO_COMPRESS_RATIO {
+    if ratio < crate::chat::agent::compaction::AUTO_COMPACT_RATIO {
         return false;
     }
-    if active_summary(conversation).is_some() {
-        return false;
+    crate::chat::agent::compaction::has_compressible_old_segment(conversation)
+}
+
+async fn try_auto_compress_context_after_update(
+    app: &AppHandle,
+    state: &State<'_, AppState>,
+    conversation: &mut Conversation,
+    last_user_api_content: Option<&str>,
+    last_user_image_paths: &[PathBuf],
+) {
+    if !should_auto_compress_context(&conversation.context_state, conversation) {
+        return;
     }
-    compression_boundary_index(conversation).is_some()
+    match compress_conversation_context(app, state, conversation, "auto").await {
+        Ok(()) => {
+            match compute_context_state(
+                app,
+                state,
+                conversation,
+                last_user_api_content,
+                last_user_image_paths,
+            )
+            .await
+            {
+                Ok(refreshed) => {
+                    conversation.context_state = refreshed;
+                    conversation.context_state.warning = None;
+                }
+                Err(err) => {
+                    eprintln!("Context usage estimate failed after auto compression: {err}");
+                }
+            }
+        }
+        Err(err) => {
+            eprintln!("Auto context compression failed: {err}");
+            conversation.context_state.warning = Some(format!(
+                "Automatic compression failed: {err}."
+            ));
+        }
+    }
+}
+
+/// 混音器未单独指定压缩模型时，用当前会话的 provider/model（顶栏主模型），
+/// 而不是设置里的全局 Chat 默认（`effective_chat_model`）。
+fn session_model_for_conversation(conversation: &Conversation) -> SessionModel<'_> {
+    SessionModel {
+        provider_id: conversation.provider_id.as_str(),
+        model: conversation.model.as_str(),
+    }
 }
 
 async fn compress_conversation_context(
-    _app: &AppHandle,
+    app: &AppHandle,
     state: &State<'_, AppState>,
     conversation: &mut Conversation,
+    trigger: &str,
 ) -> Result<(), String> {
-    let boundary_index = compression_boundary_index(conversation)
-        .ok_or_else(|| "没有足够的旧消息可以压缩".to_string())?;
-    let source_messages = conversation
-        .messages
-        .iter()
-        .take(boundary_index + 1)
-        .cloned()
-        .collect::<Vec<_>>();
-    if source_messages.len() < 2 {
-        return Err("没有足够的旧消息可以压缩".to_string());
-    }
-
     let settings = state.settings_read().clone();
-    let (provider_id, model) = settings.effective_compression_model();
-    let provider = settings
-        .get_provider(&provider_id)
-        .ok_or_else(|| "Compression provider not found".to_string())?
-        .clone();
-    if provider.api_keys.is_empty() {
-        return Err(format_chat_missing_api_key_error(&provider.name));
-    }
-    if model.trim().is_empty() {
-        return Err(chat_missing_model_error());
-    }
-
-    let source_text = format_messages_for_context_summary(&source_messages);
-    let prompt = build_context_compression_prompt(&source_text);
-    let token_estimate_before = agent_prepare::estimate_tokens(&source_text);
-    let retry_attempts = if settings.retry_enabled {
-        settings.retry_attempts as usize
-    } else {
-        1
-    };
-    let messages = vec![
-        serde_json::json!({
-            "role": "system",
-            "content": "You compress chat history into dense factual memory for future assistant requests. Output only the summary.",
-        }),
-        serde_json::json!({
-            "role": "user",
-            "content": prompt,
-        }),
-    ];
-    let source_until_message_id = source_messages
-        .last()
-        .map(|message| message.id.clone())
-        .ok_or_else(|| "没有足够的旧消息可以压缩".to_string())?;
-    let message = call_chat_completion_message(
-        state,
-        &provider,
-        &model,
-        messages,
+    crate::chat::agent::compaction::compact_conversation(
+        app,
+        state.inner(),
+        &settings,
+        conversation,
+        trigger,
         None,
-        retry_attempts,
-        false,
-        Some(&conversation.id),
-        Some(&source_until_message_id),
-        "Chat context compression",
     )
-    .await?;
-    let raw_summary = agent_stop::assistant_content_from_api_message(&message);
-    let summary_content = sanitize_context_summary(&raw_summary);
-    if summary_content.trim().is_empty() {
-        return Err("Compression model returned an empty summary".to_string());
-    }
-
-    let source_message_ids = source_messages
-        .iter()
-        .map(|message| message.id.clone())
-        .collect::<Vec<_>>();
-    let created_at = chrono::Local::now().timestamp();
-    conversation.context_state.summary = Some(ConversationContextSummary {
-        id: format!("ctxsum_{}", Uuid::new_v4()),
-        content: summary_content.clone(),
-        source_message_ids,
-        source_until_message_id,
-        token_estimate_before,
-        token_estimate_after: agent_prepare::estimate_tokens(&summary_content),
-        created_at,
-        provider_id,
-        model,
-        stale: false,
-    });
-    conversation.context_state.last_compressed_at = Some(created_at);
-    conversation.context_state.compressed_message_count = source_messages.len();
-    conversation.context_state.warning = None;
-    Ok(())
-}
-
-fn compression_boundary_index(conversation: &Conversation) -> Option<usize> {
-    if conversation.messages.len() <= KEEP_RECENT_RAW_MESSAGES + 2 {
-        return None;
-    }
-    let max_boundary = conversation
-        .messages
-        .len()
-        .saturating_sub(KEEP_RECENT_RAW_MESSAGES + 1);
-    (0..=max_boundary)
-        .rev()
-        .find(|idx| conversation.messages[*idx].role == "assistant")
-}
-
-fn format_messages_for_context_summary(messages: &[ChatMessage]) -> String {
-    messages
-        .iter()
-        .map(|message| {
-            let role = match message.role.as_str() {
-                "assistant" => "Assistant",
-                _ => "User",
-            };
-            let mut content = message.content.trim().to_string();
-            if !message.attachments.is_empty() {
-                let names = message
-                    .attachments
-                    .iter()
-                    .map(|attachment| {
-                        format!("{} ({})", attachment.name, attachment.attachment_type)
-                    })
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                if !content.is_empty() {
-                    content.push_str("\n");
-                }
-                content.push_str(&format!("[Attachments: {names}]"));
-            }
-            if !message.tool_calls.is_empty() {
-                let tools = message
-                    .tool_calls
-                    .iter()
-                    .map(|tool| {
-                        let status = serde_json::to_string(&tool.status)
-                            .unwrap_or_else(|_| "\"unknown\"".to_string());
-                        format!(
-                            "{} {}: {}{}",
-                            tool.source,
-                            tool.name,
-                            status.trim_matches('"'),
-                            tool.result_preview
-                                .as_deref()
-                                .map(|preview| format!(" - {}", truncate_chars(preview, 500)))
-                                .unwrap_or_default()
-                        )
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                if !content.is_empty() {
-                    content.push_str("\n");
-                }
-                content.push_str("[Tool calls]\n");
-                content.push_str(&tools);
-            }
-            format!("{role}:\n{content}")
-        })
-        .collect::<Vec<_>>()
-        .join("\n\n")
-}
-
-fn build_context_compression_prompt(source_text: &str) -> String {
-    format!(
-        "Compress the older part of this Kivio Chat conversation into a dense factual memory for future model requests.\n\nRules:\n- Preserve user goals, preferences, constraints, decisions, file paths, commands, tool results, unresolved questions, and important facts.\n- Preserve chronological cause/effect when it matters.\n- Mention attachments by file name and relevance, but do not invent image contents.\n- Do not include small talk, redundant phrasing, or style commentary.\n- Do not invent facts.\n- Output concise Markdown only.\n\nConversation to compress:\n\n{source_text}"
-    )
-}
-
-fn sanitize_context_summary(raw: &str) -> String {
-    raw.trim()
-        .trim_matches(['`', ' ', '\n', '\r'])
-        .trim()
-        .to_string()
+    .await
 }
 
 fn emit_chat_context_state(
@@ -4268,6 +4246,24 @@ fn emit_chat_context_state(
         serde_json::json!({
             "conversationId": conversation_id,
             "contextState": context_state,
+        }),
+    );
+}
+
+fn emit_chat_compaction_state(
+    app: &AppHandle,
+    conversation_id: &str,
+    phase: &str,
+    trigger: Option<&str>,
+    boundary: Option<&CompactionBoundaryRecord>,
+) {
+    let _ = app.emit(
+        "chat-compaction",
+        serde_json::json!({
+            "conversationId": conversation_id,
+            "phase": phase,
+            "trigger": trigger,
+            "boundary": boundary,
         }),
     );
 }
@@ -4309,18 +4305,42 @@ async fn list_tools_for_chat(
     state: &AppState,
     settings: &Settings,
     provider_supports_tools: bool,
+    session: Option<SessionModel<'_>>,
 ) -> Vec<ChatToolDefinition> {
     if !provider_supports_tools
         || !(settings.chat_tools.enabled
             || crate::settings::chat_native_tools_enabled(&settings.chat_tools)
             || crate::settings::chat_memory_tools_enabled(settings)
-            || crate::settings::chat_image_generation_enabled(settings))
+            || crate::settings::chat_image_generation_enabled_for_session(settings, session))
     {
         return Vec::new();
     }
-    mcp::registry::list_enabled_tool_defs(app, state)
+    let mut tools = mcp::registry::list_enabled_tool_defs(app, state)
         .await
-        .unwrap_or_default()
+        .unwrap_or_default();
+    if let Some((provider_id, model)) =
+        crate::chat::model_metadata::image_generation_model_for_session(settings, session)
+    {
+        if !tools
+            .iter()
+            .any(|tool| tool.name == "mixer_generate_image")
+        {
+            let mut tool = mcp::types::mixer_generate_image_tool();
+            let provider_name = settings
+                .get_provider(&provider_id)
+                .map(|provider| {
+                    if provider.name.trim().is_empty() {
+                        provider.id.clone()
+                    } else {
+                        provider.name.clone()
+                    }
+                })
+                .unwrap_or(provider_id);
+            tool.server_id = Some(format!("{provider_name} / {model}"));
+            tools.push(tool);
+        }
+    }
+    tools
 }
 
 fn append_agent_todo_tools(
@@ -4475,6 +4495,20 @@ fn group_answer_excluded_from_context(conversation: &Conversation, message: &Cha
     selected != Some(message.id.as_str())
 }
 
+/// 给一条 runtime 消息标注来源 UI 消息 id（`_ui_message_id`）。
+/// 该字段只存在于运行期视图：发给 provider 前会经 `model_message_from_openai_message`
+/// 只抽取已知字段，未知字段天然被剥离，不会进任何 wire 请求。压缩落盘时
+/// `compaction::source_until_message_id_for_split` 据此把 runtime 旧段精确映射回 UI 消息。
+fn tag_ui_message_id(mut message: Value, ui_message_id: &str) -> Value {
+    if let Some(obj) = message.as_object_mut() {
+        obj.insert(
+            "_ui_message_id".to_string(),
+            Value::String(ui_message_id.to_string()),
+        );
+    }
+    message
+}
+
 fn build_chat_api_messages(
     system_prompt: &str,
     conversation: &Conversation,
@@ -4487,6 +4521,10 @@ fn build_chat_api_messages(
         "content": system_prompt,
     })];
 
+    // 有 active summary 时：注入一条 system role 的 `Previous conversation summary:`，
+    // 之后只 replay boundary 之后的原文。boundary 由 token 预算决定（compaction::token_split_chat_messages，
+    // recent tail ≤ RECENT_KEEP_TOKENS）；boundary 之前的原文已被摘要覆盖、不重发。
+    // 当累计再增长到裸窗口 90% 时会触发再次压缩（auto / agent_loop）。
     let start_idx = if let Some(summary) = active_summary(conversation) {
         messages.push(summary_message(summary));
         summary_boundary_index(conversation)
@@ -4516,22 +4554,29 @@ fn build_chat_api_messages(
                 .map(image_content_part)
                 .collect::<Result<Vec<_>, _>>()?;
             parts.push(serde_json::json!({ "type": "text", "text": sanitized_content }));
-            messages.push(serde_json::json!({
-                "role": message.role,
-                "content": parts,
-            }));
+            messages.push(tag_ui_message_id(
+                serde_json::json!({
+                    "role": message.role,
+                    "content": parts,
+                }),
+                &message.id,
+            ));
         } else {
-            messages.push(serde_json::json!({
-                "role": message.role,
-                "content": sanitized_content,
-            }));
+            messages.push(tag_ui_message_id(
+                serde_json::json!({
+                    "role": message.role,
+                    "content": sanitized_content,
+                }),
+                &message.id,
+            ));
         }
         if message.role == "assistant" && !message.model_messages.is_empty() {
             messages.pop();
             messages.extend(
                 openai_messages_from_model_messages(&message.model_messages)
                     .iter()
-                    .map(sanitize_api_message_for_model),
+                    .map(sanitize_api_message_for_model)
+                    .map(|expanded| tag_ui_message_id(expanded, &message.id)),
             );
         } else if message.role == "assistant" && !message.api_messages.is_empty() {
             messages.pop();
@@ -4539,7 +4584,8 @@ fn build_chat_api_messages(
                 message
                     .api_messages
                     .iter()
-                    .map(sanitize_api_message_for_model),
+                    .map(sanitize_api_message_for_model)
+                    .map(|expanded| tag_ui_message_id(expanded, &message.id)),
             );
         }
     }
@@ -4731,6 +4777,7 @@ pub(crate) async fn read_image_as_tool_result(
         provider,
         model,
         std::slice::from_ref(&path_buf),
+        Some(session_model_for_conversation(&conversation)),
     ) {
         let language = crate::settings::resolve_chat_language(settings);
         let retry_attempts = if settings.retry_enabled {
@@ -4898,6 +4945,16 @@ impl crate::chat::agent::AgentHost for ChatAgentHost<'_> {
         emit_chat_tool_record(&self.app, conversation_id, run_id, message_id, record);
     }
 
+    fn emit_compaction_status(
+        &self,
+        conversation_id: &str,
+        phase: &str,
+        trigger: Option<&str>,
+        boundary: Option<&CompactionBoundaryRecord>,
+    ) {
+        emit_chat_compaction_state(&self.app, conversation_id, phase, trigger, boundary);
+    }
+
     fn persist_partial_assistant(
         &self,
         conversation_id: &str,
@@ -4995,11 +5052,215 @@ impl crate::chat::agent::AgentHost for ChatAgentHost<'_> {
     }
 }
 
+/// 无头测试通道（probe）的 AgentHost，仅 debug 构建。跑的是与 GUI 完全相同的生成核心
+/// （`complete_assistant_reply_inner`），但所有需要 GUI 应答的交互门一律自动放行：审批 /
+/// 会话 consent → 允许，`ask_user` → 取消态（不阻塞）。事件发射 no-op（结果从落盘的 assistant
+/// 消息内联读取，不靠事件）。generation 相关沿用标准机制，保证超时/取消能生效。
+#[cfg(debug_assertions)]
+struct ProbeAgentHost<'a> {
+    state: &'a AppState,
+}
+
+#[cfg(debug_assertions)]
+impl crate::chat::agent::AgentHost for ProbeAgentHost<'_> {
+    fn emit_stream_delta(
+        &self,
+        _conversation_id: &str,
+        _run_id: &str,
+        _message_id: &str,
+        _delta: &str,
+        _reasoning_delta: Option<&str>,
+        _segment: Option<&ChatMessageSegment>,
+    ) {
+    }
+
+    fn emit_stream_done(
+        &self,
+        _conversation_id: &str,
+        _run_id: &str,
+        _message_id: &str,
+        _reason: &str,
+        _full: &str,
+    ) {
+    }
+
+    fn emit_tool_record(
+        &self,
+        _conversation_id: &str,
+        _run_id: &str,
+        _message_id: &str,
+        _record: &ToolCallRecord,
+    ) {
+    }
+
+    fn request_tool_approval<'a>(
+        &'a self,
+        _ctx: &'a crate::chat::agent::ToolExecutionContext<'a>,
+        _record: &'a ToolCallRecord,
+    ) -> crate::chat::agent::AgentHostFuture<'a, bool> {
+        Box::pin(async { true })
+    }
+
+    fn request_session_consent<'a>(
+        &'a self,
+        _ctx: &'a crate::chat::agent::ToolExecutionContext<'a>,
+    ) -> crate::chat::agent::AgentHostFuture<'a, bool> {
+        Box::pin(async { true })
+    }
+
+    fn request_user_response<'a>(
+        &'a self,
+        _ctx: &'a crate::chat::agent::ToolExecutionContext<'a>,
+        _record: &'a ToolCallRecord,
+        _prompt: crate::chat::ask_user::AskUserPromptPayload,
+    ) -> crate::chat::agent::AgentHostFuture<'a, crate::chat::ask_user::AskUserResponseResult> {
+        // 无头：不能向用户提问，直接返回取消态让 loop 继续（不阻塞）。
+        Box::pin(async { crate::chat::ask_user::cancelled_response() })
+    }
+
+    fn is_generation_active(&self, conversation_id: &str, generation: u64) -> bool {
+        self.state
+            .is_chat_generation_active(conversation_id, generation)
+    }
+
+    fn wait_for_generation_inactive<'a>(
+        &'a self,
+        conversation_id: &'a str,
+        generation: u64,
+    ) -> crate::chat::agent::AgentHostFuture<'a, ()> {
+        Box::pin(async move {
+            wait_for_chat_cancel(self.state, conversation_id, generation).await;
+        })
+    }
+}
+
+/// 无头测试通道的一次生成编排（仅 debug）：把 scratch 会话绑到一个**固定复用**的
+/// 「Chat Probe」项目（根为请求的 cwd，使文件工具相对路径可解析）→ 推入 user 消息 →
+/// 走与 GUI 完全相同的生成核心（`complete_assistant_reply_inner`，probe=true 自动放行）→
+/// 取回生成的 assistant 消息。**会话与项目都保留**（不删除），以便在会话列表里观察调试。
+/// 返回 assistant 消息（含 content + tool_calls + stream_outcome + usage）。
+#[cfg(debug_assertions)]
+pub(crate) async fn run_chat_probe(
+    app: &AppHandle,
+    state: &State<'_, AppState>,
+    prompt: String,
+    provider: Option<String>,
+    model: Option<String>,
+    skill_id: Option<String>,
+    cwd: Option<String>,
+) -> Result<ChatMessage, String> {
+    const PROBE_PROJECT_ID: &str = "proj_kivio_probe";
+    // cwd → 固定复用的「Chat Probe」项目：根设为 cwd，使文件工具（read/glob/grep）相对路径
+    // 从此解析（非项目会话是 global workspace 无根，与真实 GUI 一致）。复用同一项目避免污染
+    // 列表；不删除，方便在会话列表里点开观察每次 probe 的完整轨迹。
+    let project_id = if let Some(cwd) = cwd.as_deref().filter(|c| !c.trim().is_empty()) {
+        let now = chrono::Local::now().timestamp();
+        let exists = get_projects(app)?
+            .into_iter()
+            .any(|p| p.id == PROBE_PROJECT_ID);
+        if exists {
+            // 更新根到本次 cwd（其余字段不动）。
+            let _ = update_project(
+                app,
+                PROBE_PROJECT_ID,
+                None,
+                None,
+                false,
+                None,
+                false,
+                Some(cwd.to_string()),
+                true,
+            );
+        } else {
+            create_project(
+                app,
+                crate::chat::types::ChatProject {
+                    id: PROBE_PROJECT_ID.to_string(),
+                    name: "Chat Probe".to_string(),
+                    description: Some("无头测试通道（debug）的会话都在这里，可点开观察".to_string()),
+                    color: None,
+                    root_path: Some(cwd.to_string()),
+                    created_at: now,
+                    updated_at: now,
+                },
+            )?;
+        }
+        Some(PROBE_PROJECT_ID.to_string())
+    } else {
+        None
+    };
+
+    let mut conversation = create_chat_conversation_internal(
+        app,
+        state.inner(),
+        provider,
+        model,
+        None,
+        project_id,
+        None,
+        None,
+    )?;
+    // 会话标题取自 prompt（截断），便于在列表里识别。
+    conversation.title = {
+        let head: String = prompt.chars().take(60).collect();
+        format!("🔬 {head}")
+    };
+    let user_message = ChatMessage {
+        id: format!("msg_{}", Uuid::new_v4()),
+        role: "user".to_string(),
+        content: prompt.clone(),
+        attachments: Vec::new(),
+        reasoning: None,
+        artifacts: Vec::new(),
+        tool_calls: Vec::new(),
+        segments: Vec::new(),
+        agent_plan: None,
+        api_messages: Vec::new(),
+        model_messages: Vec::new(),
+        active_skill_id: None,
+        run_entry: None,
+        stream_outcome: None,
+        usage: None,
+        group_id: None,
+        provider_id: None,
+        model: None,
+        timestamp: chrono::Local::now().timestamp(),
+    };
+    conversation.messages.push(user_message);
+    conversation.updated_at = chrono::Local::now().timestamp();
+    save_conversation(app, &conversation)?;
+
+    let gen_result = complete_assistant_reply_inner(
+        app,
+        state,
+        &mut conversation,
+        None,
+        Some(prompt.as_str()),
+        &[],
+        skill_id.as_deref(),
+        crate::chat::agent::AgentRunEntry::Send,
+        None,
+        /* probe */ true,
+    )
+    .await;
+
+    // 拿到最后一条 assistant 消息（complete_assistant_reply_inner 已 push+save 到会话）。
+    // 会话与项目都保留在列表里，供观察调试——不删除。
+    let assistant = conversation
+        .messages
+        .iter()
+        .rev()
+        .find(|m| m.role == "assistant")
+        .cloned();
+
+    gen_result?;
+    assistant.ok_or_else(|| "probe: no assistant message produced".to_string())
+}
+
 struct RegistryToolExecutor<'a> {
     app: AppHandle,
     state: &'a AppState,
 }
-
 impl crate::chat::agent::ToolExecutor for RegistryToolExecutor<'_> {
     fn call<'a>(
         &'a self,
@@ -5080,6 +5341,11 @@ async fn generate_with_chat_provider(
         }
         ProviderApiFormat::OpenAiResponses => {
             OpenAiResponsesProvider::new(state, provider, retry_attempts)
+                .generate(request)
+                .await
+        }
+        ProviderApiFormat::Gemini => {
+            crate::chat::model::GeminiProvider::new(state, provider, retry_attempts)
                 .generate(request)
                 .await
         }
@@ -5628,13 +5894,53 @@ pub(crate) async fn chat_update_message(
     }))
 }
 
-/// 重新生成助手回复（移除该条及之后的消息，再基于此前上下文请求新回复）
+/// `chat_regenerate_message` 的截断/编辑核心（纯函数，便于单测）：
+/// - assistant：截到它之前（`new_content` 无意义 → 报错）。
+/// - user + `new_content`：trim 校验非空 → 替换内容（编辑提问；附件保留）→ 保留该条截掉其后。
+///   摘要失效用 `idx`（内容变了，覆盖到该条的摘要即失效）。
+/// - user 无 `new_content`：孤儿重试，摘要失效用 `idx + 1`，保留该条截掉其后。
+fn apply_regenerate_truncation(
+    conversation: &mut Conversation,
+    idx: usize,
+    new_content: Option<String>,
+) -> Result<(), String> {
+    match conversation.messages[idx].role.as_str() {
+        "assistant" => {
+            if new_content.is_some() {
+                return Err("编辑内容仅支持用户消息".to_string());
+            }
+            mark_summary_stale_if_needed(conversation, idx);
+            conversation.messages.truncate(idx);
+        }
+        "user" => {
+            if let Some(content) = new_content {
+                let trimmed = content.trim();
+                if trimmed.is_empty() {
+                    return Err("消息内容不能为空".to_string());
+                }
+                mark_summary_stale_if_needed(conversation, idx);
+                conversation.messages[idx].content = trimmed.to_string();
+                conversation.messages[idx].timestamp = chrono::Local::now().timestamp();
+            } else {
+                mark_summary_stale_if_needed(conversation, idx + 1);
+            }
+            conversation.messages.truncate(idx + 1);
+        }
+        _ => return Err("仅支持重新生成助手回复或重试用户消息".to_string()),
+    }
+    Ok(())
+}
+
+/// 重新生成助手回复（移除该条及之后的消息，再基于此前上下文请求新回复）。
+/// `new_content`：编辑用户提问并重新生成——仅当目标是 user 消息时有效，先替换其内容
+/// 再走截断+重生成（附件保留；一个原子命令，避免"改了历史但不重生成"的不一致状态）。
 #[tauri::command]
 pub(crate) async fn chat_regenerate_message(
     app: AppHandle,
     state: State<'_, AppState>,
     conversation_id: String,
     message_id: String,
+    new_content: Option<String>,
 ) -> Result<serde_json::Value, String> {
     // Busy 拒绝：该会话仍有任意一条 run 在跑时不允许再触发重新生成。
     // 原子哨兵预留关闭 TOCTOU 窗口；per-run 槽位 / generation 在 `complete_assistant_reply` 内注册。
@@ -5648,18 +5954,7 @@ pub(crate) async fn chat_regenerate_message(
 
     let mut conversation = load_conversation(&app, &conversation_id)?;
     let idx = find_message_index(&conversation, &message_id)?;
-    match conversation.messages[idx].role.as_str() {
-        "assistant" => {
-            mark_summary_stale_if_needed(&mut conversation, idx);
-            conversation.messages.truncate(idx);
-        }
-        // 重试失败发送遗留的「孤儿用户消息」：保留它、丢掉其后的任何内容，再重新生成。
-        "user" => {
-            mark_summary_stale_if_needed(&mut conversation, idx + 1);
-            conversation.messages.truncate(idx + 1);
-        }
-        _ => return Err("仅支持重新生成助手回复或重试用户消息".to_string()),
-    }
+    apply_regenerate_truncation(&mut conversation, idx, new_content)?;
     if conversation.messages.last().map(|m| m.role.as_str()) != Some("user") {
         return Err("缺少对应的用户消息，无法重新生成".to_string());
     }
@@ -6179,6 +6474,7 @@ mod tests {
             Some(&main_provider),
             "deepseek-v4-flash",
             &[PathBuf::from("image.png")],
+            None,
         )
         .expect("auto should select a vision-capable model");
 
@@ -6199,6 +6495,7 @@ mod tests {
                 Some(&main_provider),
                 "gpt-4o",
                 &[PathBuf::from("image.png")],
+                None,
             ),
             None
         );
@@ -6235,6 +6532,7 @@ mod tests {
                 Some(&main_provider),
                 "models/gemini-3.1-flash-lite",
                 &[PathBuf::from("image.png")],
+                None,
             ),
             None,
             "vision-capable main model should keep images, not route to the mixer"
@@ -6339,7 +6637,6 @@ mod tests {
             crate::mcp::types::native_skill_run_script_tool(),
             crate::chat::ask_user::ask_user_tool(),
             crate::chat::todo::todo_write_tool(),
-            crate::chat::todo::todo_update_tool(),
             readonly_mcp_tool,
             write_mcp_tool,
         ];
@@ -6360,7 +6657,6 @@ mod tests {
         assert!(names.contains(&"skill_read_file".to_string()));
         assert!(names.contains(&"ask_user".to_string()));
         assert!(names.contains(&"todo_write".to_string()));
-        assert!(names.contains(&"todo_update".to_string()));
         assert!(names.contains(&"mcp__docs__search".to_string()));
         assert!(!names.contains(&"write".to_string()));
         assert!(!names.contains(&"bash".to_string()));
@@ -7207,6 +7503,149 @@ mod tests {
     }
 
     #[test]
+    fn effective_side_models_auto_use_session_main_model() {
+        let mut settings = Settings::default();
+        settings.providers.push(test_provider(
+            "global",
+            "Global",
+            vec!["gemini-3.1-flash-lite"],
+        ));
+        settings.providers.push(test_provider("session", "Session", vec!["gpt-4.1"]));
+        settings.default_models.chat.provider_id = "global".to_string();
+        settings.default_models.chat.model = "gemini-3.1-flash-lite".to_string();
+
+        let session = SessionModel {
+            provider_id: "session",
+            model: "gpt-4.1",
+        };
+
+        assert_eq!(
+            settings.effective_compression_model_for_session(Some(session)),
+            ("session".to_string(), "gpt-4.1".to_string())
+        );
+        assert_eq!(
+            settings.effective_title_summary_model_for_session(Some(session)),
+            ("session".to_string(), "gpt-4.1".to_string())
+        );
+        assert_eq!(
+            settings.effective_vision_model_for_session(Some(session)),
+            ("session".to_string(), "gpt-4.1".to_string())
+        );
+    }
+
+    #[test]
+    fn effective_side_models_honor_explicit_mixer_selection() {
+        let mut settings = Settings::default();
+        settings.providers.push(test_provider(
+            "global",
+            "Global",
+            vec!["gemini-3.1-flash-lite"],
+        ));
+        settings.providers.push(test_provider(
+            "cheap",
+            "Cheap",
+            vec!["gemini-3.1-flash-lite"],
+        ));
+        settings.default_models.compression.provider_id = "cheap".to_string();
+        settings.default_models.compression.model = "gemini-3.1-flash-lite".to_string();
+
+        let session = SessionModel {
+            provider_id: "global",
+            model: "gpt-4.1",
+        };
+
+        assert_eq!(
+            settings.effective_compression_model_for_session(Some(session)),
+            (
+                "cheap".to_string(),
+                "gemini-3.1-flash-lite".to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn should_auto_compress_allows_recompression_when_summary_exists() {
+        let mut conversation = test_conversation_with_summary(false);
+        for i in 0..12 {
+            let role = if i % 2 == 0 { "user" } else { "assistant" };
+            conversation.messages.push(test_chat_message(
+                &format!("msg_extra_{i}"),
+                role,
+                &format!("extra content {i}"),
+                10 + i,
+            ));
+        }
+        let context_state = ConversationContextState {
+            usage_ratio: Some(0.9),
+            ..ConversationContextState::default()
+        };
+        assert!(should_auto_compress_context(&context_state, &conversation));
+    }
+
+    #[test]
+    fn should_auto_compress_false_when_no_new_compressible_range() {
+        let mut conversation = test_conversation_with_summary(false);
+        conversation
+            .context_state
+            .summary
+            .as_mut()
+            .expect("summary")
+            .source_until_message_id = "msg_assistant_2".to_string();
+        let context_state = ConversationContextState {
+            usage_ratio: Some(0.9),
+            ..ConversationContextState::default()
+        };
+        assert!(!should_auto_compress_context(&context_state, &conversation));
+    }
+
+    #[test]
+    fn token_split_starts_after_existing_summary() {
+        let mut conversation = test_conversation_with_summary(false);
+        // summary source_until = msg_assistant_1（index 1）→ summary_start = 2。
+        // 推 3 条大消息（每条 ~20000 tokens，ASCII 4 chars/token），recent 尾窗 20000 只够最后 1 条，
+        // 其余进 old_segment；boundary 落在倒数第 2 条（index = len-2）。
+        for i in 0..3 {
+            let role = if i % 2 == 0 { "user" } else { "assistant" };
+            conversation.messages.push(test_chat_message(
+                &format!("msg_extra_{i}"),
+                role,
+                &"a".repeat(80_000),
+                10 + i as i64,
+            ));
+        }
+        let summary_start = 2;
+        let boundary = crate::chat::agent::compaction::token_split_chat_messages(
+            &conversation.messages,
+            summary_start,
+            crate::chat::agent::compaction::RECENT_KEEP_TOKENS,
+        )
+        .expect("boundary");
+        assert_eq!(boundary, conversation.messages.len() - 2);
+        assert!(boundary > summary_start);
+    }
+
+    #[test]
+    fn token_split_returns_none_when_recent_window_covers_all() {
+        // 全是小消息，远不到 20k 尾窗 → 没有可摘要旧段。
+        let mut conversation = test_conversation_with_summary(false);
+        for i in 0..5 {
+            let role = if i % 2 == 0 { "user" } else { "assistant" };
+            conversation.messages.push(test_chat_message(
+                &format!("msg_small_{i}"),
+                role,
+                "x",
+                10 + i as i64,
+            ));
+        }
+        let split = crate::chat::agent::compaction::token_split_chat_messages(
+            &conversation.messages,
+            2,
+            crate::chat::agent::compaction::RECENT_KEEP_TOKENS,
+        );
+        assert!(split.is_none());
+    }
+
+    #[test]
     fn build_chat_api_messages_injects_summary_and_skips_old_raw_messages() {
         let conversation = test_conversation_with_summary(false);
         let messages = build_chat_api_messages("system", &conversation, None, None, &[])
@@ -7304,6 +7743,55 @@ mod tests {
                 .map(|summary| summary.stale),
             Some(true)
         );
+    }
+
+    #[test]
+    fn regenerate_truncation_edits_user_content_and_truncates_after() {
+        // 编辑 msg_user_2（index 2）：内容替换、其后 assistant 被截、摘要保持未过期
+        // （msg_user_2 在摘要 boundary msg_assistant_1 之后，不触发 stale）。
+        let mut conversation = test_conversation_with_summary(false);
+        apply_regenerate_truncation(&mut conversation, 2, Some("edited question".to_string()))
+            .unwrap();
+        assert_eq!(conversation.messages.len(), 3);
+        assert_eq!(conversation.messages[2].id, "msg_user_2");
+        assert_eq!(conversation.messages[2].content, "edited question");
+        assert_eq!(
+            conversation.context_state.summary.as_ref().map(|s| s.stale),
+            Some(false)
+        );
+
+        // 编辑被摘要覆盖的 msg_user_1（index 0）：摘要必须标 stale（内容变了摘要即过期）。
+        let mut covered = test_conversation_with_summary(false);
+        apply_regenerate_truncation(&mut covered, 0, Some("rewritten first question".to_string()))
+            .unwrap();
+        assert_eq!(covered.messages.len(), 1);
+        assert_eq!(covered.messages[0].content, "rewritten first question");
+        assert_eq!(
+            covered.context_state.summary.as_ref().map(|s| s.stale),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn regenerate_truncation_rejects_bad_edit_targets() {
+        // 空内容 → 报错且对话未被改动。
+        let mut conversation = test_conversation_with_summary(false);
+        let err = apply_regenerate_truncation(&mut conversation, 2, Some("   ".to_string()))
+            .unwrap_err();
+        assert_eq!(err, "消息内容不能为空");
+        assert_eq!(conversation.messages.len(), 4);
+
+        // new_content 指向 assistant → 明确报错（不静默忽略）。
+        let err = apply_regenerate_truncation(&mut conversation, 3, Some("nope".to_string()))
+            .unwrap_err();
+        assert_eq!(err, "编辑内容仅支持用户消息");
+        assert_eq!(conversation.messages.len(), 4);
+
+        // 无 new_content 的既有行为不回归：assistant 截到它之前；user 孤儿保留自身。
+        let mut plain = test_conversation_with_summary(false);
+        apply_regenerate_truncation(&mut plain, 3, None).unwrap();
+        assert_eq!(plain.messages.len(), 3);
+        assert_eq!(plain.messages.last().unwrap().id, "msg_user_2");
     }
 
     #[test]

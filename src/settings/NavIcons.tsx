@@ -1,6 +1,6 @@
-// 设置导航的自定义线性图标。接口对齐 lucide-react（size / strokeWidth / className），
-// 可直接替换 <Icon size={17} strokeWidth={1.75} />。fill=none + stroke=currentColor，
-// 颜色随上层文字色（选中态 / 深色模式自动跟随）。
+// 設定導航的自定義線性圖示。介面對齊 lucide-react（size / strokeWidth / className），
+// 可直接替換 <Icon size={17} strokeWidth={1.75} />。fill=none + stroke=currentColor，
+// 顏色隨上層文字色（選中態 / 深色模式自動跟隨）。
 
 interface IconProps {
   size?: number
@@ -22,7 +22,7 @@ function svgProps({ size = 24, strokeWidth = 2, className }: IconProps) {
   }
 }
 
-// 基础：六角螺母 + 中心孔
+// 基礎：六角螺母 + 中心孔
 export function GeneralIcon(props: IconProps) {
   return (
     <svg {...svgProps(props)}>
@@ -32,7 +32,7 @@ export function GeneralIcon(props: IconProps) {
   )
 }
 
-// 知识库：书本 + 书脊
+// 知識庫：書本 + 書脊
 export function KnowledgeIcon(props: IconProps) {
   return (
     <svg {...svgProps(props)}>
@@ -44,7 +44,7 @@ export function KnowledgeIcon(props: IconProps) {
   )
 }
 
-// 输入翻译：A 字 + CJK 字符
+// 輸入翻譯：A 字 + CJK 字元
 export function TranslateIcon(props: IconProps) {
   return (
     <svg {...svgProps(props)}>
@@ -57,7 +57,7 @@ export function TranslateIcon(props: IconProps) {
   )
 }
 
-// 快速翻译：闪电
+// 快速翻譯：閃電
 export function ScreenshotIcon(props: IconProps) {
   return (
     <svg {...svgProps(props)}>
@@ -66,7 +66,7 @@ export function ScreenshotIcon(props: IconProps) {
   )
 }
 
-// Lens：取景框 + 镜头
+// Lens：取景框 + 鏡頭
 export function LensIcon(props: IconProps) {
   return (
     <svg {...svgProps(props)}>
@@ -79,7 +79,7 @@ export function LensIcon(props: IconProps) {
   )
 }
 
-// AI 客户端：对话气泡
+// AI 客戶端：對話氣泡
 export function ChatIcon(props: IconProps) {
   return (
     <svg {...svgProps(props)}>
@@ -88,7 +88,7 @@ export function ChatIcon(props: IconProps) {
   )
 }
 
-// 记忆：节点图
+// 記憶：節點圖
 export function MemoryIcon(props: IconProps) {
   return (
     <svg {...svgProps(props)}>
@@ -116,7 +116,7 @@ export function MixerIcon(props: IconProps) {
   )
 }
 
-// Kivio Code：终端
+// Kivio Code：終端
 export function CodeIcon(props: IconProps) {
   return (
     <svg {...svgProps(props)}>
@@ -127,7 +127,7 @@ export function CodeIcon(props: IconProps) {
   )
 }
 
-// 本地 CLI Agent：机器人
+// 本地 CLI Agent：機器人
 export function AgentIcon(props: IconProps) {
   return (
     <svg {...svgProps(props)}>
@@ -140,7 +140,7 @@ export function AgentIcon(props: IconProps) {
   )
 }
 
-// MCP：插头/连接
+// MCP：插頭/連線
 export function McpIcon(props: IconProps) {
   return (
     <svg {...svgProps(props)}>
@@ -152,7 +152,7 @@ export function McpIcon(props: IconProps) {
   )
 }
 
-// 连接器：两个互锁的链环（区别于 McpIcon 的插头），表达「连接外部数据源」
+// 連接器：兩個互鎖的鏈環（區別於 McpIcon 的插頭），表達「連線外部資料來源」
 export function ConnectorsIcon(props: IconProps) {
   return (
     <svg {...svgProps(props)}>
@@ -163,7 +163,7 @@ export function ConnectorsIcon(props: IconProps) {
   )
 }
 
-// Skill：卷轴
+// Skill：卷軸
 export function SkillIcon(props: IconProps) {
   return (
     <svg {...svgProps(props)}>
@@ -175,7 +175,7 @@ export function SkillIcon(props: IconProps) {
   )
 }
 
-// 网络搜索：地球仪（经线椭圆 + 赤道），填满 viewBox，小尺寸也清晰
+// 網路搜尋：地球儀（經線橢圓 + 赤道），填滿 viewBox，小尺寸也清晰
 export function WebSearchIcon(props: IconProps) {
   return (
     <svg {...svgProps(props)}>
@@ -186,7 +186,7 @@ export function WebSearchIcon(props: IconProps) {
   )
 }
 
-// 用量统计：柱状图
+// 用量統計：柱狀圖
 export function UsageIcon(props: IconProps) {
   return (
     <svg {...svgProps(props)}>
@@ -198,7 +198,7 @@ export function UsageIcon(props: IconProps) {
   )
 }
 
-// 模型：云
+// 模型：雲
 export function ProvidersIcon(props: IconProps) {
   return (
     <svg {...svgProps(props)}>
@@ -207,7 +207,7 @@ export function ProvidersIcon(props: IconProps) {
   )
 }
 
-// 关于：信息
+// 關於：資訊
 export function AboutIcon(props: IconProps) {
   return (
     <svg {...svgProps(props)}>

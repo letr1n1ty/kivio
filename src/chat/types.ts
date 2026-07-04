@@ -1,4 +1,4 @@
-// Chat 前端类型定义
+// Chat 前端型別定義
 
 export type ToolCallStatus =
   | 'pending'
@@ -181,15 +181,15 @@ export interface ChatMessage {
   runEntry?: 'send' | 'regenerate' | string | null
   stream_outcome?: 'completed' | 'cancelled' | 'error' | 'interrupted' | string | null
   streamOutcome?: 'completed' | 'cancelled' | 'error' | 'interrupted' | string | null
-  /** Provider 报告的本条回复真实 token 用量（规划/合成/压缩累计）；不报告时缺省。 */
+  /** Provider 報告的本條回覆真實 token 用量（規劃/合成/壓縮累計）；不報告時預設。 */
   usage?: MessageUsage | null
-  /** 多模型一问多答：同一条 user 消息 fan-out 出的 N 条 assistant 共享同一个 group id；单模型为空。 */
+  /** 多模型一問多答：同一條 user 訊息 fan-out 出的 N 條 assistant 共享同一個 group id；單模型為空。 */
   group_id?: string | null
   groupId?: string | null
-  /** 该 assistant 实际所用 provider id（多模型时每条各记自己的；单模型缺省回退会话级）。 */
+  /** 該 assistant 實際所用 provider id（多模型時每條各記自己的；單模型預設回退會話級）。 */
   provider_id?: string | null
   providerId?: string | null
-  /** 该 assistant 实际所用 model（多模型时每条各记自己的；单模型缺省回退会话级）。 */
+  /** 該 assistant 實際所用 model（多模型時每條各記自己的；單模型預設回退會話級）。 */
   model?: string | null
   timestamp: number
 }
@@ -236,7 +236,7 @@ export interface ChatProject {
   updatedAt?: number
 }
 
-/** Chat 集(Set)：助手之上的人设分组。不带工作目录，持有系统提示词 + 默认助手。 */
+/** Chat 集(Set)：助手之上的人設分組。不帶工作目錄，持有系統提示詞 + 預設助手。 */
 export interface ChatSet {
   id: string
   name: string
@@ -263,10 +263,10 @@ export interface ChatAssistant {
   provider_id?: string
   providerId?: string
   model?: string
-  /** 允许使用的 MCP 服务器 id 白名单。空 = 不可用任何 MCP。 */
+  /** 允許使用的 MCP 伺服器 id 白名單。空 = 不可用任何 MCP。 */
   mcp_server_ids?: string[]
   mcpServerIds?: string[]
-  /** 允许激活的技能 id 白名单。空 = 不可用任何技能。 */
+  /** 允許啟用的技能 id 白名單。空 = 不可用任何技能。 */
   skill_ids?: string[]
   skillIds?: string[]
   enabled?: boolean
@@ -313,6 +313,23 @@ export interface ContextUsageSegment {
   color?: string | null
 }
 
+export interface CompactionBoundaryRecord {
+  id: string
+  source_until_message_id?: string
+  sourceUntilMessageId?: string
+  display_after_message_id?: string | null
+  displayAfterMessageId?: string | null
+  token_estimate_before?: number
+  tokenEstimateBefore?: number
+  token_estimate_after?: number
+  tokenEstimateAfter?: number
+  summary_content?: string
+  summaryContent?: string
+  trigger?: 'manual' | 'auto' | 'agent_loop' | string
+  created_at?: number
+  createdAt?: number
+}
+
 export interface ConversationContextSummary {
   id: string
   content: string
@@ -349,7 +366,11 @@ export interface ConversationContextState {
   lastCompressedAt?: number | null
   compressed_message_count?: number
   compressedMessageCount?: number
+  compression_count?: number
+  compressionCount?: number
   summary?: ConversationContextSummary | null
+  compaction_boundaries?: CompactionBoundaryRecord[]
+  compactionBoundaries?: CompactionBoundaryRecord[]
   warning?: string | null
   warningMessage?: string | null
   context_source?: 'kivio_builtin' | 'external_cli' | string
@@ -454,15 +475,15 @@ export interface Conversation {
   knowledgeBaseIds?: string[]
   thinking_level?: ThinkingLevel | null
   thinkingLevel?: ThinkingLevel | null
-  /** 多模型一问多答（D2）：会话级持久化的多答模型集合（上限 4）。空或单元素 = 单模型现状。 */
+  /** 多模型一問多答（D2）：會話級持久化的多答模型集合（上限 4）。空或單元素 = 單模型現狀。 */
   reply_models?: ModelRef[]
   replyModels?: ModelRef[]
-  /** 多答组「选中条」（D5）：group_id → 被采纳进下一轮历史的 assistant message id。无记录取该组第一条。 */
+  /** 多答組「選中條」（D5）：group_id → 被採納進下一輪歷史的 assistant message id。無記錄取該組第一條。 */
   group_selections?: Record<string, string>
   groupSelections?: Record<string, string>
 }
 
-/** 一次回答所用的 (provider, model) 引用。多模型一问多答的会话级模型集元素。 */
+/** 一次回答所用的 (provider, model) 引用。多模型一問多答的會話級模型集元素。 */
 export interface ModelRef {
   provider_id: string
   model: string

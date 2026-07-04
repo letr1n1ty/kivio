@@ -30,7 +30,7 @@ describe('MessageGroup — columns 模式', () => {
     _setMultiAnswerViewModeForTest('columns')
   })
 
-  it('落库态：渲染每列的「model | provider」标签', () => {
+  it('落庫態：渲染每列的「model | provider」標籤', () => {
     render(
       <MessageGroup
         conversationId="c1"
@@ -41,12 +41,12 @@ describe('MessageGroup — columns 模式', () => {
         ]}
       />,
     )
-    // 列头 + footer chip 都含标签 → getAllByText。
+    // 列頭 + footer chip 都含標籤 → getAllByText。
     expect(screen.getAllByText('gpt-4o | openai').length).toBeGreaterThan(0)
     expect(screen.getAllByText('claude-3 | anthropic').length).toBeGreaterThan(0)
   })
 
-  it('选中条：默认第一列高亮；点选其它列触发回调', async () => {
+  it('選中條：預設第一列高亮；點選其它列觸發回撥', async () => {
     const onSelect = vi.fn()
     render(
       <MessageGroup
@@ -59,9 +59,9 @@ describe('MessageGroup — columns 模式', () => {
         onSelectColumn={onSelect}
       />,
     )
-    // 默认第一列已选（列头显示「已选」）。
-    expect(screen.getByText('已选')).toBeInTheDocument()
-    const continueButtons = screen.getAllByText('用这条继续')
+    // 預設第一列已選（列頭顯示「已選」）。
+    expect(screen.getByText('已選')).toBeInTheDocument()
+    const continueButtons = screen.getAllByText('用這條繼續')
     expect(continueButtons).toHaveLength(1)
     await act(async () => {
       continueButtons[0].click()
@@ -69,7 +69,7 @@ describe('MessageGroup — columns 模式', () => {
     expect(onSelect).toHaveBeenCalledWith('g1', 'a2')
   })
 
-  it('显式选中条：高亮所记列', () => {
+  it('顯式選中條：高亮所記列', () => {
     render(
       <MessageGroup
         conversationId="c1"
@@ -82,12 +82,12 @@ describe('MessageGroup — columns 模式', () => {
         onSelectColumn={() => {}}
       />,
     )
-    // a2 被选 → a1 显示「用这条继续」，a2 显示「已选」。
-    expect(screen.getByText('已选')).toBeInTheDocument()
-    expect(screen.getAllByText('用这条继续')).toHaveLength(1)
+    // a2 被選 → a1 顯示「用這條繼續」，a2 顯示「已選」。
+    expect(screen.getByText('已選')).toBeInTheDocument()
+    expect(screen.getAllByText('用這條繼續')).toHaveLength(1)
   })
 
-  it('流式态：从 group store 读实时列，无选中标记', async () => {
+  it('流式態：從 group store 讀即時列，無選中標記', async () => {
     act(() => {
       beginGroup('c1', 'g1', [
         { providerId: 'openai', model: 'gpt-4o' },
@@ -95,17 +95,17 @@ describe('MessageGroup — columns 模式', () => {
       ])
       const a = ensureGroupColumn('c1', 'msg_a', 'openai', 'gpt-4o')!
       a.content = 'streaming A'
-      // touchGroup 现在 rAF 合帧；测试用 flushGroups 立即同步通知订阅者。
+      // touchGroup 現在 rAF 合幀；測試用 flushGroups 立即同步通知訂閱者。
       flushGroups()
     })
     render(<MessageGroup conversationId="c1" groupId="g1" messages={[]} />)
     expect(screen.getByText(/streaming A/)).toBeInTheDocument()
-    // 流式态不显示选中标记（还没落库）。
-    expect(screen.queryByText('已选')).not.toBeInTheDocument()
-    expect(screen.queryByText('用这条继续')).not.toBeInTheDocument()
+    // 流式態不顯示選中標記（還沒落庫）。
+    expect(screen.queryByText('已選')).not.toBeInTheDocument()
+    expect(screen.queryByText('用這條繼續')).not.toBeInTheDocument()
   })
 
-  it('性能降级（R10）：非聚焦列折叠 reasoning（正文 hideBody），聚焦列展开流式思考', async () => {
+  it('效能降級（R10）：非聚焦列摺疊 reasoning（正文 hideBody），聚焦列展開流式思考', async () => {
     act(() => {
       beginGroup('c1', 'g1', [
         { providerId: 'openai', model: 'gpt-4o' },
@@ -120,8 +120,8 @@ describe('MessageGroup — columns 模式', () => {
       flushGroups()
     })
     const { container } = render(<MessageGroup conversationId="c1" groupId="g1" messages={[]} />)
-    // 默认聚焦第一列（msg_a）：其 ReasoningBlock 流式展开（aria-hidden=false）。
-    // 非聚焦第二列（msg_b）：reasoningStreaming=false → 折叠 hideBody（aria-hidden=true）。
+    // 預設聚焦第一列（msg_a）：其 ReasoningBlock 流式展開（aria-hidden=false）。
+    // 非聚焦第二列（msg_b）：reasoningStreaming=false → 摺疊 hideBody（aria-hidden=true）。
     const reasoningSections = container.querySelectorAll('section[aria-label="Thinking"] > [aria-hidden]')
     expect(reasoningSections.length).toBe(2)
     expect(reasoningSections[0].getAttribute('aria-hidden')).toBe('false')
@@ -129,8 +129,8 @@ describe('MessageGroup — columns 模式', () => {
   })
 })
 
-describe('MessageGroup — tabs 模式（默认）', () => {
-  it('默认只整宽渲染选中条（第一条），不显示其它条正文', () => {
+describe('MessageGroup — tabs 模式（預設）', () => {
+  it('預設只整寬渲染選中條（第一條），不顯示其它條正文', () => {
     render(
       <MessageGroup
         conversationId="c1"
@@ -142,15 +142,15 @@ describe('MessageGroup — tabs 模式（默认）', () => {
         onSelectColumn={() => {}}
       />,
     )
-    // tabs 模式：只渲染第一条正文。
+    // tabs 模式：只渲染第一條正文。
     expect(screen.getByText('answer one')).toBeInTheDocument()
     expect(screen.queryByText('answer two')).not.toBeInTheDocument()
-    // 列头「用这条继续」按钮在 tabs 模式不渲染（交给 footer chip）。
-    expect(screen.queryByText('用这条继续')).not.toBeInTheDocument()
-    expect(screen.queryByText('已选')).not.toBeInTheDocument()
+    // 列頭「用這條繼續」按鈕在 tabs 模式不渲染（交給 footer chip）。
+    expect(screen.queryByText('用這條繼續')).not.toBeInTheDocument()
+    expect(screen.queryByText('已選')).not.toBeInTheDocument()
   })
 
-  it('显式选中条：默认整宽显示所记列', () => {
+  it('顯式選中條：預設整寬顯示所記列', () => {
     render(
       <MessageGroup
         conversationId="c1"
@@ -167,7 +167,7 @@ describe('MessageGroup — tabs 模式（默认）', () => {
     expect(screen.queryByText('answer one')).not.toBeInTheDocument()
   })
 
-  it('点 footer 模型 chip：切换显示条并触发 onSelectColumn（一举两用）', async () => {
+  it('點 footer 模型 chip：切換顯示條並觸發 onSelectColumn（一舉兩用）', async () => {
     const onSelect = vi.fn()
     render(
       <MessageGroup
@@ -180,20 +180,20 @@ describe('MessageGroup — tabs 模式（默认）', () => {
         onSelectColumn={onSelect}
       />,
     )
-    // 初始显示第一条。
+    // 初始顯示第一條。
     expect(screen.getByText('answer one')).toBeInTheDocument()
-    // footer 第二个模型 chip（claude-3）。
+    // footer 第二個模型 chip（claude-3）。
     const chip = screen.getByTitle('claude-3 | anthropic')
     await act(async () => {
       chip.click()
     })
-    // 切换到第二条 + 触发续聊选中回调。
+    // 切換到第二條 + 觸發續聊選中回撥。
     expect(screen.getByText('answer two')).toBeInTheDocument()
     expect(screen.queryByText('answer one')).not.toBeInTheDocument()
     expect(onSelect).toHaveBeenCalledWith('g1', 'a2')
   })
 
-  it('切到 columns 模式：N 列横向并排出现', async () => {
+  it('切到 columns 模式：N 列橫向並排出現', async () => {
     render(
       <MessageGroup
         conversationId="c1"
@@ -206,12 +206,12 @@ describe('MessageGroup — tabs 模式（默认）', () => {
       />,
     )
     expect(screen.queryByText('answer two')).not.toBeInTheDocument()
-    // 点 footer「并排」按钮。
-    const columnsBtn = screen.getByTitle('并排显示（多列）')
+    // 點 footer「並排」按鈕。
+    const columnsBtn = screen.getByTitle('並排顯示（多列）')
     await act(async () => {
       columnsBtn.click()
     })
-    // 两条都整列渲染出来。
+    // 兩條都整列渲染出來。
     expect(screen.getByText('answer one')).toBeInTheDocument()
     expect(screen.getByText('answer two')).toBeInTheDocument()
   })

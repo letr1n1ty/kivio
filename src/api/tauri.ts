@@ -128,6 +128,21 @@ export type ChatContextSummary = {
   stale?: boolean
 }
 
+export type CompactionBoundaryRecord = {
+  id: string
+  source_until_message_id?: string
+  sourceUntilMessageId?: string
+  token_estimate_before?: number
+  tokenEstimateBefore?: number
+  token_estimate_after?: number
+  tokenEstimateAfter?: number
+  summary_content?: string
+  summaryContent?: string
+  trigger?: 'manual' | 'auto' | 'agent_loop' | string
+  created_at?: number
+  createdAt?: number
+}
+
 export type ChatContextState = {
   estimated_input_tokens?: number
   estimatedInputTokens?: number
@@ -145,7 +160,11 @@ export type ChatContextState = {
   lastCompressedAt?: number | null
   compressed_message_count?: number
   compressedMessageCount?: number
+  compression_count?: number
+  compressionCount?: number
   summary?: ChatContextSummary | null
+  compaction_boundaries?: CompactionBoundaryRecord[]
+  compactionBoundaries?: CompactionBoundaryRecord[]
   warning?: string | null
   warningMessage?: string | null
 }
@@ -153,6 +172,13 @@ export type ChatContextState = {
 export type ChatContextPayload = {
   conversationId: string
   contextState: ChatContextState
+}
+
+export type ChatCompactionPayload = {
+  conversationId: string
+  phase: 'started' | 'completed' | 'microcompacted' | 'failed' | string
+  trigger?: 'manual' | 'auto' | 'agent_loop' | string
+  boundary?: CompactionBoundaryRecord | null
 }
 
 export type ChatTodoStatus = 'pending' | 'in_progress' | 'completed'
@@ -486,6 +512,8 @@ export type ChatToolsConfig = {
   approvalPolicy: 'readonly_auto_sensitive_confirm' | 'always_confirm' | 'auto' | string
   /** 同一时刻最多并行运行的子 agent 数（后端钳制 1..64，默认 12）。 */
   subAgentConcurrency?: number
+  /** 开发者「请求调试」开关：开启后每次 provider 调用被记录到内存环形缓冲（脱敏）。默认关。 */
+  requestDebugEnabled?: boolean
   nativeTools: ChatNativeToolsConfig
 }
 
@@ -534,6 +562,22 @@ export type LensTranslateStreamPayload = {
   delta?: string
   done?: boolean
   success?: boolean
+  error?: string | null
+}
+
+export type LensReplaceLine = {
+  text: string
+  translated: string
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export type LensReplaceStreamPayload = {
+  imageId: string
+  phase: 'ocr' | 'translating' | 'done'
+  lines: LensReplaceLine[]
   error?: string | null
 }
 
@@ -659,6 +703,8 @@ export type Settings = {
     enabled: boolean
     hotkey: string
     textHotkey: string
+    replaceHotkey?: string
+    replaceEnabled?: boolean
     providerId: string
     model: string
     directTranslate?: boolean
@@ -716,6 +762,8 @@ export type Settings = {
     }
   }
   settingsLanguage?: 'zh' | 'zh-TW' | 'zh-Hant' | 'en'
+  /** 首次使用引導：`pending` | `completed` | `skipped` */
+  onboardingStatus?: 'pending' | 'completed' | 'skipped'
   /** 启动时静默检查 GH Releases 是否有新版（默认 true） */
   autoCheckUpdate?: boolean
   /** 截图自动归档开关（默认 false） */
@@ -879,6 +927,44 @@ export type UsageStatsResponse = {
   skippedRecords: number
 }
 
+/** 一条 provider 请求调试记录（内存环形缓冲，脱敏，仅开发者面板可见）。 */
+export type RequestDebugRecord = {
+  id: string
+  createdAt: number
+  durationMs: number
+  providerId: string
+  providerName: string
+  model: string
+  apiFormat: string
+  operation: string
+  source: string
+  conversationId?: string | null
+  messageId?: string | null
+  status: string
+  request: {
+    url: string
+    headers: Record<string, string>
+    body: unknown
+    stream: boolean
+  }
+  response: {
+    statusCode?: number | null
+    text?: string | null
+    reasoning?: string | null
+    toolCalls?: unknown
+    finishReason?: string | null
+    usage?: {
+      inputTokens?: number | null
+      outputTokens?: number | null
+      totalTokens?: number | null
+      cachedInputTokens?: number | null
+      cacheCreationInputTokens?: number | null
+      reasoningTokens?: number | null
+    } | null
+    error?: string | null
+  }
+}
+
 /** 更新检查结果（来自后端 GitHub Releases API 调用） */
 export type UpdateInfo = {
   available: boolean
@@ -924,6 +1010,7 @@ function normalizeProvider(provider: ModelProvider): ModelProvider {
 export function normalizeProviderApiFormat(apiFormat?: string): string {
   if (apiFormat === 'anthropic' || apiFormat === 'anthropic_messages') return 'anthropic_messages'
   if (apiFormat === 'openai_responses' || apiFormat === 'responses') return 'openai_responses'
+  if (apiFormat === 'gemini' || apiFormat === 'google' || apiFormat === 'gemini_generate') return 'gemini'
   return 'openai_chat'
 }
 
@@ -956,6 +1043,7 @@ function normalizeChatTools(config?: Partial<ChatToolsConfig> | null): ChatTools
     maxToolOutputChars: null,
     approvalPolicy: current.approvalPolicy || 'readonly_auto_sensitive_confirm',
     subAgentConcurrency: Math.min(64, Math.max(1, Math.round(current.subAgentConcurrency ?? 12))),
+    requestDebugEnabled: current.requestDebugEnabled ?? false,
     nativeTools: {
       ...defaultNativeTools(),
       ...current.nativeTools,
@@ -996,6 +1084,23 @@ function normalizeDefaultModels(
 
 function isDefaultModelConfigured(selection: DefaultModelSelection): boolean {
   return selection.providerId.trim() !== ''
+}
+
+function providerHasUsableConfig(provider: ModelProvider): boolean {
+  return provider.enabled !== false
+    && provider.apiKeys.some((key) => key.trim() !== '')
+    && provider.enabledModels.length > 0
+}
+
+function settingsHasUsableProviderConfig(settings: Partial<Settings>): boolean {
+  return Array.isArray(settings.providers)
+    && settings.providers.some(providerHasUsableConfig)
+}
+
+function normalizeOnboardingStatus(current: Partial<Settings>): 'pending' | 'completed' | 'skipped' {
+  const raw = current.onboardingStatus?.trim()
+  if (raw === 'completed' || raw === 'skipped' || raw === 'pending') return raw
+  return settingsHasUsableProviderConfig(current) ? 'completed' : 'pending'
 }
 
 function prepareSettingsForSave(settings: Settings): Settings {
@@ -1061,6 +1166,8 @@ function normalizeSettings(settings: Settings): Settings {
       enabled: current.screenshotTranslation?.enabled ?? true,
       hotkey: current.screenshotTranslation?.hotkey ?? 'CommandOrControl+Shift+A',
       textHotkey: current.screenshotTranslation?.textHotkey ?? 'CommandOrControl+Shift+T',
+      replaceHotkey: current.screenshotTranslation?.replaceHotkey ?? 'CommandOrControl+Shift+R',
+      replaceEnabled: current.screenshotTranslation?.replaceEnabled ?? true,
       providerId: current.screenshotTranslation?.providerId ?? '',
       model: current.screenshotTranslation?.model ?? '',
       directTranslate: current.screenshotTranslation?.directTranslate ?? false,
@@ -1103,6 +1210,7 @@ function normalizeSettings(settings: Settings): Settings {
         : current.settingsLanguage === 'zh'
           ? 'zh'
           : 'zh-TW',
+    onboardingStatus: normalizeOnboardingStatus(current),
     autoCheckUpdate: current.autoCheckUpdate ?? true,
     imageArchiveEnabled: current.imageArchiveEnabled ?? false,
     imageArchivePath: current.imageArchivePath ?? '',
@@ -1182,6 +1290,9 @@ export const api = {
   usageGetStats: (query?: UsageStatsQuery) =>
     invoke<UsageStatsResponse>('usage_get_stats', { query }),
   usageClear: () => invoke<void>('usage_clear'),
+  getRequestDebugRecords: () =>
+    invoke<RequestDebugRecord[]>('get_request_debug_records'),
+  clearRequestDebugRecords: () => invoke<void>('clear_request_debug_records'),
 
   // 提供商相关
   fetchModels: (providerId: string, provider?: ProviderConnectionInput) =>
@@ -1272,6 +1383,10 @@ export const api = {
   onChatContext: (listener: (payload: ChatContextPayload) => void) => {
     if (!isTauriRuntime()) return Promise.resolve(() => {})
     return on<ChatContextPayload>('chat-context', (payload) => listener(payload))
+  },
+  onChatCompaction: (listener: (payload: ChatCompactionPayload) => void) => {
+    if (!isTauriRuntime()) return Promise.resolve(() => {})
+    return on<ChatCompactionPayload>('chat-compaction', (payload) => listener(payload))
   },
   onChatTodo: (listener: (payload: ChatTodoPayload) => void) => {
     if (!isTauriRuntime()) return Promise.resolve(() => {})
@@ -1404,6 +1519,8 @@ export const api = {
     on<LensWebSearchPayload>('lens-web-search', (payload) => listener(payload)),
   onLensTranslateStream: (listener: (payload: LensTranslateStreamPayload) => void) =>
     on<LensTranslateStreamPayload>('lens-translate-stream', (payload) => listener(payload)),
+  onLensReplaceStream: (listener: (payload: LensReplaceStreamPayload) => void) =>
+    on<LensReplaceStreamPayload>('lens-replace-stream', (payload) => listener(payload)),
   onLensCloseRequest: (listener: () => void) =>
     on('lens-close-request', () => listener()),
   lensListWindows: () => invoke<LensWindowInfo[]>('lens_list_windows'),
@@ -1430,6 +1547,10 @@ export const api = {
   lensTranslateText: (text: string, requestId: string) =>
     invoke<{ success: boolean; original?: string; translated?: string; error?: string }>(
       'lens_translate_text', { text, requestId }
+    ),
+  lensReplaceTranslate: (imageId: string) =>
+    invoke<{ success: boolean; lineCount?: number; error?: string }>(
+      'lens_replace_translate', { imageId }
     ),
   lensAsk: (imageId: string, messages: ExplainMessage[], options?: { webSearch?: boolean }) =>
     invoke<{ success: boolean; response?: string; error?: string; webSearchResults?: LensWebSearchResult[] }>('lens_ask', {

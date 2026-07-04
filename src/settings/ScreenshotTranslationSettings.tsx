@@ -14,7 +14,7 @@ import {
 import { type I18n } from './i18n'
 
 type ScreenshotTranslation = Settings['screenshotTranslation']
-type RecordingTarget = 'main' | 'screenshotTranslation' | 'screenshotTranslationText' | 'lens'
+type RecordingTarget = 'main' | 'screenshotTranslation' | 'screenshotTranslationText' | 'screenshotTranslationReplace' | 'lens'
 type RapidOcrDownloadState = 'idle' | 'downloading' | 'failed'
 
 interface ScreenshotTranslationSettingsProps {
@@ -28,11 +28,12 @@ interface ScreenshotTranslationSettingsProps {
   rapidOcrDownloadError: string
   t: I18n
   onUpdate: (updates: Partial<ScreenshotTranslation>) => void
-  onToggleRecording: (target: 'screenshotTranslation' | 'screenshotTranslationText') => void
+  onToggleRecording: (target: 'screenshotTranslation' | 'screenshotTranslationText' | 'screenshotTranslationReplace') => void
   onRefreshRapidOcrStatus: () => void
   onDownloadRapidOcr: () => void
   hotkeyError?: string
   textHotkeyError?: string
+  replaceHotkeyError?: string
   hotkeyClearLabel?: string
 }
 
@@ -52,13 +53,14 @@ export function ScreenshotTranslationSettings({
   onDownloadRapidOcr,
   hotkeyError,
   textHotkeyError,
+  replaceHotkeyError,
   hotkeyClearLabel,
 }: ScreenshotTranslationSettingsProps) {
   const screenshot = settings.screenshotTranslation
   const ocrMode = screenshot?.ocrMode ?? 'cloud_vision'
   const cardWidth = screenshot?.cardWidth ?? 480
   const [widthDraft, setWidthDraft] = useState(String(cardWidth))
-  // 边打字不 clamp（避免输 "5" 立刻跳 360）；失焦/回车时 clamp 到 360–720 再提交。
+  // 邊打字不 clamp（避免輸 "5" 立刻跳 360）；失焦/回車時 clamp 到 360–720 再提交。
   const commitCardWidth = () => {
     const n = parseInt(widthDraft, 10)
     const next = Number.isFinite(n) ? Math.max(360, Math.min(720, n)) : cardWidth
@@ -78,7 +80,7 @@ export function ScreenshotTranslationSettings({
 
           {screenshot?.enabled !== false && (
             <>
-              <SettingRow label={t.screenshotHotkey} description={t.screenshotHotkey} stack>
+              <SettingRow label={t.screenshotHotkey} stack>
                 <HotkeyInput
                   value={screenshot?.hotkey ?? ''}
                   placeholder="CommandOrControl+Shift+A"
@@ -93,7 +95,7 @@ export function ScreenshotTranslationSettings({
                 />
               </SettingRow>
 
-              <SettingRow label={t.screenshotTextHotkey} description={t.selectedText} stack>
+              <SettingRow label={t.screenshotTextHotkey} stack>
                 <HotkeyInput
                   value={screenshot?.textHotkey ?? ''}
                   placeholder="CommandOrControl+Shift+T"
@@ -110,6 +112,45 @@ export function ScreenshotTranslationSettings({
             </>
           )}
       </SettingsGroup>
+
+      {screenshot?.enabled !== false && (
+        <SettingsGroup title={t.replaceTranslate}>
+          <SettingRow label={t.replaceTranslateHotkey} stack>
+            <HotkeyInput
+              value={screenshot?.replaceHotkey ?? ''}
+              placeholder="CommandOrControl+Shift+R"
+              recording={recordingTarget === 'screenshotTranslationReplace'}
+              onToggleRecording={() => onToggleRecording('screenshotTranslationReplace')}
+              recordLabel={t.hotkeyRecord}
+              recordingLabel={t.hotkeyRecording}
+              recordingPlaceholder={t.hotkeyRecordingPlaceholder}
+              onClear={() => onUpdate({ replaceHotkey: '' })}
+              clearLabel={hotkeyClearLabel}
+              error={replaceHotkeyError}
+            />
+          </SettingRow>
+
+          <SettingRow label={t.replaceTranslateEnabled}>
+            <Toggle
+              checked={screenshot?.replaceEnabled !== false}
+              onChange={(replaceEnabled) => onUpdate({ replaceEnabled })}
+            />
+          </SettingRow>
+
+          {hasSystemOcr && screenshot?.replaceEnabled !== false && (
+            <SettingRow label={t.replaceTranslateRapidOcr} stack>
+              <RapidOcrStatusPanel
+                status={rapidOcrStatus}
+                downloadState={rapidOcrDownloadState}
+                downloadError={rapidOcrDownloadError}
+                t={t}
+                onRefresh={onRefreshRapidOcrStatus}
+                onDownload={onDownloadRapidOcr}
+              />
+            </SettingRow>
+          )}
+        </SettingsGroup>
+      )}
 
       {screenshot?.enabled !== false && (
         <>
@@ -136,7 +177,6 @@ export function ScreenshotTranslationSettings({
 
               <SettingRow
                 label={t.screenshotTranslationStream}
-                description={t.screenshotTranslationStreamHint}
               >
                 <Toggle
                   checked={screenshot?.streamEnabled !== false}
@@ -192,14 +232,17 @@ export function ScreenshotTranslationSettings({
                   )}
 
                   {ocrMode === 'rapid_ocr' && (
-                    <RapidOcrStatusPanel
-                      status={rapidOcrStatus}
-                      downloadState={rapidOcrDownloadState}
-                      downloadError={rapidOcrDownloadError}
-                      t={t}
-                      onRefresh={onRefreshRapidOcrStatus}
-                      onDownload={onDownloadRapidOcr}
-                    />
+                    <>
+                      <p className="kv-row-desc px-1 pb-1">{t.ocrEngineRapidOcrSharedNote}</p>
+                      <RapidOcrStatusPanel
+                        status={rapidOcrStatus}
+                        downloadState={rapidOcrDownloadState}
+                        downloadError={rapidOcrDownloadError}
+                        t={t}
+                        onRefresh={onRefreshRapidOcrStatus}
+                        onDownload={onDownloadRapidOcr}
+                      />
+                    </>
                   )}
             </SettingsGroup>
           )}
@@ -240,8 +283,8 @@ export function ScreenshotTranslationSettings({
 }
 
 /**
- * 自定义提示词字段：空值时把默认模板预填进文本框（可编辑起点），
- * 用户未编辑前保存仍写空串（运行时用内置默认）；"恢复默认" 清空并复位预填。
+ * 自定義提示詞欄位：空值時把預設模板預填進文本框（可編輯起點），
+ * 使用者未編輯前儲存仍寫空串（執行時用內建預設）；"恢復預設" 清空並復位預填。
  */
 export function PromptField({
   label,
@@ -310,7 +353,7 @@ function RapidOcrStatusPanel({
   onDownload: () => void
 }) {
   return (
-    <div className="kv-panel mt-2">
+    <div className="kv-panel mt-0 w-full">
       {status?.modelsAvailable ? (
         <div className="flex items-start gap-2">
           <span className="mt-0.5 inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />

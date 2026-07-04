@@ -9,6 +9,7 @@ use std::{
 };
 
 use base64::{engine::general_purpose, Engine as _};
+use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use uuid::Uuid;
@@ -27,9 +28,11 @@ use crate::capture_geometry::{
 use crate::lens;
 use crate::prompts::{
     build_combined_translate_prompt, build_ocr_direct_translation_prompt,
-    build_screenshot_translation_prompt, build_selected_text_translation_prompt, compact_ocr_text,
+    build_replace_translation_batch_prompt, build_screenshot_translation_prompt,
+    build_selected_text_translation_prompt, compact_ocr_text, parse_replace_translation_json,
     COMBINED_TRANSLATE_SEPARATOR,
 };
+use crate::rapidocr::RapidOcrLine;
 use crate::screenshot::cleanup_temp_file;
 use crate::settings::{self, default_question_prompt, ExplainMessage, OcrMode};
 use crate::shortcuts::{capture_active_selection, get_mouse_position, open_chat_window};
@@ -37,7 +40,8 @@ use crate::state::{
     AppState, PendingChatExternalAttachment, PendingChatExternalMessage, PendingChatExternalSend,
 };
 use crate::utils::{
-    language_name, provider_supports_thinking_field, resolve_target_lang_with_preference,
+    language_name, provider_supports_thinking_field, resolve_target_lang,
+    resolve_target_lang_with_preference,
 };
 use crate::web_search::{format_web_context, search_web, WebSearchResult};
 use crate::windows;
@@ -509,6 +513,7 @@ pub(crate) fn lens_request_internal(app: &AppHandle, mode: &str) -> Result<(), S
     let safe_mode = match mode {
         "translate" => "translate",
         "translateText" => "translateText",
+        "replace" => "replace",
         _ => "chat",
     };
     let mut freeze_frame_image_id: Option<String> = None;
@@ -538,7 +543,7 @@ pub(crate) fn lens_request_internal(app: &AppHandle, mode: &str) -> Result<(), S
         let _ = window.show();
         let _ = window.set_focus();
     }
-    if safe_mode == "translate" || safe_mode == "translateText" {
+    if safe_mode == "translate" || safe_mode == "translateText" || safe_mode == "replace" {
         register_lens_escape_shortcut(app);
     } else {
         unregister_lens_escape_shortcut(app);
@@ -606,6 +611,12 @@ pub(crate) fn lens_request_translate(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub(crate) fn lens_request_translate_text(app: AppHandle) -> Result<(), String> {
     lens_request_internal(&app, "translateText")
+}
+
+/// 替换翻译入口：截完后 RapidOCR + 批量翻译，Canvas 原位覆盖译文。
+#[tauri::command]
+pub(crate) fn lens_request_replace(app: AppHandle) -> Result<(), String> {
+    lens_request_internal(&app, "replace")
 }
 
 /// 返回当前屏幕上可见应用窗口列表（macOS 实际数据；Windows 空数组）。
@@ -1929,6 +1940,144 @@ async fn local_ocr_then_translate(
     }))
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReplaceTranslateLinePayload {
+    text: String,
+    translated: String,
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+}
+
+impl ReplaceTranslateLinePayload {
+    fn from_ocr(line: &RapidOcrLine, translated: &str) -> Self {
+        Self {
+            text: line.text.clone(),
+            translated: translated.to_string(),
+            x: line.x,
+            y: line.y,
+            width: line.width,
+            height: line.height,
+        }
+    }
+}
+
+fn emit_replace_stream(
+    app: &AppHandle,
+    image_id: &str,
+    phase: &str,
+    lines: &[ReplaceTranslateLinePayload],
+    error: Option<&str>,
+) {
+    let _ = app.emit(
+        "lens-replace-stream",
+        serde_json::json!({
+            "imageId": image_id,
+            "phase": phase,
+            "lines": lines,
+            "error": error,
+        }),
+    );
+}
+
+/// 替换翻译：RapidOCR 行级 bbox + 一次批量翻译，结果通过 `lens-replace-stream` 推送。
+#[tauri::command]
+pub(crate) async fn lens_replace_translate(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    image_id: String,
+) -> Result<serde_json::Value, String> {
+    let temp_path = match resolve_explain_image_path(&app, &state, &image_id) {
+        Ok(p) => p,
+        Err(e) => return Ok(serde_json::json!({ "success": false, "error": e })),
+    };
+
+    let settings = state.settings_read().clone();
+    let provider = match settings.get_provider(&settings.screenshot_translation.provider_id) {
+        Some(p) => p.clone(),
+        None => {
+            let msg = "Translation provider not found".to_string();
+            emit_replace_stream(&app, &image_id, "done", &[], Some(&msg));
+            return Ok(serde_json::json!({ "success": false, "error": msg }));
+        }
+    };
+    if provider.api_keys.is_empty() {
+        let msg = "Missing API Key".to_string();
+        emit_replace_stream(&app, &image_id, "done", &[], Some(&msg));
+        return Ok(serde_json::json!({ "success": false, "error": msg }));
+    }
+    if settings.screenshot_translation.model.trim().is_empty() {
+        let msg = "Please select a model first".to_string();
+        emit_replace_stream(&app, &image_id, "done", &[], Some(&msg));
+        return Ok(serde_json::json!({ "success": false, "error": msg }));
+    }
+
+    let ocr_lines = match state.rapidocr.ocr_image_lines(&temp_path).await {
+        Ok(lines) => lines,
+        Err(err) => {
+            emit_replace_stream(&app, &image_id, "done", &[], Some(&err));
+            return Ok(serde_json::json!({ "success": false, "error": err }));
+        }
+    };
+    if ocr_lines.is_empty() {
+        let msg = "OCR 未识别到文字".to_string();
+        emit_replace_stream(&app, &image_id, "done", &[], Some(&msg));
+        return Ok(serde_json::json!({ "success": false, "error": msg }));
+    }
+
+    let ocr_payload: Vec<ReplaceTranslateLinePayload> = ocr_lines
+        .iter()
+        .map(|line| ReplaceTranslateLinePayload::from_ocr(line, ""))
+        .collect();
+    emit_replace_stream(&app, &image_id, "ocr", &ocr_payload, None);
+    emit_replace_stream(&app, &image_id, "translating", &ocr_payload, None);
+
+    let target_lang = resolve_target_lang(&settings.target_lang, "");
+    let lang_name = language_name(&target_lang).to_string();
+    let line_refs: Vec<&str> = ocr_lines.iter().map(|l| l.text.as_str()).collect();
+    let prompt = build_replace_translation_batch_prompt(&line_refs, &lang_name);
+    let retry_attempts = effective_retry_attempts(&settings);
+    let st_thinking = settings.screenshot_translation.thinking_enabled;
+
+    let translated = match call_openai_text(
+        &state,
+        &provider,
+        &settings.screenshot_translation.model,
+        prompt,
+        retry_attempts,
+        st_thinking,
+        "screenshot_translation",
+        "replace_translate",
+    )
+    .await
+    {
+        Ok(t) => t,
+        Err(err) => {
+            emit_replace_stream(&app, &image_id, "done", &ocr_payload, Some(&err));
+            return Ok(serde_json::json!({ "success": false, "error": err }));
+        }
+    };
+
+    let translations = match parse_replace_translation_json(&translated, ocr_lines.len()) {
+        Ok(values) => values,
+        Err(err) => {
+            emit_replace_stream(&app, &image_id, "done", &ocr_payload, Some(&err));
+            return Ok(serde_json::json!({ "success": false, "error": err }));
+        }
+    };
+
+    let final_payload: Vec<ReplaceTranslateLinePayload> = ocr_lines
+        .iter()
+        .zip(translations.iter())
+        .map(|(line, tr)| ReplaceTranslateLinePayload::from_ocr(line, tr))
+        .collect();
+    emit_replace_stream(&app, &image_id, "done", &final_payload, None);
+
+    Ok(serde_json::json!({ "success": true, "lineCount": final_payload.len() }))
+}
+
 /// 关闭 lens：清理图片、释放 busy、隐藏窗口。
 ///
 /// hide 前先把窗口几何复位到当前光标所在显示器的全屏，避免下次 show 出来时还停在
@@ -2183,6 +2332,12 @@ pub(crate) fn lens_set_floating(app: AppHandle, rect: FloatingRect) -> Result<()
     {
         if let (Some(x), Some(y)) = (rect.x, rect.y) {
             lens_set_interactive_region(&window, x, y, rect.width, rect.height)?;
+        } else {
+            // size-only（选中翻译等天生小窗）：先清掉可能残留的旧裁剪 region，再真实改尺寸。
+            // 避开"透明+无边框+SetWindowRgn"在 WebView2 上的黑块/原生标题栏脆弱性（tauri#14764）——
+            // 全屏→浮动路径才需要 SetWindowRgn，天生小窗直接 set_size 即可。
+            lens_clear_interactive_region(&window);
+            let _ = window.set_size(tauri::LogicalSize::new(rect.width, rect.height));
         }
     }
 

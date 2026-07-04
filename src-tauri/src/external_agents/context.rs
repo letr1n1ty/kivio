@@ -136,6 +136,7 @@ pub fn compute_external_context_state(
     let status = external_context_status(usage_ratio);
     let segments = external_context_segments(&usage);
     let last_compressed_at = conversation.context_state.last_compressed_at;
+    let compression_count = conversation.context_state.compression_count;
 
     ConversationContextState {
         estimated_input_tokens: usage.input_tokens,
@@ -147,7 +148,9 @@ pub fn compute_external_context_state(
         last_measured_at: chrono::Local::now().timestamp(),
         last_compressed_at,
         compressed_message_count: 0,
+        compression_count,
         summary: None,
+        compaction_boundaries: conversation.context_state.compaction_boundaries.clone(),
         warning: conversation.context_state.warning.clone(),
         context_source: Some(CONTEXT_SOURCE_EXTERNAL.to_string()),
         token_count_source: Some(usage.token_count_source.to_string()),

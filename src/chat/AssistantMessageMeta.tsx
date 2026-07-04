@@ -18,7 +18,7 @@ interface AssistantMessageMetaProps {
   onDelete?: () => void
 }
 
-/** Provider 报告的真实 token 数（输入+输出聚合的 total，或输出 token）；没有则 null。 */
+/** Provider 報告的真實 token 數（輸入+輸出聚合的 total，或輸出 token）；沒有則 null。 */
 function realUsageTokens(usage?: MessageUsage | null): { total: number; label: string } | null {
   if (!usage) return null
   const output = usage.output_tokens ?? usage.outputTokens
@@ -45,7 +45,7 @@ export function AssistantMessageMeta({
   onDelete,
 }: AssistantMessageMetaProps) {
   const [copied, setCopied] = useState(false)
-  // 优先显示 provider 报告的真实用量；provider 不报时回落到 chars 估算（带 ~ 前缀）。
+  // 優先顯示 provider 報告的真實用量；provider 不報時回落到 chars 估算（帶 ~ 字首）。
   const realUsage = realUsageTokens(usage)
   const tokenLabel = realUsage
     ? realUsage.label
@@ -68,11 +68,11 @@ export function AssistantMessageMeta({
   const runEntryLabel = runEntry === 'regenerate' ? '已重新生成' : null
   const streamOutcomeLabel =
     streamOutcome === 'cancelled'
-      ? '已停止后继续'
+      ? '已停止後繼續'
       : streamOutcome === 'error'
-        ? '生成异常结束'
+        ? '生成異常結束'
         : streamOutcome === 'interrupted'
-          ? '运行中断，未完成'
+          ? '執行中斷，未完成'
           : null
 
   return (
@@ -86,8 +86,8 @@ export function AssistantMessageMeta({
           type="button"
           onClick={() => void handleCopy()}
           className={iconBtn}
-          title={copied ? '已复制' : '复制'}
-          aria-label={copied ? '已复制' : '复制'}
+          title={copied ? '已複製' : '複製'}
+          aria-label={copied ? '已複製' : '複製'}
         >
           {copied ? <Check size={14} strokeWidth={2} className="chat-motion-pop" /> : <Copy size={14} strokeWidth={2} />}
         </button>
@@ -96,8 +96,8 @@ export function AssistantMessageMeta({
           onClick={onEdit}
           disabled={!onEdit}
           className={iconBtn}
-          title="编辑"
-          aria-label="编辑"
+          title="編輯"
+          aria-label="編輯"
         >
           <Pencil size={14} strokeWidth={2} />
         </button>
@@ -116,8 +116,8 @@ export function AssistantMessageMeta({
           onClick={onDelete}
           disabled={!onDelete}
           className={iconBtn}
-          title="删除"
-          aria-label="删除"
+          title="刪除"
+          aria-label="刪除"
         >
           <Trash2 size={14} strokeWidth={2} />
         </button>

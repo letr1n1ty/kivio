@@ -2,6 +2,56 @@ use serde::{Deserialize, Serialize};
 
 use crate::settings::{ChatMcpServer, ChatNativeToolsConfig};
 
+/// 保留名规避（wire 层别名）：部分上游把特定工具名当作**内部保留工具**拦截消化——
+/// 实测 Cursor 系上游（grok-composer 等经 cursor2api 类代理）会把名为 `web_search` 的
+/// 工具调用吞掉（模型明确决定调用，流里却什么都不返回，表现为空响应）。全局把这类
+/// 内置工具名映射成无歧义的 wire 别名：请求里声明别名、系统提示词渲染别名，收到
+/// 别名调用后经 `match_tool_call`（匹配 `openai_tool_name()`）自然映射回内部工具执行。
+/// 对正经 provider 无副作用（别名同样是合法工具名）。
+const RESERVED_WIRE_ALIASES: &[(&str, &str)] = &[("web_search", "search_web")];
+
+/// 内部工具名 → wire 别名（无命中原样返回）。
+pub fn apply_reserved_wire_alias(name: &str) -> String {
+    RESERVED_WIRE_ALIASES
+        .iter()
+        .find(|(from, _)| *from == name)
+        .map(|(_, to)| (*to).to_string())
+        .unwrap_or_else(|| name.to_string())
+}
+
+/// wire 别名 → 内部工具名（无命中原样返回）。供按模型侧函数名反查内部工具的路径使用
+/// （如 disabled-tool 反馈）。
+pub fn resolve_reserved_wire_alias(name: &str) -> &str {
+    RESERVED_WIRE_ALIASES
+        .iter()
+        .find(|(_, to)| *to == name)
+        .map(|(from, _)| *from)
+        .unwrap_or(name)
+}
+
+/// 旧工具名 → 现工具名。工具被移除/合并/改名后，旧名仍需能路由到现工具，覆盖两条输入
+/// 路径：① 模型发出的旧名工具调用（`match_tool_call`），② persona/skill 存储的工具白名单
+/// （`tool_matches_recommended_name`）。
+///
+/// **方向与 `RESERVED_WIRE_ALIASES` 相反**：wire 别名是"内部名 → 模型可见名"（改对外暴露）；
+/// 这里是"旧输入名 → 现内部名"（把历史输入规整到现工具），**不参与**工具声明/提示词渲染。
+const LEGACY_TOOL_ALIASES: &[(&str, &str)] = &[
+    ("ls", "read"),                    // ls 并入 read（read 现在可读目录）
+    ("find", "glob"),                  // find 改名 glob
+    ("list_background", "bash_output"), // list_background 并入 bash_output（无 job_id=列表）
+    ("todo_update", "todo_write"),     // todo_update 并入 todo_write（整表替换）
+];
+
+/// 旧工具名规整为现工具名（无命中原样返回）。
+pub fn canonical_tool_name(name: &str) -> &str {
+    LEGACY_TOOL_ALIASES
+        .iter()
+        .find(|(from, _)| *from == name)
+        .map(|(_, to)| *to)
+        .unwrap_or(name)
+}
+
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatToolDefinition {
@@ -24,7 +74,9 @@ impl ChatToolDefinition {
         match self.source.as_str() {
             // Native and Skill tools are model-facing APIs owned by Kivio. Keep their names
             // aligned with the system prompt so models can call exactly what we instruct.
-            "native" | "skill" | "mixer" => sanitize_openai_tool_name(&self.name),
+            "native" | "skill" | "mixer" => {
+                apply_reserved_wire_alias(&sanitize_openai_tool_name(&self.name))
+            }
             _ => sanitize_openai_tool_name(&self.id),
         }
     }
@@ -339,7 +391,7 @@ pub fn native_read_file_tool() -> ChatToolDefinition {
     ChatToolDefinition {
         id: "native__read_file".to_string(),
         name: "read".to_string(),
-        description: "Read a local file. Text files are line-numbered as `N<TAB>line` for easy reference; the numbers are display-only and are NOT part of the file — never include them in edit old_string. Optional offset/limit select a 1-based line window — use them for large files; the result reports total_lines and next_offset so you can continue reading. Image files (png/jpg/webp/…) are also supported: the image is shown to you directly when your model has vision, otherwise it is described or OCR'd to text — so you can `read` screenshots and photos by path. For PDF/Word/Excel, use the matching skill instead.".to_string(),
+        description: "Read a local file or directory. For a file: text is line-numbered as `N<TAB>line` for easy reference; the numbers are display-only and are NOT part of the file — never include them in edit old_string. Optional offset/limit select a 1-based line window — use them for large files; the result reports total_lines and next_offset so you can continue reading. For a directory path: returns its entries (folded in the former `ls` tool); offset/limit are ignored. Image files (png/jpg/webp/…) are also supported: the image is shown to you directly when your model has vision, otherwise it is described or OCR'd to text — so you can `read` screenshots and photos by path. For PDF/Word/Excel, use the matching skill instead.".to_string(),
         source: "native".to_string(),
         server_id: None,
         server_name: Some("Kivio".to_string()),
@@ -358,6 +410,9 @@ pub fn native_read_file_tool() -> ChatToolDefinition {
     }
 }
 
+/// Directory listing tool def. No longer part of the chat native tool set (chat's
+/// `read` now lists directories directly), but still used by the Kivio Code surface,
+/// which keeps a dedicated `ls` in its own tool list.
 pub fn native_list_dir_tool() -> ChatToolDefinition {
     ChatToolDefinition {
         id: "native__list_dir".to_string(),
@@ -413,7 +468,7 @@ pub fn native_search_files_tool() -> ChatToolDefinition {
 pub fn native_glob_files_tool() -> ChatToolDefinition {
     ChatToolDefinition {
         id: "native__glob_files".to_string(),
-        name: "find".to_string(),
+        name: "glob".to_string(),
         description: "Find files/directories under a directory by glob pattern such as \"src/**/*.tsx\". Relative paths resolve from the project root; respects .gitignore.".to_string(),
         source: "native".to_string(),
         server_id: None,
@@ -519,35 +574,16 @@ pub fn native_bash_output_tool() -> ChatToolDefinition {
     ChatToolDefinition {
         id: "native__bash_output".to_string(),
         name: "bash_output".to_string(),
-        description: "Read new output from a background command started by bash (background:true). Pass the job_id returned by that call. Returns the captured stdout/stderr since since_offset (default 0), the current status (running / exited with exit_code / killed / error), and next_offset to pass on the next poll for incremental reads. After dispatching a background command, do NOT poll immediately — keep working, then poll a bounded number of times (≤20). Always refresh once with bash_output before reporting a background command's result to the user.".to_string(),
+        description: "Inspect background commands started by bash (background:true). With a job_id: returns that job's captured stdout/stderr since since_offset (default 0), the current status (running / exited with exit_code / killed / error), and next_offset for incremental reads. With NO job_id: lists all background commands tracked in this app session (job_id, status, command, working directory, age) — background commands survive across turns until killed or the app exits. After dispatching a background command, do NOT poll immediately — keep working, then poll a bounded number of times (≤20). Always refresh once with bash_output before reporting a background command's result to the user.".to_string(),
         source: "native".to_string(),
         server_id: None,
         server_name: Some("Kivio".to_string()),
         input_schema: serde_json::json!({
             "type": "object",
             "properties": {
-                "job_id": { "type": "string", "description": "The job_id returned when the background command was started" },
+                "job_id": { "type": "string", "description": "The job_id returned when the background command was started. Omit to list all tracked background jobs instead." },
                 "since_offset": { "type": "integer", "description": "Byte offset to read from (use next_offset from the previous bash_output call for incremental reads; default 0)" }
-            },
-            "required": ["job_id"]
-        }),
-        sensitive: false,
-        annotations: None,
-        output_schema: None,
-    }
-}
-
-pub fn native_list_background_tool() -> ChatToolDefinition {
-    ChatToolDefinition {
-        id: "native__list_background".to_string(),
-        name: "list_background".to_string(),
-        description: "List all background commands tracked in this app session, with their job_id, status (running / exited / killed / error), command, working directory, and age. Background commands survive across turns until you kill them or the app exits.".to_string(),
-        source: "native".to_string(),
-        server_id: None,
-        server_name: Some("Kivio".to_string()),
-        input_schema: serde_json::json!({
-            "type": "object",
-            "properties": {}
+            }
         }),
         sensitive: false,
         annotations: None,
@@ -913,7 +949,8 @@ mod tests {
             native_skill_read_file_tool().openai_tool_name(),
             "skill_read_file"
         );
-        assert_eq!(native_web_search_tool().openai_tool_name(), "web_search");
+        // 保留名规避：native web_search 在 wire/prompt 上声明为别名 search_web。
+        assert_eq!(native_web_search_tool().openai_tool_name(), "search_web");
     }
 
     #[test]
@@ -938,7 +975,6 @@ mod tests {
     #[test]
     fn file_tool_path_descriptions_are_scope_specific() {
         let read_schema = native_read_file_tool().input_schema;
-        let ls_schema = native_list_dir_tool().input_schema;
         let grep = native_search_files_tool();
         let find = native_glob_files_tool();
 
@@ -946,10 +982,8 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("File path"));
-        assert!(ls_schema["properties"]["path"]["description"]
-            .as_str()
-            .unwrap()
-            .contains("Directory"));
+        // read 现在也列目录，描述里应提到目录
+        assert!(native_read_file_tool().description.contains("directory"));
         assert!(grep.description.contains("file or under a directory"));
         assert!(grep.description.contains("pass that file path directly"));
         assert!(grep.input_schema["properties"]["path"]["description"]
@@ -1045,7 +1079,7 @@ mod tests {
         let native = crate::settings::ChatNativeToolsConfig::default();
         let defs = list_native_builtin_tool_defs(&native, false, false);
         let names: Vec<&str> = defs.iter().map(|tool| tool.name.as_str()).collect();
-        for expected in ["read", "ls", "grep", "find", "write", "edit", "bash"] {
+        for expected in ["read", "grep", "glob", "write", "edit", "bash"] {
             assert!(
                 names.contains(&expected),
                 "default config must expose `{expected}` (got {names:?})"
@@ -1197,5 +1231,53 @@ mod tests {
 
         assert!(tool.sensitive);
         assert!(!tool.is_read_only_tool());
+    }
+
+    #[test]
+    fn reserved_wire_alias_maps_web_search_both_ways() {
+        // Cursor 系上游把 web_search 当内部保留工具吞掉（实测空响应）——wire 层全局改名。
+        assert_eq!(apply_reserved_wire_alias("web_search"), "search_web");
+        assert_eq!(apply_reserved_wire_alias("web_fetch"), "web_fetch");
+        assert_eq!(resolve_reserved_wire_alias("search_web"), "web_search");
+        assert_eq!(resolve_reserved_wire_alias("read"), "read");
+    }
+
+    #[test]
+    fn native_web_search_tool_declares_alias_on_the_wire() {
+        let tool = ChatToolDefinition {
+            id: "native__web_search".to_string(),
+            name: "web_search".to_string(),
+            description: "Search the web".to_string(),
+            source: "native".to_string(),
+            server_id: None,
+            server_name: Some("Kivio".to_string()),
+            input_schema: serde_json::json!({ "type": "object" }),
+            sensitive: false,
+            annotations: None,
+            output_schema: None,
+        };
+        assert_eq!(tool.openai_tool_name(), "search_web");
+        let wire = tool.to_openai_tool();
+        assert_eq!(wire["function"]["name"], "search_web");
+        // MCP 工具不受别名影响（按 id 命名）。
+        let mcp_tool = ChatToolDefinition {
+            source: "mcp".to_string(),
+            id: "mcp__srv__web_search".to_string(),
+            ..tool
+        };
+        assert_eq!(mcp_tool.openai_tool_name(), "mcp__srv__web_search");
+    }
+
+    #[test]
+    fn canonical_tool_name_maps_legacy_names() {
+        // 旧名 → 现名（移除/合并/改名后仍可路由）。
+        assert_eq!(canonical_tool_name("ls"), "read");
+        assert_eq!(canonical_tool_name("find"), "glob");
+        assert_eq!(canonical_tool_name("list_background"), "bash_output");
+        assert_eq!(canonical_tool_name("todo_update"), "todo_write");
+        // 现名与未知名原样返回。
+        assert_eq!(canonical_tool_name("read"), "read");
+        assert_eq!(canonical_tool_name("glob"), "glob");
+        assert_eq!(canonical_tool_name("bash"), "bash");
     }
 }

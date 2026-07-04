@@ -4,40 +4,40 @@ export const isMac =
 export const isWindows =
   typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)
 
-/** macOS Chat 使用 Tauri Overlay 标题栏，交通灯由系统绘制 */
+/** macOS Chat 使用 Tauri Overlay 標題欄，交通燈由系統繪製 */
 export const usesNativeTitlebar = isMac
 
-/** 侧栏 / 主内容顶栏行高与垂直居中 */
+/** 側欄 / 主內容頂欄行高與垂直居中 */
 export const chatTitlebarRowClass = usesNativeTitlebar
   ? 'flex h-[52px] shrink-0 items-center gap-2'
   : 'flex h-[52px] shrink-0 items-center gap-2 px-3 pt-2'
 
-/** 窗口左缘交通灯留白（仅侧栏顶栏、收起态主顶栏；约 66px 灯区 + 间距） */
+/** 視窗左緣交通燈留白（僅側欄頂欄、收起態主頂欄；約 66px 燈區 + 間距） */
 export const chatTitlebarMacInsetClass = usesNativeTitlebar ? 'pl-[92px]' : ''
 
 /**
- * 顶栏幽灵控件统一规格（去胶囊化方向 A）：
- * - 默认透明，无边框 / 无阴影；hover 才出浅背景（与图标钮 hover-bg 同语汇）。
- * - 统一高度 32px（h-8）、统一圆角 rounded-lg，所有触发控件对齐到同一视觉规格。
- * - 沿用 active:scale 按压反馈 + --kv-* 令牌；reduced-motion 靠 index.css 末尾全局兜底。
+ * 頂欄幽靈控制元件統一規格（去膠囊化方向 A）：
+ * - 預設透明，無邊框 / 無陰影；hover 才出淺背景（與圖示鈕 hover-bg 同語彙）。
+ * - 統一高度 32px（h-8）、統一圓角 rounded-lg，所有觸發控制元件對齊到同一視覺規格。
+ * - 沿用 active:scale 按壓反饋 + --kv-* 令牌；reduced-motion 靠 index.css 末尾全域性兜底。
  */
 export const chatTitlebarGhostHoverClass =
   'hover:bg-black/[0.05] dark:hover:bg-white/[0.07]'
 
-/** 文字 / 复合触发控件（模型选择、侧栏操作组容器等）。 */
+/** 文字 / 複合觸發控制元件（模型選擇、側欄操作組容器等）。 */
 export const chatTitlebarPillButtonClass = [
   'chat-titlebar-pill',
   'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-transparent bg-transparent px-2.5 text-sm transition duration-[var(--kv-dur-instant)] active:scale-[0.97]',
   chatTitlebarGhostHoverClass,
 ].join(' ')
 
-/** 纯图标触发控件（Runtime / Permission 等），与 pill 同高、同圆角的方形钮。 */
+/** 純圖示觸發控制元件（Runtime / Permission 等），與 pill 同高、同圓角的方形鈕。 */
 export const chatTitlebarIconButtonClass = [
   'chat-titlebar-pill',
   'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-transparent bg-transparent text-neutral-600 transition duration-[var(--kv-dur-instant)] active:scale-[0.97] dark:text-neutral-400',
   chatTitlebarGhostHoverClass,
 ].join(' ')
 
-/** 复合控件内的次级图标按钮（如侧栏操作组里的切栏 / 新建）。 */
+/** 複合控制元件內的次級圖示按鈕（如側欄操作組裡的切欄 / 新建）。 */
 export const chatTitlebarPillIconClass =
   'chat-titlebar-pill-icon flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-neutral-600 transition duration-[var(--kv-dur-instant)] hover:bg-black/[0.05] hover:text-neutral-900 active:scale-90 dark:text-neutral-400 dark:hover:bg-white/[0.08] dark:hover:text-neutral-100'

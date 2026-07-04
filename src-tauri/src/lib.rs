@@ -289,6 +289,7 @@ pub fn run() {
                 rapidocr: rapidocr::RapidOcrClient::new(&app.handle(), build_http_client()),
                 sub_agents: chat::sub_agent::SubAgentManager::default(),
                 background_commands: std::sync::Arc::new(Mutex::new(HashMap::new())),
+                request_debug: Mutex::new(std::collections::VecDeque::new()),
             });
 
             // Apply the stored sub-agent concurrency cap (default sizes the gate
@@ -357,6 +358,16 @@ pub fn run() {
                             );
                         }
                     }
+                });
+            }
+
+            // 无头测试通道（probe）——仅 debug 构建。轮询 <app_data>/chat_probe/request.json，
+            // 走与聊天窗口相同的生成路径并把结果写 result.json，供自动化真实验证工具调用。
+            #[cfg(debug_assertions)]
+            {
+                let app_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    crate::chat::probe::run_probe_watcher(app_handle).await;
                 });
             }
 
@@ -433,6 +444,7 @@ pub fn run() {
             lens_commands::lens_request,
             lens_commands::lens_request_translate,
             lens_commands::lens_request_translate_text,
+            lens_commands::lens_request_replace,
             lens_commands::lens_list_windows,
             lens_commands::lens_capture_window,
             lens_commands::lens_capture_region,
@@ -442,6 +454,7 @@ pub fn run() {
             lens_commands::lens_send_history_to_chat,
             lens_commands::lens_translate,
             lens_commands::lens_translate_text,
+            lens_commands::lens_replace_translate,
             lens_commands::lens_cancel_stream,
             lens_commands::lens_focus_webview,
             lens_commands::lens_close,
@@ -458,6 +471,8 @@ pub fn run() {
             commands::rapidocr_install,
             usage::usage_get_stats,
             usage::usage_clear,
+            chat::commands::get_request_debug_records,
+            chat::commands::clear_request_debug_records,
             // Chat 模块命令
             chat::commands::chat_get_conversations,
             chat::commands::chat_list_background_commands,

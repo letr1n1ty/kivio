@@ -18,19 +18,19 @@ const DEFAULT_CONFIG: KivioCodeConfig = {
 }
 
 /**
- * "Kivio Code" 设置页:读写 kivio-code CLI 的独立配置(<app_data>/kivio-code/config.json)。
- * 与共享 Settings 分开存储,故走专用命令 get/saveKivioCodeConfig(参考 UsageStatsPanel 的取数方式)。
- * 改动即时落盘。模型选择器复用 ModelPairSelect;空选项表示"跟隨 Chat 模型"。
+ * "Kivio Code" 設定頁:讀寫 kivio-code CLI 的獨立配置(<app_data>/kivio-code/config.json)。
+ * 與共享 Settings 分開儲存,故走專用命令 get/saveKivioCodeConfig(參考 UsageStatsPanel 的取數方式)。
+ * 改動即時落盤。模型選擇器複用 ModelPairSelect;空選項表示"跟隨 Chat 模型"。
  */
 export function KivioCodeSettings({ lang, providers }: KivioCodeSettingsProps) {
   const zh = lang === 'zh' || lang === 'zh-TW'
   const [config, setConfig] = useState<KivioCodeConfig | null>(null)
   const [instructions, setInstructions] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  // 「安装命令行工具」按钮的状态:installing 期间禁用,result 显示成功/已装/失败提示。
+  // 「安裝命令列工具」按鈕的狀態:installing 期間停用,result 顯示成功/已裝/失敗提示。
   const [installing, setInstalling] = useState(false)
   const [installMessage, setInstallMessage] = useState<{ ok: boolean; text: string } | null>(null)
-  // 全局指令的防抖落盘:输入停止 ~700ms 后写一次,避免每次按键都写磁盘。
+  // 全域性指令的防抖落盤:輸入停止 ~700ms 後寫一次,避免每次按鍵都寫磁碟。
   const instrTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -68,7 +68,7 @@ export function KivioCodeSettings({ lang, providers }: KivioCodeSettingsProps) {
     return (
       <SettingsGroup>
         <div className="px-1 py-4 text-[13px] text-neutral-400">
-          {zh ? '加載中…' : 'Loading…'}
+          {zh ? '載入中…' : 'Loading…'}
         </div>
       </SettingsGroup>
     )
@@ -111,12 +111,12 @@ export function KivioCodeSettings({ lang, providers }: KivioCodeSettingsProps) {
 
   return (
     <>
-      <SettingsGroup title={zh ? '默認模型與權限' : 'Default model & permissions'}>
+      <SettingsGroup title={zh ? '預設模型與許可權' : 'Default model & permissions'}>
         <SettingRow
-          label={zh ? '默認模型' : 'Default model'}
+          label={zh ? '預設模型' : 'Default model'}
           description={
             zh
-              ? '留空則跟隨 Chat 默認模型。命令行 --model / --provider 仍優先生效。'
+              ? '留空則跟隨 Chat 預設模型。命令列 --model / --provider 仍優先生效。'
               : 'Leave unset to follow the Chat default model. CLI --model / --provider still take precedence.'
           }
         >
@@ -135,7 +135,7 @@ export function KivioCodeSettings({ lang, providers }: KivioCodeSettingsProps) {
           label={zh ? '工具審批策略' : 'Tool approval policy'}
           description={
             zh
-              ? '決定 kivio-code 執行工具前是否需要確認。命令行 --no-approve 會強制為"每次確認"。'
+              ? '決定 kivio-code 執行工具前是否需要確認。命令列 --no-approve 會強制為"每次確認"。'
               : 'Whether kivio-code confirms before running tools. CLI --no-approve forces "confirm every call".'
           }
         >
@@ -157,7 +157,7 @@ export function KivioCodeSettings({ lang, providers }: KivioCodeSettingsProps) {
           label={zh ? '讀取 CLAUDE.md / .claude 上下文' : 'Read CLAUDE.md / .claude context'}
           description={
             zh
-              ? '開啟後 kivio-code 會讀取項目與全局的 CLAUDE.md / .claude 指令文件(跨工具兼容)。'
+              ? '開啟後 kivio-code 會讀取專案與全域性的 CLAUDE.md / .claude 指令檔案(跨工具相容)。'
               : "When on, kivio-code reads project and global CLAUDE.md / .claude instruction files for cross-tool compatibility."
           }
         >
@@ -168,10 +168,10 @@ export function KivioCodeSettings({ lang, providers }: KivioCodeSettingsProps) {
         </SettingRow>
       </SettingsGroup>
 
-      <SettingsGroup title={zh ? '全局指令' : 'Global instructions'}>
+      <SettingsGroup title={zh ? '全域性指令' : 'Global instructions'}>
         <div className="px-1 pb-2 text-[12px] leading-relaxed text-neutral-500 dark:text-neutral-400">
           {zh
-            ? '每次運行 kivio-code 都會注入的全局指令。項目根目錄的 KIVIO.md / AGENTS.md 會在其後疊加。'
+            ? '每次執行 kivio-code 都會注入的全域性指令。專案根目錄的 KIVIO.md / AGENTS.md 會在其後疊加。'
             : "Global instructions injected on every kivio-code run. A project's root KIVIO.md / AGENTS.md layers on top."}
         </div>
         <TextArea
@@ -181,7 +181,7 @@ export function KivioCodeSettings({ lang, providers }: KivioCodeSettingsProps) {
           mono
           placeholder={
             zh
-              ? '# 全局指令\n\n例如:始終用中文回覆;提交信息遵循 Conventional Commits…'
+              ? '# 全域性指令\n\n例如:始終用中文回覆;提交資訊遵循 Conventional Commits…'
               : '# Global instructions\n\ne.g. Always answer in English; follow Conventional Commits for messages…'
           }
         />
@@ -191,46 +191,36 @@ export function KivioCodeSettings({ lang, providers }: KivioCodeSettingsProps) {
         <div className="px-1 py-2 text-[13px] leading-relaxed text-neutral-500 dark:text-neutral-400">
           {zh ? (
             <>
-              kivio code 是随应用一起构建的终端编码代理。先点击下方「安装命令行工具」把{' '}
-              <code className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[12px] text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
-                kivio
-              </code>{' '}
-              命令加入 PATH,然后在新终端里进入你的项目目录运行{' '}
+              安裝 CLI 後在專案目錄執行{' '}
               <code className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[12px] text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
                 kivio code
-              </code>{' '}
-              即可启动;它会读取上面这些设置(默认模型、审批策略、上下文开关)。加{' '}
+              </code>
+              ；讀取上方設定，{' '}
               <code className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[12px] text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
                 --model provider:model
               </code>{' '}
-              可临时覆盖默认模型。
+              可臨時覆蓋模型。
             </>
           ) : (
             <>
-              kivio code is the terminal coding agent bundled with this app. First click "Install
-              command line tool" below to add the{' '}
-              <code className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[12px] text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
-                kivio
-              </code>{' '}
-              command to your PATH, then run{' '}
+              Install the CLI, then run{' '}
               <code className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[12px] text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
                 kivio code
               </code>{' '}
-              in a new terminal from your project directory; it reads the settings above (default
-              model, approval policy, context toggle). Pass{' '}
+              in a project; uses settings above. Pass{' '}
               <code className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[12px] text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
                 --model provider:model
               </code>{' '}
-              to override the default model for a run.
+              to override for one run.
             </>
           )}
         </div>
 
         <SettingRow
-          label={zh ? '安裝命令行工具' : 'Install command line tool'}
+          label={zh ? '安裝命令列工具' : 'Install command line tool'}
           description={
             zh
-              ? '把 kivio 命令註冊進用戶 PATH(Windows)/軟鏈到 ~/.local/bin(macOS),裝好後在新終端可直接用 kivio code。'
+              ? '把 kivio 命令註冊進使用者 PATH(Windows)/軟鏈到 ~/.local/bin(macOS),裝好後在新終端可直接用 kivio code。'
               : 'Register the kivio command on your user PATH (Windows) / symlink it to ~/.local/bin (macOS). After installing, use kivio code in a new terminal.'
           }
         >
@@ -266,7 +256,7 @@ export function KivioCodeSettings({ lang, providers }: KivioCodeSettingsProps) {
 
       {error && (
         <div className="px-1 py-2 text-[12px] text-red-500 dark:text-red-400">
-          {(zh ? '保存失敗:' : 'Save failed: ') + error}
+          {(zh ? '儲存失敗:' : 'Save failed: ') + error}
         </div>
       )}
     </>

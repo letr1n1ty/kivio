@@ -61,7 +61,7 @@ describe('ToolCallBlock', () => {
       />,
     )
     await user.click(screen.getByRole('button', { name: /read_file/i }))
-    expect(screen.getByText('参数')).toBeInTheDocument()
+    expect(screen.getByText('引數')).toBeInTheDocument()
     expect(screen.getByText(/README\.md/)).toBeInTheDocument()
   })
 
@@ -79,7 +79,7 @@ describe('ToolCallBlock', () => {
       />,
     )
     const button = screen.getByRole('button', { name: /grep/i })
-    expect(within(button).getByText(/搜索 ClaudeAgentClient/)).toBeInTheDocument()
+    expect(within(button).getByText(/搜尋 ClaudeAgentClient/)).toBeInTheDocument()
     expect(within(button).getByText(/providers\/claude\/agent\.ts/)).toBeInTheDocument()
   })
 
@@ -97,7 +97,7 @@ describe('ToolCallBlock', () => {
       />,
     )
     const button = screen.getByRole('button', { name: /grep/i })
-    expect(within(button).getByText(/搜索 ClaudeAgentClient/)).toBeInTheDocument()
+    expect(within(button).getByText(/搜尋 ClaudeAgentClient/)).toBeInTheDocument()
     expect(within(button).getByText(/\.\s\+\s\*\*\/claude\/agent\.ts/)).toBeInTheDocument()
   })
 
@@ -108,13 +108,13 @@ describe('ToolCallBlock', () => {
           toolName: 'grep',
           result_preview: '',
           arguments: '{"query":',
-          argumentPreview: '正在生成工具参数…',
-          argumentsPreview: '正在生成工具参数…',
+          argumentPreview: '正在生成工具引數…',
+          argumentsPreview: '正在生成工具引數…',
         })}
       />,
     )
     const button = screen.getByRole('button', { name: /grep/i })
-    expect(within(button).getByText(/正在生成工具参数/)).toBeInTheDocument()
-    expect(within(button).queryByText(/搜索文本/)).not.toBeInTheDocument()
+    expect(within(button).getByText(/正在生成工具引數/)).toBeInTheDocument()
+    expect(within(button).queryByText(/搜尋文本/)).not.toBeInTheDocument()
   })
 })

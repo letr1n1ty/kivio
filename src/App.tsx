@@ -28,8 +28,8 @@ function isTauriRuntime(): boolean {
 }
 
 /**
- * 翻译器主组件
- * 磨砂玻璃风格悬浮窗：顶部 drag bar、输入与结果分层级、底部提示与模型芯片。
+ * 翻譯器主元件
+ * 磨砂玻璃風格懸浮窗：頂部 drag bar、輸入與結果分層級、底部提示與模型晶片。
  */
 function Translator({
   translateSource,
@@ -50,7 +50,7 @@ function Translator({
   const requestWindowFocus = useWindowInteractionFocus()
   const t = i18n[lang]
 
-  // 输入防抖翻译：600ms 延迟后发送翻译请求
+  // 輸入防抖翻譯：600ms 延遲後傳送翻譯請求
   useEffect(() => {
     const seq = ++translateSeq.current
     setResult('')
@@ -104,23 +104,23 @@ function Translator({
     return () => window.removeEventListener('keydown', handler, true)
   }, [])
 
-  // 结果区域自动滚动到底部
+  // 結果區域自動滾動到底部
   useEffect(() => {
     if (resultRef.current) {
       resultRef.current.scrollTop = resultRef.current.scrollHeight
     }
   }, [result])
 
-  // 输入框自动滚动到右侧（显示最新输入）
+  // 輸入框自動滾動到右側（顯示最新輸入）
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.scrollLeft = inputRef.current.scrollWidth
     }
   }, [input])
 
-  // Enter 键提交翻译结果
-  // IME 合成中（中/日/韩输入法选词按回车）不要触发：isComposing 是组合事件官方标志，
-  // keyCode === 229 是浏览器在 IME 拦截 keydown 时的兜底信号，两个条件并查更稳。
+  // Enter 鍵提交翻譯結果
+  // IME 合成中（中/日/韓輸入法選詞按回車）不要觸發：isComposing 是組合事件官方標誌，
+  // keyCode === 229 是瀏覽器在 IME 攔截 keydown 時的兜底訊號，兩個條件並查更穩。
   const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter') return
     if (e.nativeEvent.isComposing || e.keyCode === 229) return
@@ -139,15 +139,15 @@ function Translator({
       onPointerMove={requestWindowFocus}
       onPointerDownCapture={requestWindowFocus}
     >
-      {/* 卡片：填满外壳 padding 内区域；圆角 + 阴影都在这层 */}
+      {/* 卡片：填滿外殼 padding 內區域；圓角 + 陰影都在這層 */}
       <div className="window-frosted h-full w-full flex flex-col select-none overflow-hidden relative group">
-        {/* 顶部隐形 drag bar */}
+        {/* 頂部隱形 drag bar */}
         <div
           className="absolute top-0 left-0 right-0 h-6 z-10"
           data-tauri-drag-region
         />
 
-        {/* 设置按钮（悬浮右上角） */}
+        {/* 設定按鈕（懸浮右上角） */}
         <button
           onClick={onOpenSettings}
           className="absolute top-1.5 right-2 z-20 p-1 text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200 rounded-md hover:bg-black/5 dark:hover:bg-white/10 opacity-60 hover:opacity-100 transition-all duration-150"
@@ -156,9 +156,9 @@ function Translator({
           <SettingsIcon size={13} strokeWidth={1.75} />
         </button>
 
-        {/* 主内容区 */}
+        {/* 主內容區 */}
         <div className="relative z-0 flex-1 flex flex-col justify-center px-3.5 pt-3 pb-2.5">
-        {/* 翻译结果展示（微渐变背景 + 柔光内描边） */}
+        {/* 翻譯結果展示（微漸變背景 + 柔光內描邊） */}
         {(result || loading) && (
           <div
             ref={resultRef}
@@ -181,7 +181,7 @@ function Translator({
           </div>
         )}
 
-        {/* 输入框（更精致的圆角 + focus 渐变） */}
+        {/* 輸入框（更精緻的圓角 + focus 漸變） */}
         <input
           ref={inputRef}
           autoFocus
@@ -212,17 +212,17 @@ function Translator({
 }
 
 /**
- * 应用根组件
- * 根据 URL hash 切换不同视图模式（翻译器、设置、lens）
+ * 應用根元件
+ * 根據 URL hash 切換不同檢視模式（翻譯器、設定、lens）
  */
 function App() {
-  // 从 URL hash 和查询参数解析当前模式
+  // 從 URL hash 和查詢引數解析當前模式
   const getMode = () => {
     const urlParams = new URLSearchParams(window.location.search)
     const hash = window.location.hash.replace('#', '')
     const path = urlParams.get('mode') || hash.split('?')[0] || ''
 
-    // 支持 #chat 或 #chat/conversation-id
+    // 支援 #chat 或 #chat/conversation-id
     if (isChatPath(path)) {
       return 'chat'
     }
@@ -250,7 +250,7 @@ function App() {
     }
   }, [])
 
-  // 应用主题设置
+  // 應用主題設定
   const applyTheme = async () => {
     const settings = await api.getSettings()
     const nextMode = (settings.theme || 'system') as 'system' | 'light' | 'dark'
@@ -261,19 +261,19 @@ function App() {
     } else {
       document.documentElement.classList.remove('dark')
     }
-    // 同步 chat 窗口原生背景（Windows 不透明窗口），避免伸缩时露白底闪烁。其他窗口/平台 no-op。
+    // 同步 chat 視窗原生背景（Windows 不透明視窗），避免伸縮時露白底閃爍。其他視窗/平臺 no-op。
     void api.setChatWindowBackground(isDark)
     document.documentElement.dataset.themeColor = normalizeThemeColorId(settings.themeColor)
     setTranslateSource(settings.translatorModel || 'AI')
     setLang(normalizeLang(settings.settingsLanguage))
-    // 首次应用主题后（下一帧）再开启主题色过渡，避免初始 light↔dark 闪烁；
-    // 之后用户切换主题/系统主题变化时才平滑过渡。classList.add 幂等。
+    // 首次應用主題後（下一幀）再開啟主題色過渡，避免初始 light↔dark 閃爍；
+    // 之後使用者切換主題/系統主題變化時才平滑過渡。classList.add 冪等。
     requestAnimationFrame(() => {
       document.documentElement.classList.add('theme-transitions-ready')
     })
   }
 
-  // 初始化主题并监听系统主题变化
+  // 初始化主題並監聽系統主題變化
   useEffect(() => {
     applyTheme()
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
@@ -284,7 +284,7 @@ function App() {
     return () => mq.removeEventListener('change', changeHandler)
   }, [themeMode])
 
-  // 监听 hash 变化切换模式
+  // 監聽 hash 變化切換模式
   useEffect(() => {
     const handler = () => {
       const path = hashPath()
@@ -305,8 +305,8 @@ function App() {
 
     listen('chat-open-request', () => {
       const path = hashPath()
-      // 全局 listen 会收到 emit_to("chat") 的事件（Tauri v2 的 Any 目标语义），所以 lens/translate/
-      // settings/translator 窗也会收到这条广播。只有 chat 窗该响应，否则其它窗口会把自己导航成 chat。
+      // 全域性 listen 會收到 emit_to("chat") 的事件（Tauri v2 的 Any 目標語義），所以 lens/translate/
+      // settings/translator 窗也會收到這條廣播。只有 chat 窗該響應，否則其它視窗會把自己導航成 chat。
       if (!isChatPath(path)) return
       if (path !== 'chat' && !isChatSettingsPath(path)) return
       const rememberedRoute = getRememberedChatRoute()
@@ -384,8 +384,8 @@ function App() {
         await new Promise(resolve => window.setTimeout(resolve, 0))
         if (!cancelled) readyToRemember = true
 
-        // resize/move 在拖动中高频触发；几何持久化（多次 IPC 读尺寸 + 写 store）debounce 到停止后做一次，
-        // 否则每帧都发 IPC 会和窗口伸缩/拖动的渲染抢资源，造成明显卡顿（Windows/WebView2 尤甚）。
+        // resize/move 在拖動中高頻觸發；幾何持久化（多次 IPC 讀尺寸 + 寫 store）debounce 到停止後做一次，
+        // 否則每幀都發 IPC 會和視窗伸縮/拖動的渲染搶資源，造成明顯示卡頓（Windows/WebView2 尤甚）。
         const persistIfReady = () => {
           if (!readyToRemember || cancelled) return
           if (geomTimer !== undefined) clearTimeout(geomTimer)
@@ -421,7 +421,7 @@ function App() {
     }
   }, [mode, persistChatWindowGeometry])
 
-  // 根据当前模式调整窗口大小
+  // 根據當前模式調整視窗大小
   useEffect(() => {
     const resize = async () => {
       if (mode === '' || mode === 'translator') {
@@ -431,7 +431,7 @@ function App() {
     resize()
   }, [mode])
 
-  // 打开设置页
+  // 開啟設定頁
   const openSettings = async () => {
     try {
       await api.openSettingsWindow()
@@ -441,7 +441,7 @@ function App() {
     }
   }
 
-  // 根据当前模式渲染对应视图
+  // 根據當前模式渲染對應檢視
   if (mode === 'lens') {
     return (
       <Suspense fallback={null}>

@@ -22,7 +22,7 @@ describe('formatToolResultPreview', () => {
       results: [{ title: 'Kivio Docs', content: 'Screen-level AI assistant', url: 'https://example.com' }],
     })
     const preview = formatToolResultPreview(raw)
-    expect(preview).toContain('1 条结果')
+    expect(preview).toContain('1 條結果')
     expect(preview).toContain('Kivio Docs')
   })
 

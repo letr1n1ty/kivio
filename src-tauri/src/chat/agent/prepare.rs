@@ -153,6 +153,8 @@ pub fn disabled_builtin_tool_feedback(function_name: &str) -> Option<String> {
     // Builtin name set = static native registry (17 native + todo/ask_user)
     // plus the non-native builtin sources listed here.
     const EXTRA_BUILTIN_NAMES: &[&str] = &["mixer_generate_image"];
+    // 模型按 wire 名（保留名别名）调用——反查回内部名再比对注册表。
+    let function_name = crate::mcp::types::resolve_reserved_wire_alias(function_name);
     let is_builtin = crate::mcp::native_registry::find_entry(function_name).is_some()
         || EXTRA_BUILTIN_NAMES.contains(&function_name);
     if is_builtin {
@@ -187,7 +189,7 @@ pub fn builtin_tool_bypasses_approval(tool: &ChatToolDefinition) -> bool {
 }
 
 /// True for the native file/shell tools gated by one-time per-conversation
-/// session consent (read/write/edit/bash/grep/find/ls). See
+/// session consent (read/write/edit/bash/grep/glob). See
 /// `native_registry::native_tool_requires_session_consent`.
 pub fn tool_requires_session_consent(tool: &ChatToolDefinition) -> bool {
     tool.source == "native"
@@ -453,10 +455,9 @@ pub fn build_chat_system_prompt_with_segments(
         {
             action_examples.push("asking the user a blocking clarification");
         }
-        if available_builtin_tools
-            .iter()
-            .any(|tool| matches!(tool.as_str(), "read" | "ls" | "grep" | "find"))
-        {
+        if available_builtin_tools.iter().any(|tool| {
+            matches!(tool.as_str(), "read" | "grep" | "glob")
+        }) {
             action_examples.push("reading or searching project files");
         }
         if available_builtin_tools
@@ -490,12 +491,12 @@ pub fn build_chat_system_prompt_with_segments(
         if crate::locale::is_chinese_language(language) {
             runtime.push_str(&crate::locale::localized_zh_or_en(
                 language,
-                " 若用户只问今天/明天/星期几等可由上文「当前本地时间」直接推算的日期问题，直接回答，不要调用工具。",
+                " 若用户只问今天/明天/星期几等可由上文「当前日期」直接推算的日期问题，直接回答，不要调用工具。",
                 "",
             ));
         } else {
             runtime.push_str(
-                " If the user only asks for today/tomorrow/weekday derivable from the system local time above, answer directly without calling tools.",
+                " If the user only asks for today/tomorrow/weekday derivable from the system date above, answer directly without calling tools.",
             );
         }
         append_context_segment(
@@ -731,6 +732,9 @@ pub(crate) fn tool_matches_recommended_name(tool: &ChatToolDefinition, recommend
     if recommended.is_empty() {
         return false;
     }
+    // 旧名归一化：persona/skill 白名单里写的旧工具名（find/ls/todo_update/list_background）
+    // 规整到现名，避免改名后被静默剔除。
+    let recommended = crate::mcp::types::canonical_tool_name(recommended);
     tool.name == recommended
         || tool.id == recommended
         || tool.openai_tool_name() == recommended
@@ -754,7 +758,13 @@ fn native_tools_prompt(
     if native_tool_names.is_empty() {
         return None;
     }
-    let list = native_tool_names.join(", ");
+    // 提示词展示 wire 名（保留名规避后的别名）：模型必须按请求里声明的函数名调用，
+    // 提示词与 tools 声明不一致会诱发未知工具调用。逻辑判断仍用内部名。
+    let list = native_tool_names
+        .iter()
+        .map(|name| crate::mcp::types::apply_reserved_wire_alias(name))
+        .collect::<Vec<_>>()
+        .join(", ");
     // 运行时取值,让同一份 prompt 在不同平台都说真话(run_command 的 shell 是编译期 cfg 选的)。
     let (os_name, shell_name) = if cfg!(target_os = "windows") {
         ("Windows", "cmd.exe")
@@ -785,16 +795,16 @@ fn native_tools_prompt(
         .map(str::trim)
         .filter(|dir| !dir.is_empty() && has_write);
     let zh_live_access_hint = match (has_web_search, has_web_fetch) {
-        (true, true) => "实时搜索或网页读取必须优先用 web_search/web_fetch 或对应 Skill 脚本。",
-        (true, false) => "实时搜索必须优先用 web_search 或对应 Skill 脚本。",
+        (true, true) => "实时搜索或网页读取必须优先用 search_web/web_fetch 或对应 Skill 脚本。",
+        (true, false) => "实时搜索必须优先用 search_web 或对应 Skill 脚本。",
         (false, true) => "网页读取必须优先用 web_fetch 或对应 Skill 脚本。",
         (false, false) => "需要联网/API 访问时，请启用对应联网工具或使用对应 Skill 脚本。",
     };
     let en_live_access_hint = match (has_web_search, has_web_fetch) {
         (true, true) => {
-            "Use web_search/web_fetch or the relevant Skill script for live web/API access."
+            "Use search_web/web_fetch or the relevant Skill script for live web/API access."
         }
-        (true, false) => "Use web_search or the relevant Skill script for live web/API access.",
+        (true, false) => "Use search_web or the relevant Skill script for live web/API access.",
         (false, true) => "Use web_fetch or the relevant Skill script for web page access.",
         (false, false) => {
             "Enable the relevant web tool or use the relevant Skill script for live web/API access."
@@ -849,7 +859,7 @@ fn native_tools_prompt(
 - Write/edit tools and bash may need user approval; memory_read (L2 on demand; L1 is auto-injected), memory_search (keyword search over L2; prefer it when you are unsure of the exact heading), and memory_modify do not.\n\
 - Runtime environment: {os_name}; bash runs via {shell_name}. Match that shell's syntax (Windows: `%VAR%`, `dir`, `\\`; Unix: `$VAR`, `ls`, `/`). Each bash call is a fresh process — cwd does NOT persist across calls; switch directories with the `cwd` parameter, not a prior `cd`. To run multi-line or quoted code, write it to a file with write and run that, or use run_python — do not cram it into inline commands like `python -c \"...\"` (inline quotes are fragile across shells). When a tool returns a hard rejection, change strategy instead of retrying variants of the same action; never re-run a failed command unchanged; don't drop one-off probe or cleanup scripts into the project.\n\
 - bash runs on the host shell from the project root; non-zero exit means failure. Paths with spaces must use the `cwd` parameter—never `cd path && command`; do not combine `cwd` with a leading `cd ... &&` prefix. Long-running dev commands such as `npm run dev`, `tauri dev`, and `vite` start in the background automatically and return a job_id immediately; do not start the same dev server twice. Explain and get confirmation before destructive, network, or environment-changing commands. Skill scripts go through skill_run_script; never use host pip to bypass the run_python sandbox.\n\
-- Background commands (bash with background:true, or auto-detected dev servers): the call returns a job_id immediately and hands control back to you — keep working, do NOT poll right away. Read incremental output and exit status with bash_output (pass the job_id; use the returned next_offset for the next read), list jobs with list_background, and stop one with kill_background. Keep polling bounded (≤20 checks); status in history may be stale, so refresh once with bash_output before reporting a background command's result. Background commands survive across turns until you kill them or the app exits, so kill_background a dev server when you no longer need it.\n\
+- Background commands (bash with background:true, or auto-detected dev servers): the call returns a job_id immediately and hands control back to you — keep working, do NOT poll right away. Read incremental output and exit status with bash_output (pass the job_id; use the returned next_offset for the next read), list all tracked jobs by calling bash_output with no job_id, and stop one with kill_background. Keep polling bounded (≤20 checks); status in history may be stale, so refresh once with bash_output before reporting a background command's result. Background commands survive across turns until you kill them or the app exits, so kill_background a dev server when you no longer need it.\n\
 - run_python runs in a Pyodide sandbox for data computation, analysis, document processing, charts, and generating files that REQUIRE a Python library (formatted XLSX, PDF, rendered images); never use it to generate or print code answers, and do not call it merely to write out content you already have (use write into the delivery directory for that). Write code directly in the answer. No host filesystem access; mount files via the files parameter and use KIVIO_INPUT_FILES[n] paths. numpy, pandas, matplotlib, pillow, openpyxl, pypdf import directly. Save artifacts to relative filenames (report.xlsx, chart.png, summary.csv); Kivio auto-captures them and shows file cards. No base64 printing.\n\
 - {en_live_access_hint}"
         ) + &generated_file_hint + image_generation_hint
@@ -1239,6 +1249,23 @@ mod tests {
         assert!(feedback.contains("not enabled"));
         assert!(feedback.contains("web_search"));
         assert!(disabled_builtin_tool_feedback("mcp__server__tool").is_none());
+        // 模型按 wire 别名调用时同样识别为内置工具（保留名规避）。
+        let alias_feedback = disabled_builtin_tool_feedback("search_web")
+            .expect("wire alias resolves to the builtin tool");
+        assert!(alias_feedback.contains("not enabled"));
+    }
+
+    #[test]
+    fn native_tools_prompt_renders_wire_alias_for_web_search() {
+        // 提示词必须展示 wire 名（search_web）——与 tools 声明一致，否则模型会调用
+        // 未声明的 web_search（且该名会被 Cursor 系上游吞掉）。
+        let names = vec!["web_fetch".to_string(), "web_search".to_string()];
+        let prompt = native_tools_prompt(&names, "zh", None).expect("prompt");
+        assert!(prompt.contains("search_web"), "{prompt}");
+        assert!(!prompt.contains("web_search"), "{prompt}");
+        let en = native_tools_prompt(&names, "en", None).expect("prompt");
+        assert!(en.contains("search_web"), "{en}");
+        assert!(!en.contains("web_search"), "{en}");
     }
 
     #[test]

@@ -1,14 +1,19 @@
 import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, RotateCw } from 'lucide-react'
 import { Virtualizer, type VirtualizerHandle } from 'virtua'
-import type { AgentPlanState, ChatMessage } from './types'
+import type { AgentPlanState, ChatMessage, ConversationContextState } from './types'
 import { MessageBubble } from './MessageBubble'
 import { MessageGroup } from './MessageGroup'
+import { CompactionDivider } from './CompactionDivider'
+import { CompactionInProgress } from './CompactionInProgress'
+import { CompactionSummaryPanel } from './CompactionSummaryPanel'
+import { resolveCompactionBoundaries, resolvePendingCompactionAfterIndex, type CompactionBoundaryView } from './compactionBoundary'
 import { isExecutableAgentPlanText } from './agentPlan'
 import { foldMessageGroups } from './messageGroups'
 import { useStreamCoarse, useStreamSnapshot } from './streamingStore'
 import { getActiveGroup, useGroupsVersion } from './groupStreamingStore'
 import { prefersReducedMotion } from './utils'
+import type { Lang } from '../settings/i18n'
 
 export interface AssistantStreamStats {
   messageId: string
@@ -23,20 +28,24 @@ interface MessageListProps {
   agentPlanState?: AgentPlanState | null
   assistantStreamStatsByMessageId?: Record<string, AssistantStreamStats>
   onUpdateMessage?: (messageId: string, content: string) => Promise<void>
-  onRegenerateMessage?: (messageId: string) => Promise<void>
+  onRegenerateMessage?: (messageId: string, newContent?: string) => Promise<void>
   onDeleteMessage?: (messageId: string) => Promise<void>
   onExecuteAgentPlan?: (messageId: string) => Promise<void> | void
-  // 失败发送后线程末尾留下的孤儿用户消息：点「重试」用它的 id 重新生成。
+  // 失敗傳送後執行緒末尾留下的孤兒使用者訊息：點「重試」用它的 id 重新生成。
   onRetryLastUser?: (messageId: string) => void
-  // 多模型一问多答（任务 06-30）：多答组「选中条」映射 + 点选回调。
+  // 多模型一問多答（任務 06-30）：多答組「選中條」對映 + 點選回撥。
   groupSelections?: Record<string, string>
   onSetGroupSelection?: (groupId: string, messageId: string) => void
+  contextState?: ConversationContextState | null
+  compactionInProgress?: boolean
+  animateCompactionBoundaryId?: string | null
+  lang?: Lang
 }
 
 const LIST_EDGE_PADDING_PX = 16
 
-// 列表里每一项的统一形态。整条会话全量喂给虚拟列表（消息都在内存，virtua 只渲可见项），
-// 屏外的气泡连同其 KaTeX host / Markdown / 图片 DOM 真正从 DOM 卸载。
+// 列表裡每一項的統一形態。整條會話全量餵給虛擬列表（訊息都在記憶體，virtua 只渲可見項），
+// 屏外的氣泡連同其 KaTeX host / Markdown / 圖片 DOM 真正從 DOM 解除安裝。
 type RenderItem =
   | { kind: 'spacer'; key: 'padding-top' | 'padding-bottom'; size: number }
   | { kind: 'message'; key: string; message: ChatMessage; sentModels?: GroupModelLabel[] }
@@ -45,8 +54,11 @@ type RenderItem =
   | { kind: 'streaming'; key: 'streaming-assistant'; message: ChatMessage; messageStreaming: boolean; reasoningStreaming: boolean }
   | { kind: 'thinking'; key: 'thinking' }
   | { kind: 'error'; key: 'error'; text: string; retryMessageId: string | null }
+  | { kind: 'compaction-divider'; key: string; boundary: CompactionBoundaryView; animate: boolean }
+  | { kind: 'compaction-summary'; key: string; boundary: CompactionBoundaryView }
+  | { kind: 'compaction-progress'; key: string; afterIndex: number }
 
-// R8（多模型一问多答）：多答组的「本次所发模型」列表，渲染在该组对应 user 消息顶部。
+// R8（多模型一問多答）：多答組的「本次所發模型」列表，渲染在該組對應 user 訊息頂部。
 type GroupModelLabel = { providerId: string | null; model: string | null }
 
 function MessageListBase({
@@ -61,11 +73,15 @@ function MessageListBase({
   onRetryLastUser,
   groupSelections = {},
   onSetGroupSelection,
+  contextState = null,
+  compactionInProgress = false,
+  animateCompactionBoundaryId = null,
+  lang = 'zh',
 }: MessageListProps) {
-  // 流式预览状态直接订阅 streamingStore——只有本组件随每帧内容重渲，Chat/侧栏/输入栏不动。
+  // 流式預覽狀態直接訂閱 streamingStore——只有本元件隨每幀內容重渲，Chat/側欄/輸入欄不動。
   const coarse = useStreamCoarse()
   const snapshot = useStreamSnapshot()
-  // 多答组实时流：订阅 group store 版本号，活跃组列内容更新时驱动重渲。
+  // 多答組即時流：訂閱 group store 版本號，活躍組列內容更新時驅動重渲。
   const groupsVersion = useGroupsVersion()
   const liveGroup = conversationId ? getActiveGroup(conversationId) : undefined
   const streaming = coarse.streaming
@@ -81,10 +97,10 @@ function MessageListBase({
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const virtualizerRef = useRef<VirtualizerHandle>(null)
-  // 用户是否“贴在底部”——决定流式生成时是否跟随钉底。默认 true（初次渲染贴底）
+  // 使用者是否“貼在底部”——決定流式生成時是否跟隨釘底。預設 true（初次渲染貼底）
   const stickToBottomRef = useRef(true)
   const prevMessageCountRef = useRef(0)
-  // 是否贴在底部——驱动「回到底部」按钮的显隐（ref 不触发渲染，故另用 state）
+  // 是否貼在底部——驅動「回到底部」按鈕的顯隱（ref 不觸發渲染，故另用 state）
   const [atBottom, setAtBottom] = useState(true)
   const lastScrollOffsetRef = useRef(0)
 
@@ -101,15 +117,87 @@ function MessageListBase({
       ?.id ?? null
   }, [agentPlanState, messages])
 
-  // 把消息 + 流式预览 + 占位拼成统一的虚拟列表项数组。
+  const messageIndexById = useMemo(() => {
+    const map = new Map<string, number>()
+    messages.forEach((message, index) => map.set(message.id, index))
+    return map
+  }, [messages])
+
+  const boundariesByAfterIndex = useMemo(() => {
+    const map = new Map<number, CompactionBoundaryView[]>()
+    for (const boundary of resolveCompactionBoundaries(messages, contextState)) {
+      const existing = map.get(boundary.afterIndex) ?? []
+      existing.push(boundary)
+      map.set(boundary.afterIndex, existing)
+    }
+    return map
+  }, [contextState, messages])
+
+  const pendingCompactionAfterIndex = useMemo(
+    () => (
+      compactionInProgress
+        ? resolvePendingCompactionAfterIndex(messages, contextState, animateCompactionBoundaryId)
+        : null
+    ),
+    [animateCompactionBoundaryId, compactionInProgress, contextState, messages],
+  )
+
+  const appendCompactionItems = useCallback((
+    list: RenderItem[],
+    afterIndex: number,
+  ) => {
+    const boundaries = boundariesByAfterIndex.get(afterIndex)
+    if (!boundaries) return
+    for (const boundary of boundaries) {
+      const recordId = boundary.record.id
+      list.push({
+        kind: 'compaction-divider',
+        key: `compaction-divider-${recordId}`,
+        boundary,
+        animate: animateCompactionBoundaryId === recordId,
+      })
+      list.push({
+        kind: 'compaction-summary',
+        key: `compaction-summary-${recordId}`,
+        boundary,
+      })
+    }
+  }, [animateCompactionBoundaryId, boundariesByAfterIndex])
+
+  const appendCompactionSlot = useCallback((
+    list: RenderItem[],
+    afterIndex: number,
+  ) => {
+    const hasBoundary = boundariesByAfterIndex.has(afterIndex)
+    if (
+      compactionInProgress
+      && pendingCompactionAfterIndex === afterIndex
+      && !hasBoundary
+    ) {
+      list.push({
+        kind: 'compaction-progress',
+        key: `compaction-progress-after-${afterIndex}`,
+        afterIndex,
+      })
+      return
+    }
+    appendCompactionItems(list, afterIndex)
+  }, [
+    appendCompactionItems,
+    boundariesByAfterIndex,
+    compactionInProgress,
+    pendingCompactionAfterIndex,
+  ])
+
+  // 把訊息 + 流式預覽 + 佔位拼成統一的虛擬列表項陣列。
   const items = useMemo<RenderItem[]>(() => {
     const list: RenderItem[] = [
       { kind: 'spacer', key: 'padding-top', size: LIST_EDGE_PADDING_PX },
     ]
 
-    // 多模型一问多答（任务 06-30）：把同一 group_id 的连续 assistant 消息折成一个 group item，
-    // 横向并排多列；其余消息线性 push（折叠逻辑是纯函数 foldMessageGroups，便于单测）。
-    // R8：先收集 group_id → 本次所发模型列表，给该组对应 user 消息加模型标签行。
+    // 多模型一問多答（任務 06-30）：把同一 group_id 的連續 assistant 訊息折成一個 group item，
+    // 橫向並排多列；其餘訊息線性 push（摺疊邏輯是純函式 foldMessageGroups，便於單測）。
+    // R8：先收集 group_id → 本次所發模型列表，給該組對應 user 訊息加模型標籤行。
     const folded = foldMessageGroups(messages)
     const sentModelsByGroup = new Map<string, GroupModelLabel[]>()
     for (const item of folded) {
@@ -123,7 +211,7 @@ function MessageListBase({
         )
       }
     }
-    // 流式态下本组 assistant 尚未落库 → 从实时列补出模型列表，让 user 消息标签即时出现。
+    // 流式態下本組 assistant 尚未落庫 → 從即時列補出模型列表，讓 user 訊息標籤即時出現。
     if (liveGroup && liveGroup.columns.length > 0 && !sentModelsByGroup.has(liveGroup.groupId)) {
       sentModelsByGroup.set(
         liveGroup.groupId,
@@ -139,15 +227,25 @@ function MessageListBase({
           groupId: item.groupId,
           messages: item.messages,
         })
+        const boundaryIndices = new Set<number>()
+        for (const message of item.messages) {
+          const index = messageIndexById.get(message.id)
+          if (index != null) boundaryIndices.add(index)
+        }
+        for (const index of boundaryIndices) {
+          appendCompactionSlot(list, index)
+        }
       } else {
         const message = item.message
         const groupId = message.role === 'user' ? (message.group_id ?? message.groupId ?? null) : null
         const sentModels = groupId ? sentModelsByGroup.get(groupId) : undefined
         list.push({ kind: 'message', key: message.id, message, sentModels })
+        const index = messageIndexById.get(message.id)
+        if (index != null) appendCompactionSlot(list, index)
       }
     }
 
-    // 实时多答组：流式中（active group 存在）追加一个 live-group item，取代单流预览气泡。
+    // 即時多答組：流式中（active group 存在）追加一個 live-group item，取代單流預覽氣泡。
     const hasLiveGroup = Boolean(liveGroup && (coarse.streaming || coarse.streamFrozen))
     const hasStreamingPreview =
       !hasLiveGroup &&
@@ -177,7 +275,7 @@ function MessageListBase({
     }
 
     if (error) {
-      // 末尾是用户消息 = 失败发送遗留的孤儿，给它一个重试入口；其它错误不显示重试。
+      // 末尾是使用者訊息 = 失敗傳送遺留的孤兒，給它一個重試入口；其它錯誤不顯示重試。
       const last = messages[messages.length - 1]
       const retryMessageId = last && last.role === 'user' ? last.id : null
       list.push({ kind: 'error', key: 'error', text: error, retryMessageId })
@@ -197,9 +295,10 @@ function MessageListBase({
     streamingToolCalls,
     streamingSegments,
     error,
+    appendCompactionSlot,
+    messageIndexById,
   ])
 
-  // 瞬时把视口对齐到底部。自动跟随保持瞬时（平滑会抖）；smooth 仅用于用户主动点「回到底部」。
   const scrollToBottom = useCallback((smooth = false) => {
     const index = items.length - 1
     if (index < 0) return
@@ -226,7 +325,7 @@ function MessageListBase({
     scrollToBottom(true)
   }, [scrollToBottom])
 
-  // 滚轮向上 = 明确的离开底部意图，立即解除跟随（不设缓冲，消除“挣扎感”）
+  // 滾輪向上 = 明確的離開底部意圖，立即解除跟隨（不設緩衝，消除“掙扎感”）
   const handleWheel = (e: React.WheelEvent) => {
     if (e.deltaY < 0) {
       stickToBottomRef.current = false
@@ -234,7 +333,7 @@ function MessageListBase({
     }
   }
 
-  // 滚动监听：用 virtua 的 scroll geometry 判断贴底/离开底部。
+  // 滾動監聽：用 virtua 的 scroll geometry 判斷貼底/離開底部。
   const handleScroll = useCallback((nextOffset: number) => {
     const el = scrollRef.current
     const handle = virtualizerRef.current
@@ -251,17 +350,17 @@ function MessageListBase({
     setAtBottom(bottom)
   }, [])
 
-  // 切换会话：重置跟随并瞬间定位到底部
+  // 切換會話：重置跟隨並瞬間定位到底部
   useLayoutEffect(() => {
     stickToBottomRef.current = true
     setAtBottom(true)
-    // 等虚拟列表用最新 items 渲染后再对齐底部
+    // 等虛擬列表用最新 items 渲染後再對齊底部
     requestAnimationFrame(() => scrollToBottom())
-    // 仅在 conversationId 变化时重置；scrollToBottom 依赖 items.length，故不列入依赖避免误触发
+    // 僅在 conversationId 變化時重置；scrollToBottom 依賴 items.length，故不列入依賴避免誤觸發
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId])
 
-  // 自己发出新消息时强制回到底部（即使刚才正往上翻历史）
+  // 自己發出新訊息時強制回到底部（即使剛才正往上翻歷史）
   useLayoutEffect(() => {
     const count = messages.length
     if (count > prevMessageCountRef.current && messages[count - 1]?.role === 'user') {
@@ -271,8 +370,8 @@ function MessageListBase({
     prevMessageCountRef.current = count
   }, [messages])
 
-  // 仅在“贴底”时随内容增长钉住底部。virtua 内置 ResizeObserver 会在变高（KaTeX/图片
-  // mount 后撑高）时重测，这里在每次内容/项数变化后重新对齐末尾，保证持续钉底。
+  // 僅在“貼底”時隨內容增長釘住底部。virtua 內建 ResizeObserver 會在變高（KaTeX/圖片
+  // mount 後撐高）時重測，這裡在每次內容/項數變化後重新對齊末尾，保證持續釘底。
   useLayoutEffect(() => {
     if (!stickToBottomRef.current) return
     scrollToBottom()
@@ -307,7 +406,10 @@ function MessageListBase({
               reasoningDurationMsBySegmentId={assistantStats?.reasoningDurationMsBySegmentId}
               sentModels={item.sentModels}
               onUpdateMessage={msg.role === 'assistant' ? onUpdateMessage : undefined}
-              onRegenerateMessage={msg.role === 'assistant' ? onRegenerateMessage : undefined}
+              // 編輯/重生成入口在任何 run 在飛時都不可用（AC3）。streamFrozen 也算在飛：
+              // 本地取消後 send invoke 尚未返回，此視窗內觸發只會被 in-flight 兜底靜默吞掉
+              // （編輯文本會被無聲丟棄），所以從入口處直接收起。
+              onRegenerateMessage={streaming || streamFrozen ? undefined : onRegenerateMessage}
               onDeleteMessage={onDeleteMessage}
               agentPlanOverride={msg.id === legacyPlanMessageId ? agentPlanState : null}
               onExecuteAgentPlan={msg.role === 'assistant' ? onExecuteAgentPlan : undefined}
@@ -324,7 +426,7 @@ function MessageListBase({
               selectedMessageId={selectedMessageId}
               onSelectColumn={onSetGroupSelection}
               onUpdateMessage={onUpdateMessage}
-              onRegenerateMessage={onRegenerateMessage}
+              onRegenerateMessage={streaming || streamFrozen ? undefined : onRegenerateMessage}
               onDeleteMessage={onDeleteMessage}
             />
           )
@@ -354,6 +456,23 @@ function MessageListBase({
               <span className="reasoning-shimmer-text text-sm font-medium">正在思考…</span>
             </div>
           )
+        case 'compaction-divider':
+          return (
+            <CompactionDivider
+              boundary={item.boundary}
+              lang={lang}
+              animate={item.animate}
+            />
+          )
+        case 'compaction-summary':
+          return (
+            <CompactionSummaryPanel
+              boundary={item.boundary}
+              lang={lang}
+            />
+          )
+        case 'compaction-progress':
+          return <CompactionInProgress lang={lang} />
         case 'error':
           return (
             <div className="chat-motion-fade-up flex flex-col items-start gap-2 py-3">
@@ -367,7 +486,7 @@ function MessageListBase({
                   className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-50 active:scale-95 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
                 >
                   <RotateCw size={13} strokeWidth={2} />
-                  重试
+                  重試
                 </button>
               )}
             </div>
@@ -384,10 +503,13 @@ function MessageListBase({
       onDeleteMessage,
       onExecuteAgentPlan,
       onRetryLastUser,
+      streaming,
+      streamFrozen,
       groupSelections,
       onSetGroupSelection,
       streamingReasoningDurationMs,
       streamingReasoningDurationMsBySegmentId,
+      lang,
     ],
   )
 
@@ -427,5 +549,5 @@ function MessageListBase({
   )
 }
 
-// memo：列表本身订阅 streamingStore，父级 Chat 重渲（非流式 state 变化）时不跟着白渲。
+// memo：列表本身訂閱 streamingStore，父級 Chat 重渲（非流式 state 變化）時不跟著白渲。
 export const MessageList = memo(MessageListBase)

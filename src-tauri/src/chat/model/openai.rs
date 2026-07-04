@@ -70,11 +70,14 @@ impl OpenAiChatProvider<'_> {
             |key| {
                 with_standard_request_timeout(
                     crate::api::attach_json_body(
-                        self.state
-                            .http
-                            .post(self.chat_completions_url())
-                            .bearer_auth(key)
-                            .header(ACCEPT_ENCODING, "identity"),
+                        self.with_session_headers(
+                            self.state
+                                .http
+                                .post(self.chat_completions_url())
+                                .bearer_auth(key)
+                                .header(ACCEPT_ENCODING, "identity"),
+                            &request.metadata,
+                        ),
                         &body,
                         self.provider.compress_request_body,
                     ),
@@ -85,12 +88,14 @@ impl OpenAiChatProvider<'_> {
         .await
         .map_err(|err| {
             self.record_usage_failure(&request, &label, started_at, started.elapsed(), &err);
+            self.record_debug_failure(&request, &label, false, &err, started_at, started.elapsed());
             ModelError::new(err)
         })?;
 
         let raw = response.text().await.map_err(|err| {
             let message = format!("{label} read body: {err}");
             self.record_usage_failure(&request, &label, started_at, started.elapsed(), &message);
+            self.record_debug_failure(&request, &label, false, &message, started_at, started.elapsed());
             ModelError::new(message)
         })?;
         let value: Value = serde_json::from_str(&raw).map_err(|err| {
@@ -100,6 +105,7 @@ impl OpenAiChatProvider<'_> {
                 raw.chars().take(500).collect::<String>()
             );
             self.record_usage_failure(&request, &label, started_at, started.elapsed(), &message);
+            self.record_debug_failure(&request, &label, false, &message, started_at, started.elapsed());
             ModelError::new(message)
         })?;
         let output = output_from_chat_completion(&value, &raw, &label)?;
@@ -110,6 +116,7 @@ impl OpenAiChatProvider<'_> {
             started.elapsed(),
             output.usage.clone(),
         );
+        self.record_debug_success(&request, &label, false, &output, started_at, started.elapsed());
         Ok(output)
     }
 
@@ -130,11 +137,14 @@ impl OpenAiChatProvider<'_> {
             &self.provider.api_keys,
             |key| {
                 crate::api::attach_json_body(
-                    self.state
-                        .http
-                        .post(self.chat_completions_url())
-                        .bearer_auth(key)
-                        .header(ACCEPT_ENCODING, "identity"),
+                    self.with_session_headers(
+                        self.state
+                            .http
+                            .post(self.chat_completions_url())
+                            .bearer_auth(key)
+                            .header(ACCEPT_ENCODING, "identity"),
+                        &request.metadata,
+                    ),
                     &body,
                     self.provider.compress_request_body,
                 )
@@ -144,6 +154,7 @@ impl OpenAiChatProvider<'_> {
         .await
         .map_err(|err| {
             self.record_usage_failure(&request, &label, started_at, started.elapsed(), &err);
+            self.record_debug_failure(&request, &label, true, &err, started_at, started.elapsed());
             ModelError::new(err)
         })?;
 
@@ -163,6 +174,14 @@ impl OpenAiChatProvider<'_> {
                     started_at,
                     started.elapsed(),
                     &model_error.to_string(),
+                );
+                self.record_debug_failure(
+                    &request,
+                    &label,
+                    true,
+                    &model_error.to_string(),
+                    started_at,
+                    started.elapsed(),
                 );
                 model_error
             })?;
@@ -202,6 +221,14 @@ impl OpenAiChatProvider<'_> {
                         started_at,
                         started.elapsed(),
                         output.usage.clone(),
+                    );
+                    self.record_debug_success(
+                        &request,
+                        &label,
+                        true,
+                        &output,
+                        started_at,
+                        started.elapsed(),
                     );
                     return Ok(output);
                 }
@@ -253,6 +280,7 @@ impl OpenAiChatProvider<'_> {
             started.elapsed(),
             output.usage.clone(),
         );
+        self.record_debug_success(&request, &label, true, &output, started_at, started.elapsed());
         Ok(output)
     }
 
@@ -261,6 +289,108 @@ impl OpenAiChatProvider<'_> {
             "{}/chat/completions",
             self.provider.base_url.trim_end_matches('/')
         )
+    }
+
+    /// 会话亲和头（对齐 opencode）：同一对话每轮带同一 id。会话亲和型代理据此把请求
+    /// 稳定路由到同一上游会话（不再靠前缀指纹猜，杜绝串台/复用脏会话）；正经 provider
+    /// 忽略未知头，无副作用。发送与请求调试记录共用 `session_header_pairs`，杜绝漂移。
+    fn with_session_headers(
+        &self,
+        request: reqwest::RequestBuilder,
+        metadata: &crate::chat::model::RequestMetadata,
+    ) -> reqwest::RequestBuilder {
+        let mut request = request;
+        for (name, value) in session_header_pairs(metadata) {
+            request = request.header(name, value);
+        }
+        request
+    }
+
+    /// 重建本次请求实际会带的 headers（脱敏后）供请求调试面板展示。静态头（Authorization/
+    /// Accept-Encoding/Content-Type）与发送路径一一对应；动态会话头共用 `session_header_pairs`，
+    /// 故与真实发送零漂移。Authorization 用首个 key（正常发送用的也是它）派生脱敏预览。
+    fn debug_request_headers(
+        &self,
+        metadata: &crate::chat::model::RequestMetadata,
+    ) -> std::collections::BTreeMap<String, String> {
+        let mut headers = std::collections::BTreeMap::new();
+        if let Some(key) = self.provider.api_keys.first() {
+            headers.insert("Authorization".to_string(), format!("Bearer {key}"));
+        }
+        headers.insert("Accept-Encoding".to_string(), "identity".to_string());
+        headers.insert("Content-Type".to_string(), "application/json".to_string());
+        for (name, value) in session_header_pairs(metadata) {
+            headers.insert(name.to_string(), value);
+        }
+        crate::chat::request_debug::sanitize_headers(headers)
+    }
+
+    /// 记录一次成功调用到请求调试缓冲。开关关时首行短路 → 不构造 body/headers（零开销）。
+    fn record_debug_success(
+        &self,
+        request: &GenerateRequest,
+        label: &str,
+        stream: bool,
+        output: &GenerateOutput,
+        started_at: i64,
+        duration: std::time::Duration,
+    ) {
+        if !self.state.request_debug_enabled() {
+            return;
+        }
+        let record = crate::chat::request_debug::build_debug_record(
+            crate::chat::request_debug::DebugRecordArgs {
+                provider: self.provider,
+                request,
+                label,
+                started_at,
+                duration_ms: duration.as_millis() as u64,
+                status: "success",
+                url: self.chat_completions_url(),
+                headers: self.debug_request_headers(&request.metadata),
+                body: self.request_body(request, stream),
+                stream,
+                response: crate::chat::request_debug::RequestDebugResponse::from_output(
+                    output,
+                    Some(200),
+                ),
+            },
+        );
+        crate::chat::request_debug::record(self.state, record);
+    }
+
+    /// 记录一次失败调用到请求调试缓冲。开关关时首行短路（零开销）。
+    fn record_debug_failure(
+        &self,
+        request: &GenerateRequest,
+        label: &str,
+        stream: bool,
+        error: &str,
+        started_at: i64,
+        duration: std::time::Duration,
+    ) {
+        if !self.state.request_debug_enabled() {
+            return;
+        }
+        let record = crate::chat::request_debug::build_debug_record(
+            crate::chat::request_debug::DebugRecordArgs {
+                provider: self.provider,
+                request,
+                label,
+                started_at,
+                duration_ms: duration.as_millis() as u64,
+                status: "error",
+                url: self.chat_completions_url(),
+                headers: self.debug_request_headers(&request.metadata),
+                body: self.request_body(request, stream),
+                stream,
+                response: crate::chat::request_debug::RequestDebugResponse::from_error(
+                    error,
+                    crate::api::extract_status_code(error),
+                ),
+            },
+        );
+        crate::chat::request_debug::record(self.state, record);
     }
 
     fn request_body(&self, request: &GenerateRequest, stream: bool) -> Value {
@@ -272,6 +402,9 @@ impl OpenAiChatProvider<'_> {
         });
         if stream {
             body["stream"] = Value::Bool(true);
+            // usage 随流返回（OpenAI 标准参数；AI SDK/opencode 同款）。缺省时部分
+            // provider 不在流里带 usage，token 统计只能靠估算。
+            body["stream_options"] = serde_json::json!({ "include_usage": true });
         }
         if !request.tools.is_empty() {
             body["tools"] = Value::Array(
@@ -281,6 +414,19 @@ impl OpenAiChatProvider<'_> {
                     .map(|tool| tool.to_openai_tool())
                     .collect(),
             );
+            body["tool_choice"] = Value::String("auto".to_string());
+        }
+        // 会话级缓存键（对齐 opencode/AI SDK）：同一对话每轮同值。OpenAI 官方参数是
+        // `prompt_cache_key`（提升缓存路由命中）；聚合器/代理普遍认 AI SDK 风格的
+        // `promptCacheKey`。两个都发——多余字段会被各家安静忽略，无副作用。
+        if let Some(conversation_id) = request
+            .metadata
+            .conversation_id
+            .as_deref()
+            .filter(|id| !id.is_empty())
+        {
+            body["prompt_cache_key"] = Value::String(conversation_id.to_string());
+            body["promptCacheKey"] = Value::String(conversation_id.to_string());
         }
         if !request.options.thinking_enabled
             && utils::provider_supports_thinking_field(&self.provider.base_url)
@@ -424,6 +570,24 @@ fn request_label(request: &GenerateRequest, fallback: &str) -> String {
         .is_empty()
         .then(|| fallback.to_string())
         .unwrap_or_else(|| request.metadata.label.clone())
+}
+
+/// 会话亲和头键值对。发送路径（`with_session_headers`）与请求调试记录
+/// （`debug_request_headers`）共用此单一来源，保证记录的头与真实发送零漂移。
+fn session_header_pairs(
+    metadata: &crate::chat::model::RequestMetadata,
+) -> Vec<(&'static str, String)> {
+    match metadata
+        .conversation_id
+        .as_deref()
+        .filter(|id| !id.is_empty())
+    {
+        Some(id) => vec![
+            ("x-session-id", id.to_string()),
+            ("x-session-affinity", id.to_string()),
+        ],
+        None => Vec::new(),
+    }
 }
 
 fn invalid_response(label: &str, raw: &str) -> ModelError {
@@ -681,6 +845,7 @@ fn finish_tool_call_partials(
             arguments,
             arguments_raw: raw,
             arguments_parse_error,
+            signature: None,
         };
         sink.emit(StreamPart::ToolCallDone { call: call.clone() })?;
         calls.push(call);
@@ -762,6 +927,69 @@ mod tests {
 
         let high = build_openai_body(Some("high"), "https://api.openai.com/v1");
         assert_eq!(high["reasoning_effort"], "high");
+    }
+
+    #[test]
+    fn request_body_carries_session_cache_key_and_stream_usage() {
+        let state = AppState::new_headless(
+            crate::settings::Settings::default(),
+            std::env::temp_dir(),
+        );
+        let provider = ModelProvider {
+            id: "test".into(),
+            name: "Test".into(),
+            api_keys: vec!["sk-test".into()],
+            api_key_legacy: None,
+            base_url: "https://api.openai.com/v1".into(),
+            available_models: vec!["gpt-5".into()],
+            enabled_models: vec!["gpt-5".into()],
+            supports_tools: true,
+            enabled: true,
+            api_format: "openai_chat".into(),
+            model_overrides: Default::default(),
+            compress_request_body: false,
+        };
+        let adapter = OpenAiChatProvider::new(&state, &provider, 1);
+        let tool = crate::chat::model::ModelTool {
+            id: "native__web_fetch".into(),
+            name: "web_fetch".into(),
+            description: "Fetch".into(),
+            source: "native".into(),
+            server_id: None,
+            server_name: None,
+            input_schema: serde_json::json!({ "type": "object" }),
+            sensitive: false,
+        };
+        let mut request = GenerateRequest {
+            model: "gpt-5".into(),
+            system: "sys".into(),
+            messages: vec![ModelMessage {
+                role: ModelRole::User,
+                content: vec![MessagePart::Text { text: "hi".into() }],
+            }],
+            tools: vec![tool],
+            options: GenerateOptions::default(),
+            metadata: crate::chat::model::RequestMetadata {
+                conversation_id: Some("conv_abc".into()),
+                ..Default::default()
+            },
+        };
+
+        // 流式 + 有会话 id + 有工具：缓存键（双写法）、stream_options、tool_choice 齐全。
+        let body = adapter.request_body(&request, true);
+        assert_eq!(body["prompt_cache_key"], "conv_abc");
+        assert_eq!(body["promptCacheKey"], "conv_abc");
+        assert_eq!(body["stream_options"]["include_usage"], true);
+        assert_eq!(body["tool_choice"], "auto");
+
+        // 非流式：不带 stream_options；无会话 id：不带缓存键；无工具：不带 tool_choice。
+        request.metadata.conversation_id = None;
+        request.tools = Vec::new();
+        let body = adapter.request_body(&request, false);
+        assert!(body.get("stream_options").is_none());
+        assert!(body.get("prompt_cache_key").is_none());
+        assert!(body.get("promptCacheKey").is_none());
+        assert!(body.get("tool_choice").is_none());
     }
 
     #[test]

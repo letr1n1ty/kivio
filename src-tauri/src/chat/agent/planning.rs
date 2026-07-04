@@ -48,6 +48,11 @@ pub(crate) enum PlanningStepOutcome {
     ToolCalls(PlannedToolRound),
     /// `state.tools` was narrowed to skill-native tools; the skeleton retries.
     RetryWithSkillTools,
+    /// Planning returned an empty assistant response (no text, no tool calls) —
+    /// flaky gateways do this intermittently. Retried once via the skeleton's
+    /// `continue`; a second empty lands in FinalAnswer and fails at finalize
+    /// with the existing "empty assistant response" error.
+    RetryEmptyResponse,
     /// Provider rejected tools; `state.provider_tools_unsupported` was set and a
     /// step was pushed. The skeleton breaks out of the tool loop.
     ToolsUnsupported,
@@ -257,28 +262,35 @@ pub(crate) async fn planning_step(
                     "Chat tools planning stream interrupted; retrying once without streaming: {}",
                     err
                 );
-                call_chat_completion_message_with_usage(
-                    config.state,
-                    &config.provider,
-                    &config.model,
-                    prepared.runtime_messages.clone(),
-                    Some(&prepared.active_tools),
-                    config.retry_attempts,
-                    config.thinking_enabled,
-                    config.thinking_level.clone(),
-                    config.max_output_tokens,
-                    &config.conversation_id,
-                    &config.message_id,
-                    "Chat tools planning",
-                )
-                .await
-                .map(|(message, usage)| {
-                    state.merge_usage(usage);
-                    ChatPlanningStep {
-                        message,
-                        streamed: false,
+                // 与下方非流式路径同款 select：降级重试内部有 send_with_retry 的多次退避
+                // （每次 60s 超时），不接取消的话，用户点停止后会卡在这里直到重试耗尽。
+                tokio::select! {
+                    result = call_chat_completion_message_with_usage(
+                        config.state,
+                        &config.provider,
+                        &config.model,
+                        prepared.runtime_messages.clone(),
+                        Some(&prepared.active_tools),
+                        config.retry_attempts,
+                        config.thinking_enabled,
+                        config.thinking_level.clone(),
+                        config.max_output_tokens,
+                        &config.conversation_id,
+                        &config.message_id,
+                        "Chat tools planning",
+                    ) => result.map(|(message, usage)| {
+                        state.merge_usage(usage);
+                        ChatPlanningStep {
+                            message,
+                            streamed: false,
+                        }
+                    }),
+                    _ = host.wait_for_generation_inactive(&config.conversation_id, config.generation) => {
+                        return Ok(PlanningStepOutcome::Cancelled(
+                            cancelled_run_result_from_state(env, state),
+                        ));
                     }
-                })
+                }
             }
             Err(err) => Err(err.to_string()),
         }
@@ -385,6 +397,14 @@ pub(crate) async fn planning_step(
     if tool_calls.is_empty() {
         let response =
             sanitize_assistant_text_response(&assistant_content_from_api_message(&message));
+        // 空响应重试（一次）：正文空 + 无工具调用 = 抽风网关的典型症状（HTTP 200 但
+        // 正文什么都没给，可能残留一段 reasoning）。这种消息走到 finalize 必报
+        // "empty assistant response"——与其断轮不如原地重试一次；再空则照旧报错。
+        if response.trim().is_empty() && !state.planning_empty_retried {
+            state.planning_empty_retried = true;
+            eprintln!("Chat tools planning returned an empty response; retrying once");
+            return Ok(PlanningStepOutcome::RetryEmptyResponse);
+        }
         let mut step_segments = Vec::new();
         if !response.trim().is_empty() {
             let mut segment = planning_text_segment.clone();
@@ -733,6 +753,11 @@ pub(crate) async fn generate_with_chat_provider(
                 .generate(request)
                 .await
         }
+        ProviderApiFormat::Gemini => {
+            crate::chat::model::GeminiProvider::new(state, provider, retry_attempts)
+                .generate(request)
+                .await
+        }
     }
 }
 
@@ -756,6 +781,11 @@ pub(crate) async fn stream_with_chat_provider(
         }
         ProviderApiFormat::OpenAiResponses => {
             OpenAiResponsesProvider::new(state, provider, retry_attempts)
+                .stream(request, sink)
+                .await
+        }
+        ProviderApiFormat::Gemini => {
+            crate::chat::model::GeminiProvider::new(state, provider, retry_attempts)
                 .stream(request, sink)
                 .await
         }

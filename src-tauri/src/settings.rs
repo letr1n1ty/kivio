@@ -1,4 +1,4 @@
-use chrono::{Datelike, Local, Timelike};
+use chrono::{Datelike, Local};
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 use tauri_plugin_store::StoreBuilder;
@@ -84,6 +84,9 @@ pub enum ProviderApiFormat {
     /// OpenAI Responses API (`POST /v1/responses`). Used by Codex / Responses-native
     /// models and proxies that only emit tool-call arguments over this protocol.
     OpenAiResponses,
+    /// Google Gemini native `generateContent` protocol. Avoids the OpenAI-compat
+    /// endpoint's strict rejection of unknown fields (e.g. `promptCacheKey` 400).
+    Gemini,
 }
 
 impl ProviderApiFormat {
@@ -91,6 +94,7 @@ impl ProviderApiFormat {
         match raw.trim() {
             "anthropic" | "anthropic_messages" => Self::AnthropicMessages,
             "openai_responses" | "responses" => Self::OpenAiResponses,
+            "gemini" | "google" | "gemini_generate" => Self::Gemini,
             _ => Self::OpenAiChat,
         }
     }
@@ -100,6 +104,7 @@ impl ProviderApiFormat {
             Self::OpenAiChat => "openai_chat",
             Self::AnthropicMessages => "anthropic_messages",
             Self::OpenAiResponses => "openai_responses",
+            Self::Gemini => "gemini",
         }
     }
 }
@@ -184,6 +189,11 @@ pub struct ScreenshotTranslationConfig {
     pub hotkey: String,
     #[serde(default = "default_screenshot_translation_text_hotkey")]
     pub text_hotkey: String,
+    /// 替换翻译独立热键（框选后在原位覆盖译文，固定 RapidOCR）。
+    #[serde(default = "default_screenshot_translation_replace_hotkey")]
+    pub replace_hotkey: String,
+    #[serde(default = "default_true")]
+    pub replace_enabled: bool,
     #[serde(default)]
     pub provider_id: String,
     #[serde(default = "default_openai_model")]
@@ -234,6 +244,8 @@ impl Default for ScreenshotTranslationConfig {
             enabled: true,
             hotkey: "CommandOrControl+Shift+A".to_string(),
             text_hotkey: "CommandOrControl+Shift+T".to_string(),
+            replace_hotkey: "CommandOrControl+Shift+R".to_string(),
+            replace_enabled: true,
             provider_id: "default-ocr".to_string(),
             model: "gpt-4o".to_string(),
             direct_translate: false,
@@ -498,14 +510,47 @@ impl DefaultModelSelection {
     }
 }
 
+/// 当前 Chat 会话的主模型（顶栏选择），用于混音器 auto 时解析副任务路由。
+#[derive(Debug, Clone, Copy)]
+pub struct SessionModel<'a> {
+    pub provider_id: &'a str,
+    pub model: &'a str,
+}
+
+impl<'a> SessionModel<'a> {
+    pub fn is_set(self) -> bool {
+        !self.provider_id.trim().is_empty() && !self.model.trim().is_empty()
+    }
+}
+
+fn resolve_mixer_side_model(
+    selection: &DefaultModelSelection,
+    session: Option<SessionModel<'_>>,
+    settings: &Settings,
+) -> (String, String) {
+    if selection.is_configured() {
+        return (
+            selection.provider_id.clone(),
+            selection.model.clone(),
+        );
+    }
+    if let Some(session) = session.filter(|session| session.is_set()) {
+        return (
+            session.provider_id.to_string(),
+            session.model.to_string(),
+        );
+    }
+    settings.effective_chat_model()
+}
+
 /**
  * 默认模型配置。
  *
  * chat：新建 Chat 对话的全局默认模型；为空时沿用 Lens → 输入翻译的兜底链路。
- * vision：图片附件分析副任务使用；为空时保持 Chat 主模型直接处理图片。
- * title_summary：标题总结副任务使用；为空时继承有效 Chat 默认模型。
- * compression：上下文/历史对话压缩副任务使用；为空时继承有效 Chat 默认模型。
- * image_generation：生图副任务使用；为空时不暴露混音器生图工具。
+ * vision：图片附件分析副任务使用；为空时继承当前会话主模型（无会话时回退有效 Chat 默认）。
+ * title_summary：标题总结副任务使用；为空时继承当前会话主模型（无会话时回退有效 Chat 默认）。
+ * compression：上下文/历史对话压缩副任务使用；为空时继承当前会话主模型（无会话时回退有效 Chat 默认）。
+ * image_generation：生图副任务使用；为空时若当前会话主模型支持直接生图则继承该模型。
  */
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -795,6 +840,10 @@ pub struct ChatToolsConfig {
     /// 同一时刻最多并行运行的子 agent 数。受 [`SUB_AGENT_CONCURRENCY_MIN`]..[`MAX`] 钳制。
     #[serde(default = "default_sub_agent_concurrency")]
     pub sub_agent_concurrency: usize,
+    /// 开发者「请求调试」总开关：开启后每次 provider 调用被记录到内存环形缓冲（脱敏）。
+    /// 默认关闭；关闭时 adapter 零开销（不构造记录）。仅内存、不落盘。
+    #[serde(default)]
+    pub request_debug_enabled: bool,
     pub native_tools: ChatNativeToolsConfig,
 }
 
@@ -814,6 +863,7 @@ impl Default for ChatToolsConfig {
             max_tool_output_chars: default_max_tool_output_chars(),
             approval_policy: default_chat_approval_policy(),
             sub_agent_concurrency: default_sub_agent_concurrency(),
+            request_debug_enabled: false,
             native_tools: ChatNativeToolsConfig::default(),
         }
     }
@@ -1060,6 +1110,10 @@ pub struct Settings {
     /// 幂等：置 true 后不再翻转，尊重用户此后手动关闭某工具或改 policy 的选择。
     #[serde(default)]
     pub chat_tools_greenlit_v1: bool,
+    /// 首次使用引导状态：`pending` | `completed` | `skipped`。
+    /// 缺省为空字符串：老版本无此字段时由 `normalize_onboarding_status` 按是否已有 provider 决定。
+    #[serde(default)]
+    pub onboarding_status: String,
     /// 启动时静默检查 GitHub Releases 是否有新版（默认 true）
     /// 仅做"提示 + 跳转 GH 下载页"，不集成 auto-installer，避免签名密钥那套
     #[serde(default = "default_true")]
@@ -1106,13 +1160,14 @@ impl Settings {
     }
 
     pub fn effective_title_summary_model(&self) -> (String, String) {
-        if self.default_models.title_summary.is_configured() {
-            return (
-                self.default_models.title_summary.provider_id.clone(),
-                self.default_models.title_summary.model.clone(),
-            );
-        }
-        self.effective_chat_model()
+        self.effective_title_summary_model_for_session(None)
+    }
+
+    pub fn effective_title_summary_model_for_session(
+        &self,
+        session: Option<SessionModel<'_>>,
+    ) -> (String, String) {
+        resolve_mixer_side_model(&self.default_models.title_summary, session, self)
     }
 
     pub fn has_explicit_vision_model(&self) -> bool {
@@ -1120,23 +1175,25 @@ impl Settings {
     }
 
     pub fn effective_vision_model(&self) -> (String, String) {
-        if self.default_models.vision.is_configured() {
-            return (
-                self.default_models.vision.provider_id.clone(),
-                self.default_models.vision.model.clone(),
-            );
-        }
-        self.effective_chat_model()
+        self.effective_vision_model_for_session(None)
+    }
+
+    pub fn effective_vision_model_for_session(
+        &self,
+        session: Option<SessionModel<'_>>,
+    ) -> (String, String) {
+        resolve_mixer_side_model(&self.default_models.vision, session, self)
     }
 
     pub fn effective_compression_model(&self) -> (String, String) {
-        if self.default_models.compression.is_configured() {
-            return (
-                self.default_models.compression.provider_id.clone(),
-                self.default_models.compression.model.clone(),
-            );
-        }
-        self.effective_chat_model()
+        self.effective_compression_model_for_session(None)
+    }
+
+    pub fn effective_compression_model_for_session(
+        &self,
+        session: Option<SessionModel<'_>>,
+    ) -> (String, String) {
+        resolve_mixer_side_model(&self.default_models.compression, session, self)
     }
 
     pub fn image_generation_model(&self) -> Option<(String, String)> {
@@ -1183,6 +1240,7 @@ impl Default for Settings {
             retry_attempts: default_retry_attempts(),
             builtin_assistants_seeded_v1: false,
             chat_tools_greenlit_v1: false,
+            onboarding_status: default_onboarding_status(),
             auto_check_update: true,
             image_archive_enabled: false,
             image_archive_path: String::new(),
@@ -1212,7 +1270,14 @@ pub fn chat_memory_tools_enabled(settings: &Settings) -> bool {
 }
 
 pub fn chat_image_generation_enabled(settings: &Settings) -> bool {
-    settings.image_generation_model().is_some()
+    crate::chat::model_metadata::image_generation_model_for_session(settings, None).is_some()
+}
+
+pub fn chat_image_generation_enabled_for_session(
+    settings: &Settings,
+    session: Option<SessionModel<'_>>,
+) -> bool {
+    crate::chat::model_metadata::image_generation_model_for_session(settings, session).is_some()
 }
 
 pub fn is_skill_enabled(chat_tools: &ChatToolsConfig, skill_id: &str) -> bool {
@@ -1631,6 +1696,8 @@ pub fn sanitize_settings(mut settings: Settings) -> Settings {
         normalize_hotkey(&settings.screenshot_translation.hotkey);
     settings.screenshot_translation.text_hotkey =
         normalize_hotkey(&settings.screenshot_translation.text_hotkey);
+    settings.screenshot_translation.replace_hotkey =
+        normalize_hotkey(&settings.screenshot_translation.replace_hotkey);
     settings.lens.hotkey = normalize_hotkey(&settings.lens.hotkey);
 
     // 规范化提示词（去除首尾空白，空值转为 None）
@@ -1891,7 +1958,39 @@ pub fn sanitize_settings(mut settings: Settings) -> Settings {
         }
     }
 
+    settings.onboarding_status = normalize_onboarding_status(&settings);
+
     settings
+}
+
+fn default_onboarding_status() -> String {
+    "pending".to_string()
+}
+
+fn onboarding_status_is_set(raw: &str) -> bool {
+    matches!(raw.trim(), "pending" | "completed" | "skipped")
+}
+
+fn provider_has_usable_config(provider: &ModelProvider) -> bool {
+    provider.enabled
+        && provider.api_keys.iter().any(|k| !k.trim().is_empty())
+        && !provider.enabled_models.is_empty()
+}
+
+fn settings_has_usable_provider_config(settings: &Settings) -> bool {
+    settings.providers.iter().any(provider_has_usable_config)
+}
+
+fn normalize_onboarding_status(settings: &Settings) -> String {
+    let raw = settings.onboarding_status.trim();
+    if onboarding_status_is_set(raw) {
+        return raw.to_string();
+    }
+    if settings_has_usable_provider_config(settings) {
+        "completed".to_string()
+    } else {
+        "pending".to_string()
+    }
 }
 
 /**
@@ -2021,7 +2120,10 @@ pub fn load_settings(app: &AppHandle) -> Settings {
  * has_image=true 时为视觉助手；为 false 时为通用对话助手（不假设有图片）
  * 风格统一：简短直答、无小标题、思考过程尽量精简
  */
-/// Local system clock for Chat date/time questions. Models must not guess dates from training data.
+/// Local system date for Chat date questions. Models must not guess dates from training data.
+/// 只到日期级、不含时分：系统提示词是每轮请求的公共前缀，分钟级时钟会让同一对话每轮前缀
+/// 都变——打穿 provider 的 prompt cache（前缀匹配），也让会话亲和型代理无法续会话。
+/// 回答"今天/明天/星期几"日期粒度已足够。
 pub fn chat_current_datetime_context(language: &str) -> String {
     let now = Local::now();
     let weekday = weekday_label(language, now.weekday());
@@ -2029,24 +2131,20 @@ pub fn chat_current_datetime_context(language: &str) -> String {
         crate::locale::localize_zh_hans(
             language,
             format!(
-            "\n\n当前本地时间（系统时钟；回答今天/明天/星期几等日期时间问题必须以此为准，禁止凭记忆臆测）：{}年{}月{}日 {} {:02}:{:02}。",
-            now.year(),
-            now.month(),
-            now.day(),
-            weekday,
-            now.hour(),
-            now.minute()
+                "\n\n当前日期（系统时钟；回答今天/明天/星期几等日期问题必须以此为准，禁止凭记忆臆测）：{}年{}月{}日 {}。",
+                now.year(),
+                now.month(),
+                now.day(),
+                weekday
             ),
         )
     } else {
         format!(
-            "\n\nCurrent local time (system clock; use for today/tomorrow/weekday questions—never guess from training data): {}-{:02}-{:02} {} {:02}:{:02}.",
+            "\n\nToday's date (system clock; use for today/tomorrow/weekday questions—never guess from training data): {}-{:02}-{:02} {}.",
             now.year(),
             now.month(),
             now.day(),
-            weekday,
-            now.hour(),
-            now.minute()
+            weekday
         )
     }
 }
@@ -2186,6 +2284,10 @@ fn default_screenshot_translation_hotkey() -> String {
 
 fn default_screenshot_translation_text_hotkey() -> String {
     "CommandOrControl+Shift+T".to_string()
+}
+
+fn default_screenshot_translation_replace_hotkey() -> String {
+    "CommandOrControl+Shift+R".to_string()
 }
 
 /// 快速翻译结果卡默认宽度（px）。介于旧截图卡(~514)与选中文本卡(420)之间。
@@ -2934,6 +3036,59 @@ mod tests {
     }
 
     #[test]
+    fn effective_side_models_auto_prefer_session_over_global_chat_default() {
+        let mut settings = Settings::default();
+        settings.providers.push(ModelProvider {
+            id: "global".to_string(),
+            name: "Global".to_string(),
+            api_keys: vec!["sk".to_string()],
+            api_key_legacy: None,
+            base_url: "https://api.example.com/v1".to_string(),
+            available_models: vec![],
+            enabled_models: vec!["gemini-3.1-flash-lite".to_string()],
+            supports_tools: true,
+            api_format: "openai".to_string(),
+            enabled: true,
+            model_overrides: std::collections::HashMap::new(),
+            compress_request_body: false,
+        });
+        settings.providers.push(ModelProvider {
+            id: "session".to_string(),
+            name: "Session".to_string(),
+            api_keys: vec!["sk".to_string()],
+            api_key_legacy: None,
+            base_url: "https://api.example.com/v1".to_string(),
+            available_models: vec![],
+            enabled_models: vec!["gpt-4.1".to_string()],
+            supports_tools: true,
+            api_format: "openai".to_string(),
+            enabled: true,
+            model_overrides: std::collections::HashMap::new(),
+            compress_request_body: false,
+        });
+        settings.default_models.chat.provider_id = "global".to_string();
+        settings.default_models.chat.model = "gemini-3.1-flash-lite".to_string();
+
+        let session = SessionModel {
+            provider_id: "session",
+            model: "gpt-4.1",
+        };
+
+        assert_eq!(
+            settings.effective_title_summary_model_for_session(Some(session)),
+            ("session".to_string(), "gpt-4.1".to_string())
+        );
+        assert_eq!(
+            settings.effective_compression_model_for_session(Some(session)),
+            ("session".to_string(), "gpt-4.1".to_string())
+        );
+        assert_eq!(
+            settings.effective_vision_model_for_session(Some(session)),
+            ("session".to_string(), "gpt-4.1".to_string())
+        );
+    }
+
+    #[test]
     fn sanitize_settings_keeps_valid_chat_model() {
         let mut s = Settings::default();
         s.providers.push(ModelProvider {
@@ -3320,9 +3475,58 @@ mod tests {
         s.lens.provider_id = "nonexistent".to_string();
         s.lens.model = "ghost-model".to_string();
         let s = sanitize_settings(s);
-        // 不存在的 provider_id 应被清空 → fallback 到 translator provider/model
         assert_eq!(s.lens.provider_id, "");
         assert_eq!(s.lens.model, "");
+    }
+
+    #[test]
+    fn sanitize_settings_marks_onboarding_completed_for_existing_provider_config() {
+        let mut s = Settings::default();
+        s.onboarding_status.clear();
+        s.providers.push(ModelProvider {
+            id: "active".to_string(),
+            name: "Active".to_string(),
+            api_keys: vec!["sk".to_string()],
+            api_key_legacy: None,
+            base_url: "https://active.example/v1".to_string(),
+            available_models: vec![],
+            enabled_models: vec!["live-model".to_string()],
+            supports_tools: true,
+            api_format: "openai".to_string(),
+            enabled: true,
+            model_overrides: std::collections::HashMap::new(),
+            compress_request_body: false,
+        });
+        let s = sanitize_settings(s);
+        assert_eq!(s.onboarding_status, "completed");
+    }
+
+    #[test]
+    fn sanitize_settings_keeps_pending_onboarding_for_fresh_install() {
+        let s = sanitize_settings(Settings::default());
+        assert_eq!(s.onboarding_status, "pending");
+    }
+
+    #[test]
+    fn sanitize_settings_keeps_explicit_pending_for_restart_onboarding() {
+        let mut s = Settings::default();
+        s.onboarding_status = "pending".to_string();
+        s.providers.push(ModelProvider {
+            id: "active".to_string(),
+            name: "Active".to_string(),
+            api_keys: vec!["sk".to_string()],
+            api_key_legacy: None,
+            base_url: "https://active.example/v1".to_string(),
+            available_models: vec![],
+            enabled_models: vec!["live-model".to_string()],
+            supports_tools: true,
+            api_format: "openai".to_string(),
+            enabled: true,
+            model_overrides: std::collections::HashMap::new(),
+            compress_request_body: false,
+        });
+        let s = sanitize_settings(s);
+        assert_eq!(s.onboarding_status, "pending");
     }
 
     #[test]
@@ -3386,6 +3590,30 @@ mod tests {
         let en = chat_current_datetime_context("en");
         assert!(en.contains("system clock"));
         assert!(en.contains(&format!("{}-", now.year())));
+    }
+
+    #[test]
+    fn chat_current_datetime_context_is_date_only_prefix_stable() {
+        // 前缀稳定性：不含时分（HH:MM 会让同一对话每轮系统提示词都变，打穿 prompt cache）。
+        // 同一天内多次调用必须逐字节一致。
+        let has_hh_mm = |s: &str| {
+            s.as_bytes().windows(5).any(|w| {
+                w[0].is_ascii_digit()
+                    && w[1].is_ascii_digit()
+                    && w[2] == b':'
+                    && w[3].is_ascii_digit()
+                    && w[4].is_ascii_digit()
+            })
+        };
+        for lang in ["zh", "en"] {
+            let a = chat_current_datetime_context(lang);
+            let b = chat_current_datetime_context(lang);
+            assert_eq!(a, b, "same-day calls must be byte-identical ({lang})");
+            assert!(
+                !has_hh_mm(&a),
+                "no HH:MM clock in the prompt prefix ({lang}): {a}"
+            );
+        }
     }
 
     #[test]

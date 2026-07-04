@@ -18,6 +18,27 @@ pub struct ContextUsageSegment {
     pub color: Option<String>,
 }
 
+/// Timeline marker for a context compaction event (user/auto compress or agent-loop L2).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CompactionBoundaryRecord {
+    pub id: String,
+    /// Last UI message fully covered by the summary (context split point; replay
+    /// truth lives in `ConversationContextSummary.source_until_message_id`).
+    pub source_until_message_id: String,
+    /// Timeline anchor: the divider renders after this message — the last message
+    /// at the moment compaction was triggered — so the marker shows *when* the
+    /// compaction happened, not where the token split landed. Older records
+    /// without it fall back to `source_until_message_id`.
+    #[serde(default)]
+    pub display_after_message_id: Option<String>,
+    pub token_estimate_before: usize,
+    pub token_estimate_after: usize,
+    pub summary_content: String,
+    /// `manual` | `auto` | `agent_loop`
+    pub trigger: String,
+    pub created_at: i64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConversationContextSummary {
     pub id: String,
@@ -56,8 +77,13 @@ pub struct ConversationContextState {
     pub last_compressed_at: Option<i64>,
     #[serde(default)]
     pub compressed_message_count: usize,
+    /// 本会话累计执行压缩的次数（含自动与手动）。
+    #[serde(default)]
+    pub compression_count: usize,
     #[serde(default)]
     pub summary: Option<ConversationContextSummary>,
+    #[serde(default)]
+    pub compaction_boundaries: Vec<CompactionBoundaryRecord>,
     #[serde(default)]
     pub warning: Option<String>,
     /// `kivio_builtin` or `external_cli`.

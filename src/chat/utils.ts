@@ -1,16 +1,16 @@
-// Chat 工具函数
+// Chat 工具函式
 import type { ConversationListItem, ConversationGroup } from './types'
 
-/** 是否运行在 Tauri 运行时(而非纯浏览器/SSR) */
+/** 是否執行在 Tauri 執行時(而非純瀏覽器/SSR) */
 export const isTauriRuntime = (): boolean =>
   typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 
-/** 用户是否偏好减少动画 */
+/** 使用者是否偏好減少動畫 */
 export const prefersReducedMotion = (): boolean =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /**
- * 将对话列表按时间分组
+ * 將對話列表按時間分組
  */
 export function groupConversationsByTime(
   conversations: ConversationListItem[]
@@ -42,7 +42,7 @@ export function groupConversationsByTime(
     }
   }
 
-  // 过滤掉空分组
+  // 過濾掉空分組
   return groups.filter((g) => g.conversations.length > 0)
 }
 

@@ -1,5 +1,5 @@
-// 知识库管理面板（Settings 页）：建库 / 选 embedding 模型 / 拖拽或选文件导入 /
-// 文档列表 + 实时索引进度 / 删除 / 换 embedding 重建。
+// 知識庫管理面板（Settings 頁）：建庫 / 選 embedding 模型 / 拖拽或選檔案匯入 /
+// 檔案列表 + 即時索引進度 / 刪除 / 換 embedding 重建。
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { open } from '@tauri-apps/plugin-dialog'
 import { Loader2, Trash2, Plus, RefreshCw, FileText, AlertCircle, CheckCircle2, Upload, FileCog, Library, SlidersHorizontal, Pencil, Link2 } from 'lucide-react'
@@ -27,9 +27,9 @@ import {
 
 const UPLOAD_EXTS = ['txt', 'text', 'log', 'csv', 'tsv', 'md', 'markdown', 'mdown', 'mkd', 'pdf', 'docx', 'xlsx', 'html', 'htm', 'png', 'jpg', 'jpeg', 'webp', 'bmp', 'tif', 'tiff', 'gif']
 
-// Embedding 模型选择器：从 provider 的 availableModels 取建议（含未启用的 embedding
-// 模型，如 bge-m3 / text-embedding-3-small），并允许自由输入——有些 provider 不在
-// /models 里列出 embedding 模型。刻意不复用 ModelPairSelect（那个只列 enabledModels）。
+// Embedding 模型選擇器：從 provider 的 availableModels 取建議（含未啟用的 embedding
+// 模型，如 bge-m3 / text-embedding-3-small），並允許自由輸入——有些 provider 不在
+// /models 裡列出 embedding 模型。刻意不復用 ModelPairSelect（那個只列 enabledModels）。
 function EmbeddingModelPicker({
   providers,
   providerId,
@@ -53,14 +53,14 @@ function EmbeddingModelPicker({
   // surface it explicitly with a readable label so the Select never falls back
   // to showing the raw provider id.
   const options = [
-    { value: '', label: t('选择提供商…', 'Pick provider…') },
+    { value: '', label: t('選擇提供商…', 'Pick provider…') },
     ...enabled.map((p) => ({ value: p.id, label: p.name || p.id })),
   ]
   if (providerId && !options.some((o) => o.value === providerId)) {
     const known = providers.find((p) => p.id === providerId)
     const label = known
       ? `${known.name || known.id}${known.enabled === false ? t('（已停用）', ' (disabled)') : ''}`
-      : t('⚠ 供应商已删除，请重新选择', '⚠ provider missing — re-select')
+      : t('⚠ 供應商已刪除，請重新選擇', '⚠ provider missing — re-select')
     options.unshift({ value: providerId, label })
   }
 
@@ -77,7 +77,7 @@ function EmbeddingModelPicker({
     modelOptions.push({ value: model, label: model })
   }
 
-  // 解析模型信息（含嵌入維度/多語言/上下文），用於展示能力徽章。
+  // 解析模型資訊（含嵌入維度/多語言/上下文），用於展示能力徽章。
   const info = model.trim() ? resolveModelInfo(model.trim(), selected?.modelOverrides) : null
   const isEmbedding = Boolean(info?.capabilities?.embedding || info?.dimensions)
   const ctxLabel = (n?: number) => (!n ? null : n >= 1000 ? `${Math.round(n / 1000)}K` : `${n}`)
@@ -102,7 +102,7 @@ function EmbeddingModelPicker({
           <span className="rounded-md border border-indigo-300 bg-indigo-50 px-1.5 py-0.5 text-[11px] font-medium text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300">
             {t('嵌入', 'Embedding')}
           </span>
-          {info?.multilingual && <KbInfoPill>{t('多语言', 'Multilingual')}</KbInfoPill>}
+          {info?.multilingual && <KbInfoPill>{t('多語言', 'Multilingual')}</KbInfoPill>}
           {info?.dimensions ? <KbInfoPill>{t(`${info.dimensions} 維`, `${info.dimensions}d`)}</KbInfoPill> : null}
           {ctxLabel(info?.contextWindow) ? <KbInfoPill>{ctxLabel(info?.contextWindow)}</KbInfoPill> : null}
           <KbInfoPill>RAG</KbInfoPill>
@@ -150,7 +150,7 @@ export function KnowledgeBasePanel({
 
   const [libraries, setLibraries] = useState<KnowledgeLibrary[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  // 右欄視圖：某個庫 / 新建 / 文檔處理 / 檢索設置
+  // 右欄檢視：某個庫 / 新建 / 檔案處理 / 檢索設定
   const [rightView, setRightView] = useState<'library' | 'new' | 'docproc' | 'retrieval'>('library')
   const [docs, setDocs] = useState<KnowledgeDocument[]>([])
   const [progress, setProgress] = useState<Record<string, Progress>>({})
@@ -166,7 +166,7 @@ export function KnowledgeBasePanel({
   const [editProviderId, setEditProviderId] = useState('')
   const [editModel, setEditModel] = useState('')
 
-  // 網址導入輸入框
+  // 網址匯入輸入框
   const [urlInput, setUrlInput] = useState('')
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
@@ -206,7 +206,7 @@ export function KnowledgeBasePanel({
     setEditModel(selected?.embeddingModel ?? '')
   }, [selected?.id, selected?.embeddingProviderId, selected?.embeddingModel])
 
-  // 實時索引進度：更新進度條；終態時刷新文檔+庫計數。
+  // 即時索引進度：更新進度條；終態時重新整理檔案+庫計數。
   const selectedRef = useRef<string | null>(null)
   selectedRef.current = selectedId
   useEffect(() => {
@@ -232,7 +232,7 @@ export function KnowledgeBasePanel({
 
   const handleCreate = async () => {
     if (!newName.trim() || !newProviderId || !newModel) {
-      setError(t('请填写名称并选择 embedding 模型', 'Enter a name and pick an embedding model'))
+      setError(t('請填寫名稱並選擇 embedding 模型', 'Enter a name and pick an embedding model'))
       return
     }
     setBusy(true)
@@ -281,7 +281,7 @@ export function KnowledgeBasePanel({
     await refreshLibraries()
     setBusy(false)
     if (failures.length > 0) {
-      setError(t(`${failures.length} 個文件導入失敗：`, `${failures.length} file(s) failed: `) + failures.join('; '))
+      setError(t(`${failures.length} 個檔案匯入失敗：`, `${failures.length} file(s) failed: `) + failures.join('; '))
     }
   }
 
@@ -297,14 +297,14 @@ export function KnowledgeBasePanel({
       await refreshDocs(selectedId).catch(() => {})
       await refreshLibraries()
     } catch (e) {
-      setError(t('網址導入失敗：', 'URL import failed: ') + String(e))
+      setError(t('網址匯入失敗：', 'URL import failed: ') + String(e))
     } finally {
       setBusy(false)
     }
   }
 
   const handleDeleteLibrary = async (kbId: string) => {
-    if (!confirm(t('刪除該知識庫及其所有文檔？', 'Delete this knowledge base and all its documents?'))) return
+    if (!confirm(t('刪除該知識庫及其所有檔案？', 'Delete this knowledge base and all its documents?'))) return
     try {
       await kbDeleteLibrary(kbId)
       if (selectedId === kbId) setSelectedId(null)
@@ -354,7 +354,7 @@ export function KnowledgeBasePanel({
     if (
       !confirm(
         t(
-          '更換 embedding 模型會重建整個知識庫索引（重新調用 embedding，可能耗時與產生費用）。繼續？',
+          '更換 embedding 模型會重建整個知識庫索引（重新呼叫 embedding，可能耗時與產生費用）。繼續？',
           'Changing the embedding model rebuilds the whole index (re-embeds every chunk — may take time and cost). Continue?'
         )
       )
@@ -389,7 +389,7 @@ export function KnowledgeBasePanel({
 
   return (
     <div className="kb-panel-root flex min-h-full items-stretch gap-0">
-      {/* 左侧二级侧边栏：分隔线拉满可用高度 */}
+      {/* 左側二級側邊欄：分隔線拉滿可用高度 */}
       <nav className="relative flex h-full min-h-full w-44 shrink-0 flex-col self-stretch pr-3">
         <div
           className="pointer-events-none absolute inset-y-0 right-0 w-px bg-zinc-200/80 dark:bg-zinc-800"
@@ -405,7 +405,7 @@ export function KnowledgeBasePanel({
               : 'text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800'
           }`}
         >
-          <FileCog size={14} className="shrink-0 text-zinc-400" /> {t('文檔處理', 'Doc processing')}
+          <FileCog size={14} className="shrink-0 text-zinc-400" /> {t('檔案處理', 'Doc processing')}
         </button>
 
         <button
@@ -443,7 +443,7 @@ export function KnowledgeBasePanel({
             >
               <Library size={14} className="shrink-0 text-zinc-400" />
               <span className="min-w-0 flex-1 truncate">{lib.name}</span>
-              <span className="shrink-0 text-xs text-zinc-400" title={t('文檔數', 'Documents')}>
+              <span className="shrink-0 text-xs text-zinc-400" title={t('檔案數', 'Documents')}>
                 {lib.docCount}
               </span>
             </button>
@@ -463,7 +463,7 @@ export function KnowledgeBasePanel({
         </div>
       </nav>
 
-      {/* 右侧内容 */}
+      {/* 右側內容 */}
       <div className="min-w-0 flex-1 space-y-4 pl-4">
         {error && (
           <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">
@@ -475,7 +475,7 @@ export function KnowledgeBasePanel({
           </div>
         )}
 
-        {/* 新建知识库 */}
+        {/* 新建知識庫 */}
         {rightView === 'new' && (
           <SettingsGroup title={t('新建知識庫', 'New knowledge base')}>
             <div className="flex flex-wrap items-center gap-2 py-2">
@@ -501,25 +501,25 @@ export function KnowledgeBasePanel({
                 onClick={handleCreate}
                 className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
               >
-                <Plus size={14} /> {t('創建', 'Create')}
+                <Plus size={14} /> {t('建立', 'Create')}
               </button>
             </div>
             <p className="px-1 pb-1 text-xs text-zinc-500">
               {t(
-                'embedding 模型決定向量維度，建庫後更換需重建索引。需選用支持 /embeddings 接口的模型。',
+                'embedding 模型決定向量維度，建庫後更換需重建索引。需選用支援 /embeddings 介面的模型。',
                 'The embedding model fixes the vector dimension; changing it later rebuilds the index. Use a model that serves the /embeddings endpoint.'
               )}
             </p>
           </SettingsGroup>
         )}
 
-        {/* 文档处理 */}
+        {/* 檔案處理 */}
         {rightView === 'docproc' && (
           <div className="space-y-4">
             <KbPageHeader
-              title={t('文檔處理', 'Doc processing')}
+              title={t('檔案處理', 'Doc processing')}
               subtitle={t(
-                'Kivio 本地解析文檔，免費離線；圖片需配置 OCR 後入庫。',
+                'Kivio 本地解析檔案，免費離線；圖片需配置 OCR 後入庫。',
                 'Kivio parses documents locally — free and offline; images need OCR enabled.',
               )}
             />
@@ -531,7 +531,7 @@ export function KnowledgeBasePanel({
           </div>
         )}
 
-        {/* 检索设置 */}
+        {/* 檢索設定 */}
         {rightView === 'retrieval' && (
           <div className="space-y-4">
             <KbPageHeader
@@ -550,7 +550,7 @@ export function KnowledgeBasePanel({
           </div>
         )}
 
-        {/* 选中库为空时的提示 */}
+        {/* 選中庫為空時的提示 */}
         {rightView === 'library' && !selected && (
           <p className="px-1 pt-6 text-sm text-zinc-500">
             {t(
@@ -560,7 +560,7 @@ export function KnowledgeBasePanel({
           </p>
         )}
 
-        {/* 选中库详情 */}
+        {/* 選中庫詳情 */}
         {rightView === 'library' && selected && (
           <div className="space-y-4">
             <div className="flex items-start justify-between gap-3">
@@ -579,7 +579,7 @@ export function KnowledgeBasePanel({
                       onClick={() => void handleRename(selected.id, renameDraft)}
                       className="rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
                     >
-                      {t('保存', 'Save')}
+                      {t('儲存', 'Save')}
                     </button>
                     <button
                       type="button"
@@ -596,7 +596,7 @@ export function KnowledgeBasePanel({
                 )}
                 <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                   {t(
-                    `${selected.docCount} 個文檔 · ${selected.chunkCount} 塊`,
+                    `${selected.docCount} 個檔案 · ${selected.chunkCount} 塊`,
                     `${selected.docCount} docs · ${selected.chunkCount} chunks`,
                   )}
                   {selected.embeddingDim > 0
@@ -610,7 +610,7 @@ export function KnowledgeBasePanel({
                     type="button"
                     onClick={() => startRenaming(selected.id, selected.name)}
                     className="rounded-lg p-1.5 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                    title={t('重命名', 'Rename')}
+                    title={t('重新命名', 'Rename')}
                   >
                     <Pencil size={14} />
                   </button>
@@ -652,7 +652,7 @@ export function KnowledgeBasePanel({
               </div>
             </SettingsGroup>
 
-            <SettingsGroup title={t('文檔', 'Documents')}>
+            <SettingsGroup title={t('檔案', 'Documents')}>
               <div className="space-y-3 py-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <button
@@ -661,7 +661,7 @@ export function KnowledgeBasePanel({
                     onClick={handleUpload}
                     className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
                   >
-                    <Upload size={14} /> {t('導入文檔', 'Add documents')}
+                    <Upload size={14} /> {t('匯入檔案', 'Add documents')}
                   </button>
                   <button
                     type="button"
@@ -680,7 +680,7 @@ export function KnowledgeBasePanel({
                       className="!pl-10"
                       value={urlInput}
                       onChange={setUrlInput}
-                      placeholder={t('粘貼網址導入（https://…）', 'Paste URL (https://…)')}
+                      placeholder={t('貼上網址匯入（https://…）', 'Paste URL (https://…)')}
                       mono
                     />
                   </div>
@@ -690,7 +690,7 @@ export function KnowledgeBasePanel({
                     onClick={handleImportUrl}
                     className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
                   >
-                    <Plus size={14} /> {t('導入網址', 'Add URL')}
+                    <Plus size={14} /> {t('匯入網址', 'Add URL')}
                   </button>
                 </div>
 
@@ -703,11 +703,11 @@ export function KnowledgeBasePanel({
                   >
                     <Upload size={20} className="text-zinc-400" />
                     <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
-                      {t('點擊導入文檔', 'Click to add documents')}
+                      {t('點選匯入檔案', 'Click to add documents')}
                     </span>
                     <span className="max-w-md text-xs leading-relaxed text-zinc-400">
                       {t(
-                        '支持 txt / md / pdf / docx / xlsx / html、圖片（需開啟 OCR），或使用上方網址導入',
+                        '支援 txt / md / pdf / docx / xlsx / html、圖片（需開啟 OCR），或使用上方網址匯入',
                         'txt, md, pdf, docx, xlsx, html, images (OCR required), or import a URL above',
                       )}
                     </span>
@@ -774,7 +774,7 @@ function DocRow({
         type="button"
         onClick={onDelete}
         className="shrink-0 rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-red-500 dark:hover:bg-zinc-800"
-        title={t('刪除文檔', 'Delete document')}
+        title={t('刪除檔案', 'Delete document')}
       >
         <Trash2 size={13} />
       </button>
