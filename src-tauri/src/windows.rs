@@ -284,6 +284,7 @@ pub fn ensure_chat_window_with_hash(app: &AppHandle, hash: &str) -> Result<Webvi
         .resizable(true)
         .visible_on_all_workspaces(false)
         .skip_taskbar(false)
+        .zoom_hotkeys_enabled(true)
         .visible(false);
 
     #[cfg(target_os = "macos")]
