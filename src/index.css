@@ -34,9 +34,6 @@ body {
   --theme-surface-titlebar: #ececef;
   --theme-surface-border: #e4e4e7;
   --theme-surface-border-strong: #d4d4d8;
-  --theme-text: #1d1d1f;
-  --theme-text-muted: #6b6b73;
-  --theme-text-faint: #9c9ca3;
   --theme-accent: #2f6ff0;
   --theme-accent-hover: #2960d8;
   --theme-accent-soft: #e6efff;
@@ -2679,6 +2676,13 @@ body {
   --theme-surface-titlebar: #ececef;
   --theme-surface-border: #e4e4e7;
   --theme-surface-border-strong: #d4d4d8;
+  --theme-text: #1d1d1f;
+  --theme-text-muted: #6b6b73;
+  --theme-text-faint: #9c9ca3;
+  --theme-accent: #2f6ff0;
+  --theme-accent-hover: #2960d8;
+  --theme-accent-soft: #e6efff;
+  --theme-accent-ring: rgba(47, 111, 240, 0.32);
 }
 
 .kv[data-theme-color="warm"] {
@@ -2690,6 +2694,10 @@ body {
   --theme-surface-titlebar: #ebe6dc;
   --theme-surface-border: #e3ddd2;
   --theme-surface-border-strong: #d3cabc;
+  --theme-accent: #a85f00;
+  --theme-accent-hover: #8f5000;
+  --theme-accent-soft: #fff4e0;
+  --theme-accent-ring: rgba(168, 95, 0, 0.28);
 }
 
 .kv[data-theme-color="cool"] {
@@ -2701,6 +2709,10 @@ body {
   --theme-surface-titlebar: #e3eaf3;
   --theme-surface-border: #dce4ee;
   --theme-surface-border-strong: #cad6e4;
+  --theme-accent: #2f6ff0;
+  --theme-accent-hover: #2960d8;
+  --theme-accent-soft: #e6efff;
+  --theme-accent-ring: rgba(47, 111, 240, 0.30);
 }
 
 .dark .kv[data-theme-color="neutral"] {
@@ -3114,23 +3126,40 @@ body {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-ring);
 }
-.kv-theme-colors span {
+.kv-theme-colors .kv-theme-swatch-frame {
   position: relative;
   width: 100%;
   height: 100%;
   border-radius: inherit;
-  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
 }
-.kv-theme-colors span i {
+.kv-theme-colors .kv-theme-swatch {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      135deg,
+      var(--theme-surface-soft) 0%,
+      var(--theme-surface-soft) 48%,
+      var(--theme-surface-muted) 48%,
+      var(--theme-surface-muted) 100%
+    );
+  box-shadow: inset 0 0 0 1px var(--theme-surface-border);
+  overflow: hidden;
+}
+.kv-theme-colors .kv-theme-swatch i {
   position: absolute;
   right: 3px;
   bottom: 3px;
   width: 8px;
   height: 8px;
   border-radius: 999px;
+  background: var(--theme-accent);
   box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.2),
-    0 0 0 2px rgba(255, 255, 255, 0.32);
+    0 0 0 1px var(--theme-surface-border-strong),
+    0 0 0 2px var(--theme-surface);
 }
 
 .kv-select {

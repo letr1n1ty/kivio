@@ -2379,7 +2379,6 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                       {THEME_COLOR_PRESETS.map((preset: ThemeColorPreset) => {
                         const active = themeColor === preset.id
                         const label = preset.labels[lang]
-                        const accentHex = previewThemeIsDark ? preset.darkAccentHex : preset.lightAccentHex
                         return (
                           <button
                             key={preset.id}
@@ -2392,12 +2391,10 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                             title={label}
                             data-tauri-drag-region="false"
                           >
-                            <span
-                              style={{
-                                background: `linear-gradient(135deg, ${preset.lightHex} 0%, ${preset.lightHex} 50%, ${preset.darkHex} 50%, ${preset.darkHex} 100%)`,
-                              }}
-                            >
-                              <i style={{ background: accentHex }} />
+                            <span className={`kv-theme-swatch-frame${previewThemeIsDark ? ' dark' : ''}`}>
+                              <span className="kv kv-theme-swatch" data-theme-color={preset.id}>
+                                <i />
+                              </span>
                             </span>
                           </button>
                         )
