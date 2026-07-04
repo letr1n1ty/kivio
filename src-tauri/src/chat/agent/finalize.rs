@@ -12,9 +12,7 @@ use super::stop::{
 };
 use super::stream::ToolCallDraftTracker;
 use super::synthesis::SynthesisCompleted;
-use super::types::{
-    AgentPhase, AgentRunConfig, AgentRunResult, AgentStepResult, AgentStopReason,
-};
+use super::types::{AgentPhase, AgentRunConfig, AgentRunResult, AgentStepResult, AgentStopReason};
 
 /// Converges the repeated "emit fallback + push api message + build AgentRunResult"
 /// blocks in the agent loop. Emit order is fixed: stream delta (with optional
@@ -378,32 +376,44 @@ pub(crate) fn finalize_completed(
 }
 
 pub(crate) fn empty_synthesis_fallback_response(language: &str) -> String {
-    if language.starts_with("zh") {
-        "工具调用已经完成，但模型没有返回最终总结。上方工具结果已保存在本轮回复中，你可以继续追问，或让我重新生成总结。".to_string()
+    if crate::locale::is_chinese_language(language) {
+        crate::locale::localized_zh_or_en(
+            language,
+            "工具调用已经完成，但模型没有返回最终总结。上方工具结果已保存在本轮回复中，你可以继续追问，或让我重新生成总结。",
+            "",
+        )
     } else {
         "The tool calls completed, but the model did not return a final summary. The tool results above were saved with this reply; you can continue from them or regenerate the summary.".to_string()
     }
 }
 
 pub(crate) fn synthesis_failed_fallback_response(language: &str) -> String {
-    if language.starts_with("zh") {
-        "最终总结生成失败(可能是模型供应商内容审核拦截)。上方工具结果已保存在本轮回复中,你可以继续追问、让我重新生成,或更换聊天模型再试。".to_string()
+    if crate::locale::is_chinese_language(language) {
+        crate::locale::localized_zh_or_en(
+            language,
+            "最终总结生成失败(可能是模型供应商内容审核拦截)。上方工具结果已保存在本轮回复中,你可以继续追问、让我重新生成,或更换聊天模型再试。",
+            "",
+        )
     } else {
         "Final summary generation failed (possibly provider content moderation). The tool results above were saved with this reply; you can continue from them, regenerate, or switch the chat model and retry.".to_string()
     }
 }
 
 pub(crate) fn tool_planning_failed_fallback_response(language: &str) -> String {
-    if language.starts_with("zh") {
-        "工具调用参数生成失败，这一步还没有真正执行写入。主对话已保留，你可以让我缩小范围、改用补丁，或重新生成。".to_string()
+    if crate::locale::is_chinese_language(language) {
+        crate::locale::localized_zh_or_en(
+            language,
+            "工具调用参数生成失败，这一步还没有真正执行写入。主对话已保留，你可以让我缩小范围、改用补丁，或重新生成。",
+            "",
+        )
     } else {
         "Tool-call argument generation failed before the write actually ran. This conversation was preserved; you can ask me to narrow the scope, use a patch, or regenerate.".to_string()
     }
 }
 
 pub(crate) fn stopped_generation_content(language: &str) -> String {
-    if language.starts_with("zh") {
-        "已停止生成。".to_string()
+    if crate::locale::is_chinese_language(language) {
+        crate::locale::localized_zh_or_en(language, "已停止生成。", "")
     } else {
         "Generation stopped.".to_string()
     }

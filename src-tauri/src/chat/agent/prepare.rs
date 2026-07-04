@@ -253,18 +253,24 @@ pub struct ProjectPromptContext {
 }
 
 fn project_context_prompt(project: &ProjectPromptContext, language: &str) -> String {
-    match (&project.root_path, language.starts_with("zh")) {
-        (Some(root), true) => format!(
-            "当前是项目对话，项目「{}」已绑定文件夹：{root}。文件/命令工具的相对路径以该目录为根；写入明确的绝对路径或 ~/ 路径（如 ~/Desktop/x.html）会写到项目外的全局位置。",
-            project.name
+    match (&project.root_path, crate::locale::is_chinese_language(language)) {
+        (Some(root), true) => crate::locale::localize_zh_hans(
+            language,
+            format!(
+                "当前是项目对话，项目「{}」已绑定文件夹：{root}。文件/命令工具的相对路径以该目录为根；写入明确的绝对路径或 ~/ 路径（如 ~/Desktop/x.html）会写到项目外的全局位置。",
+                project.name
+            ),
         ),
         (Some(root), false) => format!(
             "This is a project conversation. Project \"{}\" is bound to folder: {root}. Relative paths in file/command tools resolve from that root; writing an explicit absolute or ~/ path (e.g. ~/Desktop/x.html) targets that global location outside the project.",
             project.name
         ),
-        (None, true) => format!(
-            "当前是项目对话，但项目「{}」尚未绑定本地文件夹；文件/命令工具不可用，需要用户先在项目菜单中绑定文件夹。",
-            project.name
+        (None, true) => crate::locale::localize_zh_hans(
+            language,
+            format!(
+                "当前是项目对话，但项目「{}」尚未绑定本地文件夹；文件/命令工具不可用，需要用户先在项目菜单中绑定文件夹。",
+                project.name
+            ),
         ),
         (None, false) => format!(
             "This is a project conversation, but project \"{}\" has no bound folder; file/command tools are unavailable until the user binds one from the project menu.",
@@ -385,8 +391,8 @@ pub fn build_chat_system_prompt_with_segments(
         .map(str::trim)
         .filter(|value| !value.is_empty())
     {
-        let text = if language.starts_with("zh") {
-            format!("Obsidian 笔记库路径：{path}")
+        let text = if crate::locale::is_chinese_language(language) {
+            crate::locale::localize_zh_hans(language, format!("Obsidian 笔记库路径：{path}"))
         } else {
             format!("Obsidian vault path: {path}")
         };
@@ -447,9 +453,10 @@ pub fn build_chat_system_prompt_with_segments(
         {
             action_examples.push("asking the user a blocking clarification");
         }
-        if available_builtin_tools.iter().any(|tool| {
-            matches!(tool.as_str(), "read" | "ls" | "grep" | "find")
-        }) {
+        if available_builtin_tools
+            .iter()
+            .any(|tool| matches!(tool.as_str(), "read" | "ls" | "grep" | "find"))
+        {
             action_examples.push("reading or searching project files");
         }
         if available_builtin_tools
@@ -480,10 +487,12 @@ pub fn build_chat_system_prompt_with_segments(
         runtime.push_str(
             " Only claim that a tool was used, a script was run, a file was read, or the web was searched after Kivio returns an actual tool result in the conversation.",
         );
-        if language.starts_with("zh") {
-            runtime.push_str(
+        if crate::locale::is_chinese_language(language) {
+            runtime.push_str(&crate::locale::localized_zh_or_en(
+                language,
                 " 若用户只问今天/明天/星期几等可由上文「当前本地时间」直接推算的日期问题，直接回答，不要调用工具。",
-            );
+                "",
+            ));
         } else {
             runtime.push_str(
                 " If the user only asks for today/tomorrow/weekday derivable from the system local time above, answer directly without calling tools.",
@@ -516,17 +525,21 @@ pub fn build_chat_system_prompt_with_segments(
             .iter()
             .any(|tool| tool.as_str() == crate::chat::sub_agent::AGENT_TOOL_NAME)
         {
-            let background_prompt = if language.starts_with("zh") {
-                "委派子 agent：每个 agent 调用都会阻塞、等子 agent 跑完并直接返回完整结果。要并行处理多个互相独立的子任务，就在同一条消息里发出多个 agent 调用——它们会并发执行，各自返回自己的结果。没有任何轮询或收集工具，也不要去找。"
+            let background_prompt = if crate::locale::is_chinese_language(language) {
+                crate::locale::localized_zh_or_en(
+                    language,
+                    "委派子 agent：每个 agent 调用都会阻塞、等子 agent 跑完并直接返回完整结果。要并行处理多个互相独立的子任务，就在同一条消息里发出多个 agent 调用——它们会并发执行，各自返回自己的结果。没有任何轮询或收集工具，也不要去找。",
+                    "",
+                )
             } else {
-                "Delegating to sub-agents: each agent call BLOCKS, waits for the sub-agent to finish, and returns its full result directly. To run sub-agents in PARALLEL, emit MULTIPLE agent tool calls in a SINGLE message — they execute concurrently and each returns its own result. There is no polling or collection tool; do not look for one."
+                "Delegating to sub-agents: each agent call BLOCKS, waits for the sub-agent to finish, and returns its full result directly. To run sub-agents in PARALLEL, emit MULTIPLE agent tool calls in a SINGLE message — they execute concurrently and each returns its own result. There is no polling or collection tool; do not look for one.".to_string()
             };
             append_context_segment(
                 &mut prompt,
                 &mut segments,
                 "native_tools",
                 "Native tools",
-                background_prompt,
+                &background_prompt,
             );
         }
     }
@@ -535,14 +548,15 @@ pub fn build_chat_system_prompt_with_segments(
         || active_skill_id.is_some()
         || chat_tools.skill_fallback_mode != "legacy_full_body";
     if include_catalog {
-        let catalog = skills::format_catalog(registry, active_skill_id, tools_available, |skill_id| {
-            skill_allowed_for_conversation(
-                chat_tools,
-                assistant_snapshot,
-                skill_id,
-                email_accounts,
-            )
-        });
+        let catalog =
+            skills::format_catalog(registry, active_skill_id, tools_available, |skill_id| {
+                skill_allowed_for_conversation(
+                    chat_tools,
+                    assistant_snapshot,
+                    skill_id,
+                    email_accounts,
+                )
+            });
         if !catalog.is_empty() {
             append_context_segment(&mut prompt, &mut segments, "skills", "Skills", &catalog);
         }
@@ -580,14 +594,13 @@ pub fn build_chat_system_prompt_with_segments(
             &skill_prompt,
         );
     } else if tools_available && chat_tools.skill_auto_match {
-        if language.starts_with("zh") {
-            append_context_segment(
-                &mut prompt,
-                &mut segments,
-                "skills",
-                "Skills",
+        if crate::locale::is_chinese_language(language) {
+            let skill_hint = crate::locale::localized_zh_or_en(
+                language,
                 "当任务匹配某个 Skill 的描述时，主动用 skill_activate 激活它——无需用户点名，描述对得上就激活。激活后会加载该 Skill 的完整步骤指令，效果明显优于自行发挥。只跳过描述明显与当前任务无关的 Skill。",
+                "",
             );
+            append_context_segment(&mut prompt, &mut segments, "skills", "Skills", &skill_hint);
         } else {
             append_context_segment(
                 &mut prompt,
@@ -651,11 +664,16 @@ fn append_context_segment(
 fn assistant_prompt_segment(assistant: &ChatAssistantSnapshot) -> String {
     let mut parts = vec![format!("Active assistant: {}", assistant.name)];
     if !assistant.description.trim().is_empty() {
-        parts.push(format!("Assistant purpose: {}", assistant.description.trim()));
+        parts.push(format!(
+            "Assistant purpose: {}",
+            assistant.description.trim()
+        ));
     }
     let assistant_system_prompt = assistant.system_prompt.trim();
     if !assistant_system_prompt.is_empty() {
-        parts.push(format!("Assistant instructions:\n{assistant_system_prompt}"));
+        parts.push(format!(
+            "Assistant instructions:\n{assistant_system_prompt}"
+        ));
     }
     parts.join("\n\n")
 }
@@ -782,7 +800,7 @@ fn native_tools_prompt(
             "Enable the relevant web tool or use the relevant Skill script for live web/API access."
         }
     };
-    let mut prompt = if language.starts_with("zh") {
+    let mut prompt = if crate::locale::is_chinese_language(language) {
         let image_generation_hint = if has_image_generation {
             "\n- 用户要求创建、生成、绘制图片时，必须调用 mixer_generate_image，不要只用文字描述。"
         } else {
@@ -836,6 +854,7 @@ fn native_tools_prompt(
 - {en_live_access_hint}"
         ) + &generated_file_hint + image_generation_hint
     };
+    prompt = crate::locale::localize_zh_hans(language, prompt);
     if has_image_generation && !prompt.ends_with('.') && !prompt.ends_with('。') {
         prompt.push('.');
     }
@@ -1010,10 +1029,7 @@ mod tests {
             &registry,
             &chat_tools,
             true,
-            &[
-                "run_python".to_string(),
-                "write".to_string(),
-            ],
+            &["run_python".to_string(), "write".to_string()],
             None,
             None,
             None,
@@ -1134,10 +1150,7 @@ mod tests {
     #[test]
     fn assistant_empty_mcp_list_drops_all_mcp_tools() {
         let assistant = test_assistant_snapshot(vec![], vec![]);
-        let mut tools = vec![
-            crate::mcp::types::native_web_fetch_tool(),
-            test_mcp_tool(),
-        ];
+        let mut tools = vec![crate::mcp::types::native_web_fetch_tool(), test_mcp_tool()];
 
         apply_assistant_mcp_restrictions(&mut tools, Some(&assistant));
 
@@ -1171,7 +1184,12 @@ mod tests {
             &[],
         ));
         // 无助手 = 不限(只看全局 enable)。
-        assert!(skill_allowed_for_conversation(&chat_tools, None, "pdf", &[]));
+        assert!(skill_allowed_for_conversation(
+            &chat_tools,
+            None,
+            "pdf",
+            &[]
+        ));
     }
 
     #[test]

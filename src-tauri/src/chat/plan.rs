@@ -56,25 +56,34 @@ pub fn format_prompt(state: &AgentPlanState, language: &str) -> String {
     let current_plan = current_plan_text(state)
         .map(|plan| plan.to_string())
         .unwrap_or_else(|| {
-            if language.starts_with("zh") {
-                "当前没有已保存计划。".to_string()
+            if crate::locale::is_chinese_language(language) {
+                crate::locale::localized_zh_or_en(language, "当前没有已保存计划。", "")
             } else {
                 "No current saved plan.".to_string()
             }
         });
 
-    if language.starts_with("zh") {
+    if crate::locale::is_chinese_language(language) {
         if state.mode == AgentPlanMode::Plan {
-            format!(
-                "Agent plan mode（内部运行模式）：当前模式是 plan，状态是 {status}。Plan mode 只读：先调研、阅读、搜索、分析，再出计划；不要执行任何会产生副作用的动作，也不要声称已修改文件、运行命令、写入记忆或完成实现，除非 Kivio 返回了实际工具结果。可以提出必要的澄清问题。\n\n调研先行（强制）：写计划之前，必须先用只读工具把现状查清楚，不允许凭空臆测或只看一两个文件就下结论。按以下维度系统调研，每条结论都基于你实际读过的文件/代码并注明来源路径：\n- 现状：相关功能/模块当前怎么实现、入口在哪；\n- 涉及范围：这次改动会 touch 哪些文件/函数，及其上下游调用方；\n- 现有约定：该区域已有的命名、模式、错误处理、测试方式——新代码要对齐；\n- 外部参考（除非纯内部琐碎改动，否则必做）：只要任务涉及外部标准/协议、第三方库/框架 API，或任何架构选型，就必须用 web_search 查官方文档和有代表性的开源项目是怎么做的——什么架构、什么流程、有哪些惯例和坑，再用 web_fetch 读关键页面；不要只凭记忆或已有知识下结论。先确认业界成熟做法再据此规划，不要盲目自己造（仅当 web 搜索工具确实不可用时才跳过，并在发现里说明）；\n- 风险与未知：边界情况、可能被破坏的地方、尚未确认需要进一步查证的点。\n只有当这些维度查得足以支撑一份可落地的计划时，才开始写计划；信息不足就继续调研或向用户提问，不要急着出计划。\n\n最终回复结构：先用「## 调研发现」按上述维度给出关键发现（每条附依据文件路径），紧接着用「## 计划」给出可执行步骤/todo（清晰编号或勾选项），让用户一眼看出这是一份 Plan。背景与风险放计划后面；说明需要用户切到 Act / 执行计划后才会实施。\n\n当前已保存计划：\n{current_plan}"
+            crate::locale::localize_zh_hans(
+                language,
+                format!(
+                    "Agent plan mode（内部运行模式）：当前模式是 plan，状态是 {status}。Plan mode 只读：先调研、阅读、搜索、分析，再出计划；不要执行任何会产生副作用的动作，也不要声称已修改文件、运行命令、写入记忆或完成实现，除非 Kivio 返回了实际工具结果。可以提出必要的澄清问题。\n\n调研先行（强制）：写计划之前，必须先用只读工具把现状查清楚，不允许凭空臆测或只看一两个文件就下结论。按以下维度系统调研，每条结论都基于你实际读过的文件/代码并注明来源路径：\n- 现状：相关功能/模块当前怎么实现、入口在哪；\n- 涉及范围：这次改动会 touch 哪些文件/函数，及其上下游调用方；\n- 现有约定：该区域已有的命名、模式、错误处理、测试方式——新代码要对齐；\n- 外部参考（除非纯内部琐碎改动，否则必做）：只要任务涉及外部标准/协议、第三方库/框架 API，或任何架构选型，就必须用 web_search 查官方文档和有代表性的开源项目是怎么做的——什么架构、什么流程、有哪些惯例和坑，再用 web_fetch 读关键页面；不要只凭记忆或已有知识下结论。先确认业界成熟做法再据此规划，不要盲目自己造（仅当 web 搜索工具确实不可用时才跳过，并在发现里说明）；\n- 风险与未知：边界情况、可能被破坏的地方、尚未确认需要进一步查证的点。\n只有当这些维度查得足以支撑一份可落地的计划时，才开始写计划；信息不足就继续调研或向用户提问，不要急着出计划。\n\n最终回复结构：先用「## 调研发现」按上述维度给出关键发现（每条附依据文件路径），紧接着用「## 计划」给出可执行步骤/todo（清晰编号或勾选项），让用户一眼看出这是一份 Plan。背景与风险放计划后面；说明需要用户切到 Act / 执行计划后才会实施。\n\n当前已保存计划：\n{current_plan}"
+                ),
             )
         } else if state.mode == AgentPlanMode::Orchestrate {
-            format!(
-                "Agent orchestrate mode（内部运行模式）：当前模式是 orchestrate，计划状态是 {status}。你是 orchestrator（编排者），默认行为就是把活拆开**派给子 agent**，而不是自己动手做。这一点是强约束：**只要任务能拆成 2 个或以上相互独立 / 可并行 / 可分主题的部分，你就必须为每个部分各派一个子 agent（用 `agent` 工具 fan-out），不要自己串行把它们全做完。**\n\n典型必须 fan-out 的场景：研究 / 对比 / 调研多个主题、汇总多个来源、跨多个文件的工作。即使最终要汇总成一篇报告或写一个文件，也必须**先把各部分的研究 / 调查分别派给子 agent**，你自己只负责最后的聚合与产出——绝不要一个人把所有部分都查完、写完。\n\n流程（多步任务必须遵循）：①先用 `todo_write` 列出任务计划；②把每个独立子任务委派给子 agent——在对应 todo 上把 `owner` 设为该子 agent 名并标 `in_progress`，再用 `agent` 工具派发（多个独立部分可在同一轮并行派发）；③子 agent 返回后把该 todo 标 `completed`；④最后汇总各子 agent 的结果回复用户。子 agent 各自独立运行、只返回结果；你负责规划、分派、聚合（orchestrator-worker 模型）。\n\n唯一的例外：只有真正无法再拆分的**单一步骤小任务**（如一句翻译、一个简单事实问答）才可以自己直接做。其余一律 fan-out。如果用户要求继续/执行计划，参考下面的已保存计划。\n\n当前已保存计划：\n{current_plan}"
+            crate::locale::localize_zh_hans(
+                language,
+                format!(
+                    "Agent orchestrate mode（内部运行模式）：当前模式是 orchestrate，计划状态是 {status}。你是 orchestrator（编排者），默认行为就是把活拆开**派给子 agent**，而不是自己动手做。这一点是强约束：**只要任务能拆成 2 个或以上相互独立 / 可并行 / 可分主题的部分，你就必须为每个部分各派一个子 agent（用 `agent` 工具 fan-out），不要自己串行把它们全做完。**\n\n典型必须 fan-out 的场景：研究 / 对比 / 调研多个主题、汇总多个来源、跨多个文件的工作。即使最终要汇总成一篇报告或写一个文件，也必须**先把各部分的研究 / 调查分别派给子 agent**，你自己只负责最后的聚合与产出——绝不要一个人把所有部分都查完、写完。\n\n流程（多步任务必须遵循）：①先用 `todo_write` 列出任务计划；②把每个独立子任务委派给子 agent——在对应 todo 上把 `owner` 设为该子 agent 名并标 `in_progress`，再用 `agent` 工具派发（多个独立部分可在同一轮并行派发）；③子 agent 返回后把该 todo 标 `completed`；④最后汇总各子 agent 的结果回复用户。子 agent 各自独立运行、只返回结果；你负责规划、分派、聚合（orchestrator-worker 模型）。\n\n唯一的例外：只有真正无法再拆分的**单一步骤小任务**（如一句翻译、一个简单事实问答）才可以自己直接做。其余一律 fan-out。如果用户要求继续/执行计划，参考下面的已保存计划。\n\n当前已保存计划：\n{current_plan}"
+                ),
             )
         } else {
-            format!(
-                "Agent plan context（内部运行状态）：当前模式是 act，计划状态是 {status}。如果用户要求继续/执行计划，优先参考下面的已保存计划；若用户改变需求，以最新用户消息为准并说明计划需要调整。不要把 plan 当作用户可编辑 todo，也不要创建提醒或日历事项。\n\n当前已保存计划：\n{current_plan}"
+            crate::locale::localize_zh_hans(
+                language,
+                format!(
+                    "Agent plan context（内部运行状态）：当前模式是 act，计划状态是 {status}。如果用户要求继续/执行计划，优先参考下面的已保存计划；若用户改变需求，以最新用户消息为准并说明计划需要调整。不要把 plan 当作用户可编辑 todo，也不要创建提醒或日历事项。\n\n当前已保存计划：\n{current_plan}"
+                ),
             )
         }
     } else if state.mode == AgentPlanMode::Plan {
@@ -168,10 +177,42 @@ fn starts_with_markdown_step(line: &str) -> bool {
 
 fn starts_with_chinese_step(line: &str) -> bool {
     const PREFIXES: &[&str] = &[
-        "第1步", "第2步", "第3步", "第4步", "第5步", "第6步", "第7步", "第8步", "第9步",
-        "第一步", "第二步", "第三步", "第四步", "第五步", "第六步", "第七步", "第八步", "第九步",
-        "步骤1", "步骤2", "步骤3", "步骤4", "步骤5", "步骤6", "步骤7", "步骤8", "步骤9",
-        "一、", "二、", "三、", "四、", "五、", "六、", "七、", "八、", "九、",
+        "第1步",
+        "第2步",
+        "第3步",
+        "第4步",
+        "第5步",
+        "第6步",
+        "第7步",
+        "第8步",
+        "第9步",
+        "第一步",
+        "第二步",
+        "第三步",
+        "第四步",
+        "第五步",
+        "第六步",
+        "第七步",
+        "第八步",
+        "第九步",
+        "步骤1",
+        "步骤2",
+        "步骤3",
+        "步骤4",
+        "步骤5",
+        "步骤6",
+        "步骤7",
+        "步骤8",
+        "步骤9",
+        "一、",
+        "二、",
+        "三、",
+        "四、",
+        "五、",
+        "六、",
+        "七、",
+        "八、",
+        "九、",
     ];
     PREFIXES.iter().any(|prefix| line.starts_with(prefix))
 }
@@ -238,7 +279,9 @@ mod tests {
 
     #[test]
     fn executable_plan_requires_real_steps() {
-        assert!(is_executable_plan_text("计划：\n1. Read code\n2. Implement fix"));
+        assert!(is_executable_plan_text(
+            "计划：\n1. Read code\n2. Implement fix"
+        ));
         assert!(is_executable_plan_text("- [ ] 调研\n- [ ] 修改"));
         assert!(!is_executable_plan_text("没问题！积萌,"));
         assert!(!is_executable_plan_text("计划：我会处理这个问题。"));
@@ -265,8 +308,14 @@ mod tests {
 
     #[test]
     fn mode_from_str_accepts_orchestrate() {
-        assert_eq!(mode_from_str("orchestrate").unwrap(), AgentPlanMode::Orchestrate);
-        assert_eq!(mode_from_str("Orchestrate").unwrap(), AgentPlanMode::Orchestrate);
+        assert_eq!(
+            mode_from_str("orchestrate").unwrap(),
+            AgentPlanMode::Orchestrate
+        );
+        assert_eq!(
+            mode_from_str("Orchestrate").unwrap(),
+            AgentPlanMode::Orchestrate
+        );
         assert_eq!(mode_from_str("act").unwrap(), AgentPlanMode::Act);
         assert_eq!(mode_from_str("plan").unwrap(), AgentPlanMode::Plan);
         assert!(mode_from_str("bogus").is_err());

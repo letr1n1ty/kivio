@@ -254,14 +254,17 @@ pub fn apply_todo_update(
 
 pub fn format_prompt(state: &AgentTodoState, language: &str, todo_tools_available: bool) -> String {
     let current = format_state_lines(state);
-    if language.starts_with("zh") {
+    if crate::locale::is_chinese_language(language) {
         let tool_hint = if todo_tools_available {
             "你可以使用 todo_write 和 todo_update 维护这个列表。"
         } else {
             "当前请求没有可用的 todo 工具；只能把它作为上下文参考。"
         };
-        format!(
-            "Agent todo list（内部工作状态）：这个 todo list 由助手自己维护，用户不能手动编辑。{tool_hint} 对复杂、多步骤、需要持续跟进的任务，应保持简洁、可执行的条目；开始或切换任务时标记 in_progress，完成后标记 completed，最多只能有一个 in_progress。不要告诉用户他们可以编辑 todo。\n\n当前 todo 状态：\n{current}"
+        crate::locale::localize_zh_hans(
+            language,
+            format!(
+                "Agent todo list（内部工作状态）：这个 todo list 由助手自己维护，用户不能手动编辑。{tool_hint} 对复杂、多步骤、需要持续跟进的任务，应保持简洁、可执行的条目；开始或切换任务时标记 in_progress，完成后标记 completed，最多只能有一个 in_progress。不要告诉用户他们可以编辑 todo。\n\n当前 todo 状态：\n{current}"
+            ),
         )
     } else {
         let tool_hint = if todo_tools_available {
@@ -312,7 +315,10 @@ pub fn tool_result(state: &AgentTodoState, changed: &[String]) -> McpToolCallRes
         format!("Changed: {}\n\n", changed.join(", "))
     };
     McpToolCallResult {
-        content: format!("Todo list updated.\n\n{changed_line}{}", format_state_lines(state)),
+        content: format!(
+            "Todo list updated.\n\n{changed_line}{}",
+            format_state_lines(state)
+        ),
         is_error: false,
         raw: structured.clone(),
         artifacts: Vec::new(),
@@ -616,9 +622,8 @@ mod tests {
         // 写侧已自动给 b 补了 blocked_by: ["a"]
         assert_eq!(current.items[1].blocked_by, vec!["a".to_string()]);
 
-        let outcome =
-            apply_todo_update(&current, serde_json::json!({ "id": "a", "delete": true }))
-                .expect("delete");
+        let outcome = apply_todo_update(&current, serde_json::json!({ "id": "a", "delete": true }))
+            .expect("delete");
         assert_eq!(outcome.state.items.len(), 1);
         assert_eq!(outcome.state.items[0].id, "b");
         // 指向已删除 a 的反向边被清理

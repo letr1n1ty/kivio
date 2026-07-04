@@ -56,7 +56,7 @@ import {
   type ChatUserPromptPayload,
 } from '../api/tauri'
 import type { SettingsShellHandle, SettingsTab } from '../settings/SettingsShell'
-import type { Lang } from '../settings/i18n'
+import { normalizeLang, type Lang } from '../settings/i18n'
 import { estimateTokens } from '../utils/tokens'
 import {
   CHAT_MIN_SIZE_COLLAPSED,
@@ -628,7 +628,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
   const [skills, setSkills] = useState<SkillMeta[]>([])
   const [disabledSkillIds, setDisabledSkillIds] = useState<string[]>([])
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('chat')
-  const [uiLang, setUiLang] = useState<Lang>('zh')
+  const [uiLang, setUiLang] = useState<Lang>('zh-TW')
   const [extensionsNavItem, setExtensionsNavItem] = useState<ExtensionsNavItem | null>(null)
   const [enabledTools, setEnabledTools] = useState<ChatToolDefinition[]>([])
   const [mcpServers, setMcpServers] = useState<ChatMcpServer[]>([])
@@ -1162,7 +1162,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
   const loadDefaultModel = useCallback(async () => {
     try {
       const settings = await api.getSettings()
-      setUiLang((settings.settingsLanguage as Lang) || 'zh')
+      setUiLang(normalizeLang(settings.settingsLanguage))
       const chatDefault = settings.defaultModels.chat
       if (chatDefault.providerId) {
         setDraftProviderId(chatDefault.providerId)

@@ -537,15 +537,27 @@ impl Default for DefaultModelsConfig {
 /// 解析 Chat 使用的响应语言代码。
 pub fn resolve_chat_language(settings: &Settings) -> String {
     if !settings.chat.default_language.trim().is_empty() {
-        return settings.chat.default_language.trim().to_string();
+        if let Some(language) =
+            crate::locale::try_normalize_model_language(settings.chat.default_language.trim())
+        {
+            return language.to_string();
+        }
     }
     if !settings.lens.default_language.trim().is_empty() {
-        return settings.lens.default_language.trim().to_string();
+        if let Some(language) =
+            crate::locale::try_normalize_model_language(settings.lens.default_language.trim())
+        {
+            return language.to_string();
+        }
     }
     match settings.target_lang.as_str() {
         "en" => "en".to_string(),
         "zh-Hant" | "zh-TW" => "zh-Hant".to_string(),
-        _ => "zh".to_string(),
+        "zh" | "zh-Hans" | "zh-CN" => "zh".to_string(),
+        _ => crate::locale::normalize_model_language(
+            settings.settings_language.as_deref().unwrap_or("zh-TW"),
+        )
+        .to_string(),
     }
 }
 
@@ -915,13 +927,7 @@ pub fn email_account_id_from_address(email: &str) -> String {
         .trim()
         .to_lowercase()
         .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() {
-                c
-            } else {
-                '-'
-            }
-        })
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
         .collect();
     let trimmed = slug.trim_matches('-');
     if trimmed.is_empty() {
@@ -955,21 +961,24 @@ pub fn email_accounts_system_prompt(
         .map(str::trim)
         .filter(|path| !path.is_empty())
         .map(|path| {
-            if language.starts_with("zh") {
-                format!("Himalaya 可执行文件：{path}")
+            if crate::locale::is_chinese_language(language) {
+                crate::locale::localize_zh_hans(language, format!("Himalaya 可执行文件：{path}"))
             } else {
                 format!("Himalaya binary: {path}")
             }
         });
-    if language.starts_with("zh") {
-        Some(format!(
-            "已配置邮箱（Himalaya CLI，激活 himalaya skill 后用 run_command）：\n{}\n使用 Kivio Email 连接器手动安装的 Himalaya，或系统 PATH 中的 himalaya。{}{}",
-            lines.join("\n"),
-            binary_line
-                .as_ref()
-                .map(|line| format!("\n{line}"))
-                .unwrap_or_default(),
-            "\n发信、删信、批量移动前须向用户确认。"
+    if crate::locale::is_chinese_language(language) {
+        Some(crate::locale::localize_zh_hans(
+            language,
+            format!(
+                "已配置邮箱（Himalaya CLI，激活 himalaya skill 后用 run_command）：\n{}\n使用 Kivio Email 连接器手动安装的 Himalaya，或系统 PATH 中的 himalaya。{}{}",
+                lines.join("\n"),
+                binary_line
+                    .as_ref()
+                    .map(|line| format!("\n{line}"))
+                    .unwrap_or_default(),
+                "\n发信、删信、批量移动前须向用户确认。"
+            ),
         ))
     } else {
         Some(format!(
@@ -1169,7 +1178,7 @@ impl Default for Settings {
             document_processing: DocumentProcessingConfig::default(),
             knowledge_base: KnowledgeBaseConfig::default(),
             chat_behavior_migrated_from_lens: false,
-            settings_language: Some("zh".to_string()),
+            settings_language: Some("zh-TW".to_string()),
             retry_enabled: default_retry_enabled(),
             retry_attempts: default_retry_attempts(),
             builtin_assistants_seeded_v1: false,
@@ -1499,6 +1508,18 @@ pub fn sanitize_settings(mut settings: Settings) -> Settings {
             }
         }
     }
+
+    settings.settings_language = Some(
+        crate::locale::normalize_settings_language(
+            settings.settings_language.as_deref().unwrap_or("zh-TW"),
+        )
+        .to_string(),
+    );
+    settings.target_lang = normalize_target_language(&settings.target_lang);
+    settings.lens.default_language =
+        normalize_optional_model_language(&settings.lens.default_language);
+    settings.chat.default_language =
+        normalize_optional_model_language(&settings.chat.default_language);
 
     let provider_exists = |id: &str| settings.providers.iter().any(|p| p.id == id);
     let provider_selectable = |id: &str| settings.providers.iter().any(|p| p.id == id && p.enabled);
@@ -2004,8 +2025,10 @@ pub fn load_settings(app: &AppHandle) -> Settings {
 pub fn chat_current_datetime_context(language: &str) -> String {
     let now = Local::now();
     let weekday = weekday_label(language, now.weekday());
-    if language.starts_with("zh") {
-        format!(
+    if crate::locale::is_chinese_language(language) {
+        crate::locale::localize_zh_hans(
+            language,
+            format!(
             "\n\n当前本地时间（系统时钟；回答今天/明天/星期几等日期时间问题必须以此为准，禁止凭记忆臆测）：{}年{}月{}日 {} {:02}:{:02}。",
             now.year(),
             now.month(),
@@ -2013,6 +2036,7 @@ pub fn chat_current_datetime_context(language: &str) -> String {
             weekday,
             now.hour(),
             now.minute()
+            ),
         )
     } else {
         format!(
@@ -2028,7 +2052,7 @@ pub fn chat_current_datetime_context(language: &str) -> String {
 }
 
 fn weekday_label(language: &str, weekday: chrono::Weekday) -> &'static str {
-    if language.starts_with("zh") {
+    if crate::locale::is_chinese_language(language) {
         match weekday {
             chrono::Weekday::Mon => "星期一",
             chrono::Weekday::Tue => "星期二",
@@ -2053,21 +2077,33 @@ fn weekday_label(language: &str, weekday: chrono::Weekday) -> &'static str {
 
 /// Lens 默认系统提示（含截图翻译后的视觉问答）：输出紧凑，尽量不输出空行。
 pub fn default_lens_system_prompt(language: &str, has_image: bool) -> String {
-    match (language.starts_with("zh"), has_image) {
-        (true, true) => "你是一位智能助手，能够看到用户分享的截图。请将其作为视觉上下文来理解和回答，可以涉及信息提取、概念解释、操作协助或任何相关话题。保持回答简洁直接，自然流畅，不用小标题和编号。输出必须紧凑：不要输出空行；只有在真正需要分隔段落、列表项、表格行、代码块或数学公式时才换行；列表项之间不要留空行。数学公式用 LaTeX（$...$ 或 $$...$$）。思考保持简洁，避免反复重述。".to_string(),
-        (true, false) => "你是一位智能助手。直接给出答案，回答简洁、自然流畅，不要小标题或编号。输出必须紧凑：不要输出空行；只有在真正需要分隔段落、列表项、表格行、代码块或数学公式时才换行；列表项之间不要留空行。数学公式用 LaTeX（$...$ 或 $$...$$）。思考保持简洁，避免反复重述。".to_string(),
-        (_, true) => "You are a helpful assistant that can see the user's screenshot. Use it as visual context to understand and answer, whether extracting information, explaining concepts, assisting with tasks, or any relevant topic. Keep responses short and natural, with no headings or bullet points unless a list is genuinely useful. Keep output compact: do not output blank lines; use a single newline only when needed for clear paragraph boundaries, list items, table rows, code blocks, or math; never put empty lines between list items. Use LaTeX ($...$ or $$...$$) for math. Think briefly; avoid repeating yourself.".to_string(),
-        (_, false) => "You are a helpful assistant. Answer directly. Keep responses short and natural, with no headings or bullet points unless a list is genuinely useful. Keep output compact: do not output blank lines; use a single newline only when needed for clear paragraph boundaries, list items, table rows, code blocks, or math; never put empty lines between list items. Use LaTeX ($...$ or $$...$$) for math. Think briefly; avoid repeating yourself.".to_string(),
+    match has_image {
+        true => crate::locale::localized_zh_or_en(
+            language,
+            "你是一位智能助手，能够看到用户分享的截图。请将其作为视觉上下文来理解和回答，可以涉及信息提取、概念解释、操作协助或任何相关话题。保持回答简洁直接，自然流畅，不用小标题和编号。输出必须紧凑：不要输出空行；只有在真正需要分隔段落、列表项、表格行、代码块或数学公式时才换行；列表项之间不要留空行。数学公式用 LaTeX（$...$ 或 $$...$$）。思考保持简洁，避免反复重述。",
+            "You are a helpful assistant that can see the user's screenshot. Use it as visual context to understand and answer, whether extracting information, explaining concepts, assisting with tasks, or any relevant topic. Keep responses short and natural, with no headings or bullet points unless a list is genuinely useful. Keep output compact: do not output blank lines; use a single newline only when needed for clear paragraph boundaries, list items, table rows, code blocks, or math; never put empty lines between list items. Use LaTeX ($...$ or $$...$$) for math. Think briefly; avoid repeating yourself.",
+        ),
+        false => crate::locale::localized_zh_or_en(
+            language,
+            "你是一位智能助手。直接给出答案，回答简洁、自然流畅，不要小标题或编号。输出必须紧凑：不要输出空行；只有在真正需要分隔段落、列表项、表格行、代码块或数学公式时才换行；列表项之间不要留空行。数学公式用 LaTeX（$...$ 或 $$...$$）。思考保持简洁，避免反复重述。",
+            "You are a helpful assistant. Answer directly. Keep responses short and natural, with no headings or bullet points unless a list is genuinely useful. Keep output compact: do not output blank lines; use a single newline only when needed for clear paragraph boundaries, list items, table rows, code blocks, or math; never put empty lines between list items. Use LaTeX ($...$ or $$...$$) for math. Think briefly; avoid repeating yourself.",
+        ),
     }
 }
 
 /// Chat 客户端默认系统提示：允许正常 Markdown（含表格），不强制「不要空行」。
 pub fn default_chat_system_prompt(language: &str, has_image: bool) -> String {
-    match (language.starts_with("zh"), has_image) {
-        (true, true) => "你是 Kivio 里的 AI 助手，可以帮用户写作、分析文档/数据、查网页、运行代码计算、修改文件和解答问题。你可结合用户提供的图片作答。回答清晰、有条理；可使用 Markdown（表格、列表、代码块等，表格每行单独一行）。数学公式用 LaTeX（$...$ 或 $$...$$）。思考保持简洁。".to_string(),
-        (true, false) => "你是 Kivio 里的 AI 助手，可以帮用户写作、分析文档/数据、查网页、运行代码计算、修改文件和解答问题。直接、清晰地回答用户问题；可使用 Markdown（表格、列表、代码块等，表格每行单独一行）。数学公式用 LaTeX（$...$ 或 $$...$$）。思考保持简洁。".to_string(),
-        (_, true) => "You are the AI assistant inside Kivio. You can help users write, analyze documents/data, search the web, run code for calculations, edit files, and answer questions. You can use images the user provides. Answer clearly; Markdown is welcome (tables, lists, code blocks—each table row on its own line). Use LaTeX ($...$ or $$...$$) for math. Think briefly.".to_string(),
-        (_, false) => "You are the AI assistant inside Kivio. You can help users write, analyze documents/data, search the web, run code for calculations, edit files, and answer questions. Answer clearly and directly; Markdown is welcome (tables, lists, code blocks—each table row on its own line). Use LaTeX ($...$ or $$...$$) for math. Think briefly.".to_string(),
+    match has_image {
+        true => crate::locale::localized_zh_or_en(
+            language,
+            "你是 Kivio 里的 AI 助手，可以帮用户写作、分析文档/数据、查网页、运行代码计算、修改文件和解答问题。你可结合用户提供的图片作答。回答清晰、有条理；可使用 Markdown（表格、列表、代码块等，表格每行单独一行）。数学公式用 LaTeX（$...$ 或 $$...$$）。思考保持简洁。",
+            "You are the AI assistant inside Kivio. You can help users write, analyze documents/data, search the web, run code for calculations, edit files, and answer questions. You can use images the user provides. Answer clearly; Markdown is welcome (tables, lists, code blocks—each table row on its own line). Use LaTeX ($...$ or $$...$$) for math. Think briefly.",
+        ),
+        false => crate::locale::localized_zh_or_en(
+            language,
+            "你是 Kivio 里的 AI 助手，可以帮用户写作、分析文档/数据、查网页、运行代码计算、修改文件和解答问题。直接、清晰地回答用户问题；可使用 Markdown（表格、列表、代码块等，表格每行单独一行）。数学公式用 LaTeX（$...$ 或 $$...$$）。思考保持简洁。",
+            "You are the AI assistant inside Kivio. You can help users write, analyze documents/data, search the web, run code for calculations, edit files, and answer questions. Answer clearly and directly; Markdown is welcome (tables, lists, code blocks—each table row on its own line). Use LaTeX ($...$ or $$...$$) for math. Think briefly.",
+        ),
     }
 }
 
@@ -2080,7 +2116,9 @@ pub fn default_system_prompt(language: &str, has_image: bool) -> String {
  * Lens：关闭思考模式时附加到系统提示词末尾（含紧凑输出要求）。
  */
 pub fn no_think_instruction(language: &str) -> &'static str {
-    if language.starts_with("zh") {
+    if crate::locale::is_traditional_chinese(language) {
+        "\n\n嚴格要求：直接給出最終答案，不要輸出任何思考過程、推理步驟或 <think> 內容。保持輸出緊湊，不要輸出空行。"
+    } else if crate::locale::is_chinese_language(language) {
         "\n\n严格要求：直接给出最终答案，不要输出任何思考过程、推理步骤或 <think> 内容。保持输出紧凑，不要输出空行。"
     } else {
         "\n\nStrict requirement: output only the final answer; do NOT include any thinking, reasoning steps, or <think> content. Keep output compact; do not output blank lines."
@@ -2089,7 +2127,9 @@ pub fn no_think_instruction(language: &str) -> &'static str {
 
 /// Chat：关闭思考模式时的附加指令（不要求紧凑、不禁止空行）。
 pub fn chat_no_think_instruction(language: &str) -> &'static str {
-    if language.starts_with("zh") {
+    if crate::locale::is_traditional_chinese(language) {
+        "\n\n嚴格要求：直接給出最終答案，不要輸出任何思考過程、推理步驟或 <think> 內容。"
+    } else if crate::locale::is_chinese_language(language) {
         "\n\n严格要求：直接给出最终答案，不要输出任何思考过程、推理步骤或 <think> 内容。"
     } else {
         "\n\nStrict requirement: output only the final answer; do NOT include any thinking, reasoning steps, or <think> content."
@@ -2104,8 +2144,12 @@ pub fn default_question_prompt(language: &str, has_image: bool) -> String {
     if !has_image {
         return String::new();
     }
-    if language.starts_with("zh") {
-        "用户分享了这张截图，请结合其中的视觉信息来理解和回答：".to_string()
+    if crate::locale::is_chinese_language(language) {
+        crate::locale::localized_zh_or_en(
+            language,
+            "用户分享了这张截图，请结合其中的视觉信息来理解和回答：",
+            "",
+        )
     } else {
         "The user shared this screenshot. Use the visual context to understand and answer:"
             .to_string()
@@ -2165,6 +2209,26 @@ fn default_target_lang() -> String {
     "auto".to_string()
 }
 
+fn normalize_target_language(language: &str) -> String {
+    match language.trim() {
+        "auto" => "auto".to_string(),
+        "ja" | "ko" | "fr" | "de" => language.trim().to_string(),
+        value => crate::locale::try_normalize_model_language(value)
+            .map(str::to_string)
+            .unwrap_or_else(default_target_lang),
+    }
+}
+
+fn normalize_optional_model_language(language: &str) -> String {
+    let trimmed = language.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    crate::locale::try_normalize_model_language(trimmed)
+        .map(str::to_string)
+        .unwrap_or_default()
+}
+
 fn default_source() -> String {
     "openai".to_string()
 }
@@ -2178,7 +2242,7 @@ fn default_openai_model() -> String {
 }
 
 fn default_settings_language() -> Option<String> {
-    Some("zh".to_string())
+    Some("zh-TW".to_string())
 }
 
 fn default_retry_attempts() -> u8 {
@@ -2603,7 +2667,10 @@ mod tests {
             serde_json::from_str("{}").expect("empty chat tools config should load");
         assert_eq!(cfg.max_tool_rounds, Some(CHAT_TOOL_DEFAULT_ROUNDS));
         // 缺省字段经 serde default 补成默认截断值（而非 None/不截断）。
-        assert_eq!(cfg.max_tool_output_chars, Some(DEFAULT_MAX_TOOL_OUTPUT_CHARS));
+        assert_eq!(
+            cfg.max_tool_output_chars,
+            Some(DEFAULT_MAX_TOOL_OUTPUT_CHARS)
+        );
     }
 
     #[test]

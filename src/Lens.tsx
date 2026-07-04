@@ -4,7 +4,7 @@ import { Loader2, Copy, Check, Square, Image as ImageIcon, ArrowUp, History as H
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { api, type LensStreamPayload, type LensTranslateStreamPayload, type LensWindowInfo, type ExplainMessage, type LensWebSearchPayload } from './api/tauri'
 import { ChatMarkdown } from './chat/ChatMarkdown'
-import { i18n, type Lang } from './settings/i18n'
+import { i18n, normalizeLang, type Lang } from './settings/i18n'
 import { copyToClipboard } from './utils/clipboard'
 
 import type { Arrow, BarRect, CapturedFrame, HistoryItem, Metrics, Mode, Point, Stage, TranslateCardDrag } from './lens/types'
@@ -114,7 +114,7 @@ export default function Lens() {
   const [messages, setMessages] = useState<ExplainMessage[]>([])
   const [streaming, setStreaming] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [lang, setLang] = useState<Lang>('zh')
+  const [lang, setLang] = useState<Lang>('zh-TW')
   const [messageOrder, setMessageOrder] = useState<'asc' | 'desc'>('asc')
   const [webSearchAvailable, setWebSearchAvailable] = useState(false)
   const [webSearchEnabled, setWebSearchEnabled] = useState(false)
@@ -285,7 +285,7 @@ export default function Lens() {
   const loadLensSettings = useCallback(async (curMode: Mode = readModeFromHash()) => {
     try {
       const settings = await api.getSettings()
-      setLang((settings.settingsLanguage as Lang) || 'zh')
+      setLang(normalizeLang(settings.settingsLanguage))
       setMessageOrder(settings.lens?.messageOrder === 'desc' ? 'desc' : 'asc')
       const webSearch = settings.lens?.webSearch
       const hasWebSearchKey = webSearch?.provider === 'exa'
