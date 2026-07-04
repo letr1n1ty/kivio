@@ -5,9 +5,9 @@ import { SettingRow, SettingsGroup, Toggle } from './components'
 
 type RequestDebugPanelProps = {
   lang: string
-  /** 当前开关值（来自 chatTools.requestDebugEnabled）。 */
+  /** 當前開關值（來自 chatTools.requestDebugEnabled）。 */
   enabled: boolean
-  /** 切换开关：更新 chatTools.requestDebugEnabled（用户按保存后生效）。 */
+  /** 切換開關：更新 chatTools.requestDebugEnabled（使用者按儲存後生效）。 */
   onToggleEnabled: (enabled: boolean) => void
 }
 
@@ -28,17 +28,17 @@ function formatDuration(ms?: number | null) {
   return `${Math.round(n)}ms`
 }
 
-/** 相邻记录的时间间隔（秒）转成人类可读的 gap 文案，供列表分隔用。 */
+/** 相鄰記錄的時間間隔（秒）轉成人類可讀的 gap 文案，供列表分隔用。 */
 function formatGap(seconds: number, lang: string): string {
   if (seconds >= 3600) {
     const h = Math.floor(seconds / 3600)
-    return lang === 'zh' ? `${h} 小时间隔` : `${h}h gap`
+    return lang === 'zh' ? `${h} 小時間隔` : `${h}h gap`
   }
   if (seconds >= 60) {
     const m = Math.floor(seconds / 60)
-    return lang === 'zh' ? `${m} 分钟间隔` : `${m} min gap`
+    return lang === 'zh' ? `${m} 分鐘間隔` : `${m} min gap`
   }
-  return lang === 'zh' ? `${Math.round(seconds)} 秒间隔` : `${Math.round(seconds)}s gap`
+  return lang === 'zh' ? `${Math.round(seconds)} 秒間隔` : `${Math.round(seconds)}s gap`
 }
 
 function totalTokens(record: RequestDebugRecord) {
@@ -50,19 +50,19 @@ function totalTokens(record: RequestDebugRecord) {
   )
 }
 
-/** 从完整 URL 抽出 `METHOD /path`，解析失败时退回原串。 */
+/** 從完整 URL 抽出 `METHOD /path`，解析失敗時退回原串。 */
 function endpointLabel(url: string): string {
   try {
     const u = new URL(url)
     return `POST ${u.pathname}`
   } catch {
-    // 相对/异常 URL：尽力截取 path 段
+    // 相對/異常 URL：盡力擷取 path 段
     const idx = url.indexOf('/', url.indexOf('://') + 3)
     return `POST ${idx >= 0 ? url.slice(idx) : url}`
   }
 }
 
-/** 列表项左侧竖条颜色：按来源分类着色（error 恒为红），呼应 claude-tap 的任务色条。 */
+/** 列表項左側豎條顏色：按來源分類著色（error 恆為紅），呼應 claude-tap 的任務色條。 */
 function sourceAccent(source: string): string {
   const s = source.toLowerCase()
   if (s.startsWith('chat')) {
@@ -77,7 +77,7 @@ function sourceAccent(source: string): string {
   return 'border-l-neutral-300 dark:border-l-neutral-700'
 }
 
-/** 模型徽标配色：按模型家族关键字着色。 */
+/** 模型徽標配色：按模型家族關鍵字著色。 */
 function modelBadgeClass(model: string): string {
   const l = model.toLowerCase()
   if (l.includes('claude') || l.includes('opus') || l.includes('sonnet') || l.includes('haiku'))
@@ -88,15 +88,15 @@ function modelBadgeClass(model: string): string {
   return 'bg-neutral-500/10 text-neutral-500 dark:text-neutral-400'
 }
 
-/** 来源类别徽标：短标签 + 配色（与左侧竖条同色系），未知来源退回原串。 */
+/** 來源類別徽標：短標籤 + 配色（與左側豎條同色系），未知來源退回原串。 */
 const SOURCE_BADGE: Record<string, { zh: string; en: string; cls: string }> = {
   chat: { zh: 'Chat', en: 'Chat', cls: 'bg-sky-500/10 text-sky-600 dark:text-sky-300' },
-  chat_title_summary: { zh: '标题', en: 'Title', cls: 'bg-teal-500/10 text-teal-600 dark:text-teal-300' },
-  chat_compression: { zh: '压缩', en: 'Compress', cls: 'bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-300' },
-  chat_aux_vision: { zh: '视觉', en: 'Vision', cls: 'bg-pink-500/10 text-pink-600 dark:text-pink-300' },
-  chat_image_generation: { zh: '绘图', en: 'Image', cls: 'bg-rose-500/10 text-rose-600 dark:text-rose-300' },
-  translator: { zh: '翻译', en: 'Translate', cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-300' },
-  screenshot_translation: { zh: '截图', en: 'Shot', cls: 'bg-violet-500/10 text-violet-600 dark:text-violet-300' },
+  chat_title_summary: { zh: '標題', en: 'Title', cls: 'bg-teal-500/10 text-teal-600 dark:text-teal-300' },
+  chat_compression: { zh: '壓縮', en: 'Compress', cls: 'bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-300' },
+  chat_aux_vision: { zh: '視覺', en: 'Vision', cls: 'bg-pink-500/10 text-pink-600 dark:text-pink-300' },
+  chat_image_generation: { zh: '繪圖', en: 'Image', cls: 'bg-rose-500/10 text-rose-600 dark:text-rose-300' },
+  translator: { zh: '翻譯', en: 'Translate', cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-300' },
+  screenshot_translation: { zh: '截圖', en: 'Shot', cls: 'bg-violet-500/10 text-violet-600 dark:text-violet-300' },
   lens: { zh: 'Lens', en: 'Lens', cls: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-300' },
 }
 
@@ -116,7 +116,7 @@ function prettyJson(value: unknown) {
   }
 }
 
-// ── YAML 序列化（Trace 视图的 YAML 格式，对齐 claude-tap toTraceYaml）──────
+// ── YAML 序列化（Trace 檢視的 YAML 格式，對齊 claude-tap toTraceYaml）──────
 function isScalar(v: unknown): boolean {
   return v === null || v === undefined || typeof v !== 'object'
 }
@@ -159,7 +159,7 @@ function toYaml(value: unknown, indent = 0): string {
     .join('\n')
 }
 
-/** 按当前格式（json/yaml）把负载转成文本。 */
+/** 按當前格式（json/yaml）把負載轉成文本。 */
 function formatPayload(value: unknown, mode: 'json' | 'yaml'): string {
   return mode === 'yaml' ? toYaml(value) : prettyJson(value)
 }
@@ -168,7 +168,7 @@ function isObj(v: unknown): v is Record<string, unknown> {
   return !!v && typeof v === 'object' && !Array.isArray(v)
 }
 
-/** content 可能是 string 或 OpenAI/Anthropic 的 block 数组，尽力拼成纯文本。 */
+/** content 可能是 string 或 OpenAI/Anthropic 的 block 陣列，盡力拼成純文本。 */
 function contentToText(content: unknown): string {
   if (typeof content === 'string') return content
   if (Array.isArray(content)) {
@@ -186,7 +186,7 @@ function contentToText(content: unknown): string {
 }
 
 /**
- * 从请求 body 里拆出系统提示词 / 消息数组，兼容三种 wire 格式：
+ * 從請求 body 裡拆出系統提示詞 / 訊息陣列，相容三種 wire 格式：
  * - OpenAI chat：messages[]（system 混在其中）
  * - Anthropic：system（string 或 block[]）+ messages[]
  * - Responses：instructions + input[]
@@ -213,7 +213,7 @@ function splitRequestBody(body: unknown): { system: string | null; messages: unk
   return { system, messages }
 }
 
-/** 工具定义显示名：兼容 Anthropic(name) / OpenAI(function.name) / 退回 id/type。 */
+/** 工具定義顯示名：相容 Anthropic(name) / OpenAI(function.name) / 退回 id/type。 */
 function toolDisplayName(td: unknown): string {
   if (!isObj(td)) return ''
   const fn = isObj(td.function) ? td.function : null
@@ -231,7 +231,7 @@ function toolDescription(td: unknown): string {
   return typeof desc === 'string' ? desc : ''
 }
 
-/** 工具入参 schema：Anthropic(input_schema) / OpenAI(parameters or function.parameters)。 */
+/** 工具入參 schema：Anthropic(input_schema) / OpenAI(parameters or function.parameters)。 */
 function toolSchema(td: unknown): { properties?: Record<string, unknown>; required?: string[] } {
   if (!isObj(td)) return {}
   const fn = isObj(td.function) ? td.function : null
@@ -239,13 +239,13 @@ function toolSchema(td: unknown): { properties?: Record<string, unknown>; requir
   return isObj(schema) ? (schema as { properties?: Record<string, unknown>; required?: string[] }) : {}
 }
 
-/** 从请求 body 里取工具数组（body.tools），非数组时返回空。 */
+/** 從請求 body 裡取工具陣列（body.tools），非陣列時返回空。 */
 function getRequestTools(body: unknown): unknown[] {
   if (!isObj(body)) return []
   return Array.isArray(body.tools) ? body.tools : []
 }
 
-/** 拼 curl 命令（headers 已脱敏，body 为记录时的原样）。 */
+/** 拼 curl 命令（headers 已脫敏，body 為記錄時的原樣）。 */
 function buildCurl(request: RequestDebugRecord['request']): string {
   const lines = [`curl -X POST '${request.url}'`]
   for (const [key, value] of Object.entries(request.headers)) {
@@ -274,12 +274,12 @@ function CopyButton({ text, lang, label }: { text: string; lang: string; label?:
   return (
     <button type="button" className="kv-btn sm" onClick={copy} data-tauri-drag-region="false">
       {copied ? <Check size={11} /> : <Copy size={11} />}
-      {copied ? (lang === 'zh' ? '已复制' : 'Copied') : label ?? (lang === 'zh' ? '复制' : 'Copy')}
+      {copied ? (lang === 'zh' ? '已複製' : 'Copied') : label ?? (lang === 'zh' ? '複製' : 'Copy')}
     </button>
   )
 }
 
-/** 可折叠分区：标题 + 可选计数徽标 + 复制按钮 + 展开内容。 */
+/** 可摺疊分割槽：標題 + 可選計數徽標 + 複製按鈕 + 展開內容。 */
 function Section({
   title,
   badge,
@@ -321,7 +321,7 @@ function Section({
   )
 }
 
-/** 单个工具：青色 mono 名 + 灰色短描述，展开后显示完整描述 + 参数列表。 */
+/** 單個工具：青色 mono 名 + 灰色短描述，展開後顯示完整描述 + 引數列表。 */
 function ToolBlock({ td, lang }: { td: unknown; lang: string }) {
   const [open, setOpen] = useState(false)
   const name = toolDisplayName(td) || 'unknown'
@@ -358,7 +358,7 @@ function ToolBlock({ td, lang }: { td: unknown; lang: string }) {
           {paramKeys.length > 0 && (
             <>
               <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                {lang === 'zh' ? '参数' : 'Parameters'}
+                {lang === 'zh' ? '引數' : 'Parameters'}
               </div>
               <div className="flex flex-col gap-1.5">
                 {paramKeys.map((key) => {
@@ -404,11 +404,11 @@ function JsonBody({ value }: { value: unknown }) {
   )
 }
 
-// ── 消息渲染（对齐 claude-tap 的角色卡片 + block 视图）──────────────────
+// ── 訊息渲染（對齊 claude-tap 的角色卡片 + block 檢視）──────────────────
 
 type MsgBlock = { type?: string; [k: string]: unknown }
 
-/** OpenAI tool_call.arguments 可能是 JSON 字符串，尽力 parse。 */
+/** OpenAI tool_call.arguments 可能是 JSON 字串，盡力 parse。 */
 function parseToolArgs(args: unknown): unknown {
   if (args == null || args === '') return {}
   if (typeof args !== 'string') return args
@@ -419,7 +419,7 @@ function parseToolArgs(args: unknown): unknown {
   }
 }
 
-/** 把 content（string / block[] / object）归一化成 block 数组。 */
+/** 把 content（string / block[] / object）歸一化成 block 陣列。 */
 function toDisplayBlocks(content: unknown): MsgBlock[] {
   if (typeof content === 'string') return content.trim() ? [{ type: 'text', text: content }] : []
   if (content == null) return []
@@ -432,9 +432,9 @@ function toDisplayBlocks(content: unknown): MsgBlock[] {
 }
 
 /**
- * 归一化一条消息为 { role, blocks }，兼容：
+ * 歸一化一條訊息為 { role, blocks }，相容：
  * - OpenAI：role:'tool' → tool_result；assistant.tool_calls[] → tool_use；string content → text
- * - Anthropic：content 已是 block 数组，直接用
+ * - Anthropic：content 已是 block 陣列，直接用
  */
 function normalizeMessage(msg: unknown): { role: string; blocks: MsgBlock[] } {
   if (!isObj(msg)) return { role: 'unknown', blocks: [] }
@@ -577,10 +577,10 @@ const USAGE_ITEMS: Array<{
   en: string
   dot: string
 }> = [
-  { key: 'inputTokens', zh: '输入', en: 'Input', dot: 'bg-sky-500' },
-  { key: 'outputTokens', zh: '输出', en: 'Output', dot: 'bg-emerald-500' },
-  { key: 'cachedInputTokens', zh: '缓存读取', en: 'Cache read', dot: 'bg-amber-500' },
-  { key: 'cacheCreationInputTokens', zh: '缓存创建', en: 'Cache write', dot: 'bg-violet-500' },
+  { key: 'inputTokens', zh: '輸入', en: 'Input', dot: 'bg-sky-500' },
+  { key: 'outputTokens', zh: '輸出', en: 'Output', dot: 'bg-emerald-500' },
+  { key: 'cachedInputTokens', zh: '快取讀取', en: 'Cache read', dot: 'bg-amber-500' },
+  { key: 'cacheCreationInputTokens', zh: '快取建立', en: 'Cache write', dot: 'bg-violet-500' },
   { key: 'reasoningTokens', zh: '推理', en: 'Reasoning', dot: 'bg-rose-500' },
 ]
 
@@ -623,7 +623,7 @@ export function RequestDebugPanel({ lang, enabled, onToggleEnabled }: RequestDeb
         return next[0]?.id ?? null
       })
     } catch (err) {
-      setError(zh ? `加载失败：${err}` : `Load failed: ${err}`)
+      setError(zh ? `載入失敗：${err}` : `Load failed: ${err}`)
     } finally {
       setLoading(false)
     }
@@ -639,7 +639,7 @@ export function RequestDebugPanel({ lang, enabled, onToggleEnabled }: RequestDeb
       setRecords([])
       setSelectedId(null)
     } catch (err) {
-      setError(zh ? `清空失败：${err}` : `Clear failed: ${err}`)
+      setError(zh ? `清空失敗：${err}` : `Clear failed: ${err}`)
     }
   }, [zh])
 
@@ -673,12 +673,12 @@ export function RequestDebugPanel({ lang, enabled, onToggleEnabled }: RequestDeb
 
   return (
     <div className="flex flex-col gap-4">
-      <SettingsGroup title={zh ? '请求调试' : 'Request debug'}>
+      <SettingsGroup title={zh ? '請求除錯' : 'Request debug'}>
         <SettingRow
-          label={zh ? '记录 provider 请求' : 'Capture provider requests'}
+          label={zh ? '記錄 provider 請求' : 'Capture provider requests'}
           description={
             zh
-              ? '开启后每次 provider 调用（chat/子agent + 翻译/截图/Lens）的请求与响应被记入内存（脱敏 key，最多 50 条，不落盘）。改动后请保存设置生效。'
+              ? '開啟後每次 provider 呼叫（chat/子agent + 翻譯/截圖/Lens）的請求與響應被記入記憶體（脫敏 key，最多 50 條，不落盤）。改動後請儲存設定生效。'
               : 'When on, every provider call (chat/sub-agent + translate/screenshot/Lens) is captured in memory (keys masked, up to 50, never written to disk). Save settings to apply.'
           }
           stack
@@ -690,7 +690,7 @@ export function RequestDebugPanel({ lang, enabled, onToggleEnabled }: RequestDeb
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" className="kv-btn sm" onClick={() => void refresh()} data-tauri-drag-region="false">
           <RefreshCw size={11} className={loading ? 'animate-spin' : ''} />
-          {zh ? '刷新' : 'Refresh'}
+          {zh ? '重新整理' : 'Refresh'}
         </button>
         <button
           type="button"
@@ -700,7 +700,7 @@ export function RequestDebugPanel({ lang, enabled, onToggleEnabled }: RequestDeb
           data-tauri-drag-region="false"
         >
           <Download size={11} />
-          {zh ? '导出 JSON' : 'Export JSON'}
+          {zh ? '匯出 JSON' : 'Export JSON'}
         </button>
         <button
           type="button"
@@ -713,14 +713,14 @@ export function RequestDebugPanel({ lang, enabled, onToggleEnabled }: RequestDeb
           {zh ? '清空' : 'Clear'}
         </button>
         <span className="ml-auto text-[11px] text-neutral-500 dark:text-neutral-400">
-          {zh ? `${records.length} 条记录` : `${records.length} records`}
+          {zh ? `${records.length} 條記錄` : `${records.length} records`}
         </span>
       </div>
 
       {error && <div className="text-[11px] text-red-500">{error}</div>}
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(240px,340px)_1fr]">
-        {/* 左列：搜索 + 请求列表 */}
+        {/* 左列：搜尋 + 請求列表 */}
         <div className="flex max-h-[560px] flex-col overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-800">
           <div className="flex items-center gap-1.5 border-b border-neutral-200 px-2.5 py-1.5 dark:border-neutral-800">
             <Search size={12} className="shrink-0 text-neutral-400" />
@@ -728,7 +728,7 @@ export function RequestDebugPanel({ lang, enabled, onToggleEnabled }: RequestDeb
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={zh ? '搜索 operation / 模型 / URL…' : 'Search operation / model / URL…'}
+              placeholder={zh ? '搜尋 operation / 模型 / URL…' : 'Search operation / model / URL…'}
               className="w-full bg-transparent text-[12px] text-neutral-700 outline-none placeholder:text-neutral-400 dark:text-neutral-200"
               data-tauri-drag-region="false"
               spellCheck={false}
@@ -740,13 +740,13 @@ export function RequestDebugPanel({ lang, enabled, onToggleEnabled }: RequestDeb
                 {records.length === 0
                   ? enabled
                     ? zh
-                      ? '暂无记录。触发一次对话或翻译后刷新。'
+                      ? '暫無記錄。觸發一次對話或翻譯後重新整理。'
                       : 'No records yet. Trigger a chat or translation, then refresh.'
                     : zh
-                      ? '未开启记录。打开上方开关并保存。'
+                      ? '未開啟記錄。開啟上方開關並儲存。'
                       : 'Capture is off. Turn on the toggle above and save.'
                   : zh
-                    ? '没有匹配的记录。'
+                    ? '沒有匹配的記錄。'
                     : 'No matching records.'}
               </div>
             ) : (
@@ -754,7 +754,7 @@ export function RequestDebugPanel({ lang, enabled, onToggleEnabled }: RequestDeb
                 const tokens = totalTokens(record)
                 const active = record.id === selectedId
                 const ok = record.status === 'success'
-                // gap 分隔：与列表中更新的上一条（i-1，时间更晚）比较
+                // gap 分隔：與列表中更新的上一條（i-1，時間更晚）比較
                 const newer = filtered[i - 1]
                 const gapSeconds = newer ? (newer.createdAt ?? 0) - (record.createdAt ?? 0) : 0
                 const showGap = gapSeconds >= 120
@@ -821,13 +821,13 @@ export function RequestDebugPanel({ lang, enabled, onToggleEnabled }: RequestDeb
           </div>
         </div>
 
-        {/* 右列：详情 */}
+        {/* 右列：詳情 */}
         <div className="flex flex-col gap-3">
           {selected ? (
             <DetailView selected={selected} lang={lang} />
           ) : (
             <div className="rounded-md border border-dashed border-neutral-200 px-3 py-10 text-center text-[11px] text-neutral-400 dark:border-neutral-800">
-              {zh ? '选择左侧一条记录查看详情。' : 'Select a record on the left to view details.'}
+              {zh ? '選擇左側一條記錄檢視詳情。' : 'Select a record on the left to view details.'}
             </div>
           )}
         </div>
@@ -852,7 +852,7 @@ function DetailView({ selected, lang }: { selected: RequestDebugRecord; lang: st
 
   return (
     <>
-      {/* 视图切换：默认 / Trace */}
+      {/* 檢視切換：預設 / Trace */}
       <div className="kv-seg w-fit">
         <button
           type="button"
@@ -860,7 +860,7 @@ function DetailView({ selected, lang }: { selected: RequestDebugRecord; lang: st
           onClick={() => setView('default')}
           data-tauri-drag-region="false"
         >
-          {zh ? '默认' : 'Default'}
+          {zh ? '預設' : 'Default'}
         </button>
         <button
           type="button"
@@ -872,48 +872,48 @@ function DetailView({ selected, lang }: { selected: RequestDebugRecord; lang: st
         </button>
       </div>
 
-      {/* 元信息 */}
+      {/* 元資訊 */}
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-md border border-neutral-200 px-3 py-2 text-[11px] dark:border-neutral-800 sm:grid-cols-3">
-        <Meta label={zh ? '供应商' : 'Provider'} value={`${selected.providerName} (${selected.providerId})`} />
+        <Meta label={zh ? '供應商' : 'Provider'} value={`${selected.providerName} (${selected.providerId})`} />
         <Meta label={zh ? '模型' : 'Model'} value={selected.model} />
         <Meta label={zh ? '格式' : 'Format'} value={selected.apiFormat} />
-        <Meta label={zh ? '来源' : 'Source'} value={selected.source} />
+        <Meta label={zh ? '來源' : 'Source'} value={selected.source} />
         <Meta label={zh ? '流式' : 'Stream'} value={selected.request.stream ? 'true' : 'false'} />
-        <Meta label={zh ? '状态码' : 'Status'} value={String(selected.response.statusCode ?? '--')} />
-        <Meta label={zh ? '耗时' : 'Duration'} value={formatDuration(selected.durationMs)} />
+        <Meta label={zh ? '狀態碼' : 'Status'} value={String(selected.response.statusCode ?? '--')} />
+        <Meta label={zh ? '耗時' : 'Duration'} value={formatDuration(selected.durationMs)} />
         {selected.response.finishReason && (
-          <Meta label={zh ? '结束原因' : 'Finish'} value={selected.response.finishReason} />
+          <Meta label={zh ? '結束原因' : 'Finish'} value={selected.response.finishReason} />
         )}
-        {selected.conversationId && <Meta label={zh ? '会话' : 'Conversation'} value={selected.conversationId} />}
+        {selected.conversationId && <Meta label={zh ? '會話' : 'Conversation'} value={selected.conversationId} />}
       </div>
 
       {view === 'trace' ? (
         <TraceView selected={selected} system={system} messages={messages} tools={tools} lang={lang} />
       ) : (
         <>
-          {/* endpoint + 操作按钮 */}
+          {/* endpoint + 操作按鈕 */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-auto truncate font-mono text-[11px] text-neutral-500 dark:text-neutral-400" title={selected.request.url}>
               {endpointLabel(selected.request.url)}
             </span>
-            <CopyButton text={requestBodyText} lang={lang} label={zh ? '请求 JSON' : 'Request JSON'} />
+            <CopyButton text={requestBodyText} lang={lang} label={zh ? '請求 JSON' : 'Request JSON'} />
             <CopyButtonIcon text={curl} lang={lang} icon={<Terminal size={11} />} label="cURL" />
             <CopyButtonIcon
               text={prettyJson(selected)}
               lang={lang}
               icon={<FileJson size={11} />}
-              label={zh ? '整条' : 'Record'}
+              label={zh ? '整條' : 'Record'}
             />
           </div>
 
-          {/* usage 明细 */}
+          {/* usage 明細 */}
           <UsageBar record={selected} lang={lang} />
 
-          {/* 可折叠分区：工具 → 系统提示词 → 消息 → 响应 → 请求 Body/Headers → 完整 JSON */}
+          {/* 可摺疊分割槽：工具 → 系統提示詞 → 訊息 → 響應 → 請求 Body/Headers → 完整 JSON */}
           {tools.length > 0 && (
             <Section
               title={zh ? '工具' : 'Tools'}
-              badge={zh ? `${tools.length} 个工具` : `${tools.length} tools`}
+              badge={zh ? `${tools.length} 個工具` : `${tools.length} tools`}
               copyText={prettyJson(tools)}
               lang={lang}
             >
@@ -925,7 +925,7 @@ function DetailView({ selected, lang }: { selected: RequestDebugRecord; lang: st
             </Section>
           )}
           {system && (
-            <Section title={zh ? '系统提示词' : 'System prompt'} copyText={system} lang={lang}>
+            <Section title={zh ? '系統提示詞' : 'System prompt'} copyText={system} lang={lang}>
               <pre className="max-h-[360px] overflow-auto px-3 py-2 text-[11px] leading-relaxed text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap break-words font-mono">
                 {system}
               </pre>
@@ -933,21 +933,21 @@ function DetailView({ selected, lang }: { selected: RequestDebugRecord; lang: st
           )}
           {messages && (
             <Section
-              title={zh ? '消息' : 'Messages'}
-              badge={zh ? `${messages.length} 条消息` : `${messages.length} messages`}
+              title={zh ? '訊息' : 'Messages'}
+              badge={zh ? `${messages.length} 條訊息` : `${messages.length} messages`}
               copyText={prettyJson(messages)}
               lang={lang}
             >
               <MessagesView messages={messages} />
             </Section>
           )}
-          <Section title={zh ? '响应' : 'Response'} defaultOpen copyText={prettyJson(selected.response)} lang={lang}>
+          <Section title={zh ? '響應' : 'Response'} defaultOpen copyText={prettyJson(selected.response)} lang={lang}>
             <JsonBody value={selected.response} />
           </Section>
-          <Section title={zh ? '请求 Body' : 'Request body'} copyText={requestBodyText} lang={lang}>
+          <Section title={zh ? '請求 Body' : 'Request body'} copyText={requestBodyText} lang={lang}>
             <JsonBody value={selected.request.body} />
           </Section>
-          <Section title={zh ? '请求 Headers（已脱敏）' : 'Request headers (masked)'} copyText={prettyJson(selected.request.headers)} lang={lang}>
+          <Section title={zh ? '請求 Headers（已脫敏）' : 'Request headers (masked)'} copyText={prettyJson(selected.request.headers)} lang={lang}>
             <JsonBody value={selected.request.headers} />
           </Section>
           <Section title={zh ? '完整 JSON' : 'Full JSON'} copyText={prettyJson(selected)} lang={lang}>
@@ -959,7 +959,7 @@ function DetailView({ selected, lang }: { selected: RequestDebugRecord; lang: st
   )
 }
 
-/** Trace 视图的单个数据块：标题 + 徽标 + 复制 + 按当前格式渲染的负载。 */
+/** Trace 檢視的單個資料塊：標題 + 徽標 + 複製 + 按當前格式渲染的負載。 */
 function TraceBlock({
   title,
   badge,
@@ -991,8 +991,8 @@ function TraceBlock({
 }
 
 /**
- * Trace 视图：把记录按 输入 / 输出 / 元数据 重新聚合成原始数据块，
- * 支持 JSON / YAML 切换、整块复制。SSE 逐帧未记录（PRD 范围外），故不含。
+ * Trace 檢視：把記錄按 輸入 / 輸出 / 後設資料 重新聚合成原始資料塊，
+ * 支援 JSON / YAML 切換、整塊複製。SSE 逐幀未記錄（PRD 範圍外），故不含。
  */
 function TraceView({
   selected,
@@ -1083,32 +1083,32 @@ function TraceView({
           text={formatPayload({ input: inputPayload, output: outputPayload, metadata }, mode)}
           lang={lang}
           icon={<FileJson size={11} />}
-          label={zh ? '整条' : 'All'}
+          label={zh ? '整條' : 'All'}
         />
       </div>
 
       <UsageBar record={selected} lang={lang} />
 
       <TraceBlock
-        title={zh ? '输入' : 'Input'}
-        badge={messages ? (zh ? `${messages.length} 条消息` : `${messages.length} messages`) : undefined}
+        title={zh ? '輸入' : 'Input'}
+        badge={messages ? (zh ? `${messages.length} 條訊息` : `${messages.length} messages`) : undefined}
         payload={inputPayload}
         mode={mode}
         lang={lang}
       />
       <TraceBlock
-        title={zh ? '输出' : 'Output'}
+        title={zh ? '輸出' : 'Output'}
         badge={String(selected.response.statusCode ?? selected.status)}
         payload={outputPayload}
         mode={mode}
         lang={lang}
       />
-      <TraceBlock title={zh ? '元数据' : 'Metadata'} payload={metadata} mode={mode} lang={lang} />
+      <TraceBlock title={zh ? '後設資料' : 'Metadata'} payload={metadata} mode={mode} lang={lang} />
     </div>
   )
 }
 
-/** 带自定义图标的复制按钮（cURL / 整条记录）。 */
+/** 帶自定義圖示的複製按鈕（cURL / 整條記錄）。 */
 function CopyButtonIcon({
   text,
   lang,
@@ -1133,7 +1133,7 @@ function CopyButtonIcon({
   return (
     <button type="button" className="kv-btn sm" onClick={copy} data-tauri-drag-region="false">
       {copied ? <Check size={11} /> : icon}
-      {copied ? (lang === 'zh' ? '已复制' : 'Copied') : label}
+      {copied ? (lang === 'zh' ? '已複製' : 'Copied') : label}
     </button>
   )
 }

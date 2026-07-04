@@ -26,7 +26,7 @@ const PYODIDE_PACKAGE_IMPORTS: Array<[RegExp, string]> = [
   [/(^|\n)\s*(import|from)\s+xlrd\b/, 'xlrd'],
 ]
 const PYTHON_SANDBOX_FAILURE_GUIDANCE =
-  '不要使用 run_command/pip 安装或修改本机 Python 环境来绕过沙盒；请直接基于已有数据用文本/表格回答，除非用户明确要求修改本机环境。'
+  '不要使用 run_command/pip 安裝或修改本機 Python 環境來繞過沙盒；請直接基於已有資料用文本/表格回答，除非使用者明確要求修改本機環境。'
 const PYTHON_ARTIFACT_EXTENSIONS = new Set([
   '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg',
   '.csv', '.tsv', '.json', '.md', '.txt', '.html', '.htm',
@@ -114,10 +114,10 @@ let pythonCjkFontAssetPromise: Promise<PythonFontAsset | null> | null = null
 const fontConfiguredRuntimes = new WeakSet<PyodideInterface>()
 
 function localPyodideIndexUrl(): string {
-  // Pyodide 资源固定 emit 在应用根 /pyodide/（见 vite.config.ts generateBundle: `pyodide/${fileName}`）。
-  // 本模块只在 Web Worker 里运行，worker 自身被 Vite 打到 /assets/ 下——绝不能拿 self.location.href
-  // 当基址 + 相对的 BASE_URL('./')，那样会解析成 /assets/pyodide/ → 404 → 静默回落 CDN（dev 下
-  // BASE_URL 被规范成 '/' 掩盖了这点，仅打包后暴露）。用根绝对路径解析到应用根，dev/prod 一致。
+  // Pyodide 資源固定 emit 在應用根 /pyodide/（見 vite.config.ts generateBundle: `pyodide/${fileName}`）。
+  // 本模組只在 Web Worker 裡執行，worker 自身被 Vite 打到 /assets/ 下——絕不能拿 self.location.href
+  // 當基址 + 相對的 BASE_URL('./')，那樣會解析成 /assets/pyodide/ → 404 → 靜默回落 CDN（dev 下
+  // BASE_URL 被規範成 '/' 掩蓋了這點，僅打包後暴露）。用根絕對路徑解析到應用根，dev/prod 一致。
   return new URL('/pyodide/', self.location.href).toString()
 }
 
@@ -166,7 +166,7 @@ async function loadPyodideRuntime(): Promise<PyodideInterface> {
       errors.push(`${source.label}: ${compactErrorMessage(describePythonError(err))}`)
     }
   }
-  throw new Error(`所有 Python 运行时来源加载失败。${errors.join('；')}`)
+  throw new Error(`所有 Python 執行時來源載入失敗。${errors.join('；')}`)
 }
 
 async function loadPackageManifest(): Promise<PyodidePackageManifest | null> {
@@ -332,7 +332,7 @@ async function loadRuntimeWithPackages(packages: string[]): Promise<PyodideInter
       errors.push(`${source.label}: ${compactErrorMessage(describePythonError(err))}`)
     }
   }
-  throw new Error(`所有 Python 包来源加载失败。${errors.join('；')}`)
+  throw new Error(`所有 Python 包來源載入失敗。${errors.join('；')}`)
 }
 
 async function getPyodideWithPackages(packages: string[]): Promise<PyodideInterface> {
@@ -1018,7 +1018,7 @@ export async function runPythonInSandbox(
       : await getPyodide()
   } catch (err) {
     return {
-      content: `Python 沙盒当前不可用：${describePythonError(err)}。${PYTHON_SANDBOX_FAILURE_GUIDANCE}`,
+      content: `Python 沙盒當前不可用：${describePythonError(err)}。${PYTHON_SANDBOX_FAILURE_GUIDANCE}`,
       isError: true,
       artifacts: [],
     }
@@ -1048,7 +1048,7 @@ export async function runPythonInSandbox(
       } catch (retryErr) {
         const retryMessage = summarizePythonTraceback(describePythonError(retryErr))
         return {
-          content: `Python 执行失败（已自动重试一次 matplotlib 初始化）：${retryMessage}。建议优先使用 Pillow / numpy 直接生成图片，除非确实需要 matplotlib 图表能力。`,
+          content: `Python 執行失敗（已自動重試一次 matplotlib 初始化）：${retryMessage}。建議優先使用 Pillow / numpy 直接生成圖片，除非確實需要 matplotlib 圖表能力。`,
           isError: true,
           artifacts: [],
         }
@@ -1056,7 +1056,7 @@ export async function runPythonInSandbox(
     }
     const lower = message.toLowerCase()
     if (lower.includes('timed out')) {
-      return { content: `Python 执行超时：${message}`, isError: true, artifacts: [] }
+      return { content: `Python 執行超時：${message}`, isError: true, artifacts: [] }
     }
     const missingPackage = missingModulePackageName(message)
     if (missingPackage) {
@@ -1071,7 +1071,7 @@ export async function runPythonInSandbox(
       } catch (installOrRetryErr) {
         const retryMessage = summarizePythonTraceback(describePythonError(installOrRetryErr))
         return {
-          content: `Python 执行失败：已尝试在沙盒内安装 ${missingPackage}，但仍未成功：${retryMessage}`,
+          content: `Python 執行失敗：已嘗試在沙盒內安裝 ${missingPackage}，但仍未成功：${retryMessage}`,
           isError: true,
           artifacts: [],
         }
@@ -1079,8 +1079,8 @@ export async function runPythonInSandbox(
     }
     const summary = summarizePythonTraceback(message)
     if (message.includes('SyntaxError') || lower.includes('syntaxerror')) {
-      return { content: `Python 语法错误：${summary}`, isError: true, artifacts: [] }
+      return { content: `Python 語法錯誤：${summary}`, isError: true, artifacts: [] }
     }
-    return { content: `Python 执行失败：${summary}`, isError: true, artifacts: [] }
+    return { content: `Python 執行失敗：${summary}`, isError: true, artifacts: [] }
   }
 }

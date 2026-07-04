@@ -171,7 +171,7 @@ export function ContextIndicator({
     () =>
       barSlices
         .filter((slice) => slice.id !== CONTEXT_FREE_SEGMENT_ID)
-        // 对话消息固定排在图例首位
+        // 對話訊息固定排在圖例首位
         .sort((a, b) => Number(b.id === 'conversation') - Number(a.id === 'conversation')),
     [barSlices],
   )

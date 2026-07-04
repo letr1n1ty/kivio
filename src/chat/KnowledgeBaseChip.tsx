@@ -1,5 +1,5 @@
-// 会话级知识库挂载选择器：底部栏图标 + 勾选弹层。选中的库 id 写回会话，
-// knowledge_search 缺省检索这些库（一个都不选时检索全部库）。
+// 會話級知識庫掛載選擇器：底部欄圖示 + 勾選彈層。選中的庫 id 寫回會話，
+// knowledge_search 預設檢索這些庫（一個都不選時檢索全部庫）。
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { Library, Check } from 'lucide-react'
@@ -16,7 +16,7 @@ export function KnowledgeBaseChip({
   onChange: (ids: string[]) => void
   disabled?: boolean
   layout?: 'footer' | 'inline'
-  // 弹层 portal 挂载到输入框容器，与项目弹窗共用同一锚点/方向/样式。
+  // 彈層 portal 掛載到輸入框容器，與專案彈窗共用同一錨點/方向/樣式。
   anchorRef?: RefObject<HTMLDivElement | null>
 }) {
   const [open, setOpen] = useState(false)
@@ -30,7 +30,7 @@ export function KnowledgeBaseChip({
       const libs = await kbListLibraries()
       setLibraries(libs)
       setHasAny(libs.length > 0)
-      // 清理已删除库留下的陈旧挂载 id（否则计数偏大且无法在弹层取消勾选）。
+      // 清理已刪除庫留下的陳舊掛載 id（否則計數偏大且無法在彈層取消勾選）。
       const valid = value.filter((id) => libs.some((l) => l.id === id))
       if (valid.length !== value.length) onChange(valid)
     } catch {
@@ -38,11 +38,11 @@ export function KnowledgeBaseChip({
     }
   }, [value, onChange])
 
-  // 用 ref 让 onKbIndex 订阅保持稳定（只订阅一次），同时总能调到最新 loadLibs。
+  // 用 ref 讓 onKbIndex 訂閱保持穩定（只訂閱一次），同時總能調到最新 loadLibs。
   const loadLibsRef = useRef(loadLibs)
   loadLibsRef.current = loadLibs
 
-  // 初次评估 + 库变化(索引事件)时重评：保证创建/导入首个库后 chip 自动出现，无需重开聊天窗。
+  // 初次評估 + 庫變化(索引事件)時重評：保證建立/匯入首個庫後 chip 自動出現，無需重開聊天窗。
   useEffect(() => {
     void loadLibsRef.current()
     let cancelled = false
@@ -67,7 +67,7 @@ export function KnowledgeBaseChip({
     if (!open) return
     const onDown = (e: MouseEvent) => {
       const t = e.target as Node
-      // 弹层经 portal 渲染到容器外，需同时排除按钮与弹层本身，否则点弹层会被判为外部点击而关闭。
+      // 彈層經 portal 渲染到容器外，需同時排除按鈕與彈層本身，否則點彈層會被判為外部點選而關閉。
       if (ref.current?.contains(t) || popoverRef.current?.contains(t)) return
       setOpen(false)
     }
@@ -82,7 +82,7 @@ export function KnowledgeBaseChip({
     onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id])
   }
 
-  // 欢迎页(inline)向下展开、对话页(footer)向上展开——与项目弹窗规则一致。
+  // 歡迎頁(inline)向下展開、對話頁(footer)向上展開——與專案彈窗規則一致。
   const placement = layout === 'inline' ? 'top-full mt-1.5' : 'bottom-full mb-1.5'
   const origin = layout === 'inline' ? 'top left' : 'bottom left'
 
@@ -97,7 +97,7 @@ export function KnowledgeBaseChip({
             role="menu"
           >
             {libraries.length === 0 ? (
-              <p className="px-2 py-2 text-[11px] text-neutral-500">在设置 · 知识库里先创建知识库。</p>
+              <p className="px-2 py-2 text-[11px] text-neutral-500">在設定 · 知識庫裡先建立知識庫。</p>
             ) : (
               <>
                 <p className="px-2 py-1 text-[10.5px] text-neutral-400">

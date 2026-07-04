@@ -165,7 +165,7 @@ function TrendChart({ points, lang }: { points: UsageTrendPoint[]; lang: string 
   if (points.length === 0) {
     return (
       <div className="flex h-36 items-center justify-center rounded-md border border-dashed border-neutral-200 text-[12px] text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
-        {lang.startsWith('zh') ? '暫無趨勢數據' : 'No trend data'}
+        {lang.startsWith('zh') ? '暫無趨勢資料' : 'No trend data'}
       </div>
     )
   }
@@ -220,7 +220,7 @@ function GroupTable({ rows, lang, type }: { rows: UsageGroupStats[]; lang: strin
   if (rows.length === 0) {
     return (
       <div className="kv-panel">
-        <div className="kv-panel-body">{lang.startsWith('zh') ? '暫無統計數據' : 'No usage data'}</div>
+        <div className="kv-panel-body">{lang.startsWith('zh') ? '暫無統計資料' : 'No usage data'}</div>
       </div>
     )
   }
@@ -439,7 +439,7 @@ export function UsageStatsPanel({ lang }: UsageStatsPanelProps) {
           <div className="flex items-center gap-1.5">
             <button type="button" className="kv-btn sm" onClick={() => void loadStats()} disabled={loading} data-tauri-drag-region="false">
               <RefreshCw size={11} className={loading ? 'animate-spin' : ''} />
-              {lang.startsWith('zh') ? '刷新' : 'Refresh'}
+              {lang.startsWith('zh') ? '重新整理' : 'Refresh'}
             </button>
             <button type="button" className="kv-btn sm danger" onClick={() => void clearStats()} disabled={clearing || loading} data-tauri-drag-region="false">
               <Trash2 size={11} />
@@ -459,8 +459,8 @@ export function UsageStatsPanel({ lang }: UsageStatsPanelProps) {
           <SummaryTile label={lang.startsWith('zh') ? '估算成本' : 'Estimated cost'} value={formatCost(summary?.totalCostUsd)} sub={lang.startsWith('zh') ? '按本地模型價格估算' : 'From local model pricing'} />
           <SummaryTile label={lang.startsWith('zh') ? '輸入 / 輸出' : 'Input / Output'} value={`${formatTokens(summary?.inputTokens)} / ${formatTokens(summary?.outputTokens)}`} sub={lang.startsWith('zh') ? 'provider 返回 usage 時統計' : 'Provider usage only'} />
           <SummaryTile label={lang.startsWith('zh') ? '可信度' : 'Coverage'} value={`${reportedRatio}%`} sub={`${formatCount(summary?.missingUsageRequests)} ${lang.startsWith('zh') ? '條缺少 usage' : 'missing usage'}`} />
-          <SummaryTile label={lang.startsWith('zh') ? '緩存命中' : 'Cached input'} value={formatTokens(summary?.cachedInputTokens)} />
-          <SummaryTile label={lang.startsWith('zh') ? '緩存創建' : 'Cache creation'} value={formatTokens(summary?.cacheCreationInputTokens)} />
+          <SummaryTile label={lang.startsWith('zh') ? '快取命中' : 'Cached input'} value={formatTokens(summary?.cachedInputTokens)} />
+          <SummaryTile label={lang.startsWith('zh') ? '快取建立' : 'Cache creation'} value={formatTokens(summary?.cacheCreationInputTokens)} />
           <SummaryTile label={lang.startsWith('zh') ? '推理 Token' : 'Reasoning'} value={formatTokens(summary?.reasoningTokens)} />
           <SummaryTile label={lang.startsWith('zh') ? '平均耗時' : 'Avg duration'} value={formatDuration(summary?.averageDurationMs)} />
         </div>
@@ -504,8 +504,8 @@ export function UsageStatsPanel({ lang }: UsageStatsPanelProps) {
             />
           </div>
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-            <Input value={providerSearch} onChange={setProviderSearch} placeholder={lang.startsWith('zh') ? '搜索 Provider' : 'Search provider'} />
-            <Input value={modelSearch} onChange={setModelSearch} placeholder={lang.startsWith('zh') ? '搜索模型' : 'Search model'} mono />
+            <Input value={providerSearch} onChange={setProviderSearch} placeholder={lang.startsWith('zh') ? '搜尋 Provider' : 'Search provider'} />
+            <Input value={modelSearch} onChange={setModelSearch} placeholder={lang.startsWith('zh') ? '搜尋模型' : 'Search model'} mono />
           </div>
         </div>
 

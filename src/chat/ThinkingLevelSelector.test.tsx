@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ThinkingLevelSelector } from './ThinkingLevelSelector'
 
-// api 在 jsdom 无 Tauri 环境，mock 成确定值；等级清单走兜底也是同样结果。
+// api 在 jsdom 無 Tauri 環境，mock 成確定值；等級清單走兜底也是同樣結果。
 vi.mock('../api/tauri', () => ({
   api: {
     getSettings: () => Promise.resolve({ providers: [] }),
@@ -11,7 +11,7 @@ vi.mock('../api/tauri', () => ({
 }))
 
 describe('ThinkingLevelSelector', () => {
-  it('value=null 时按默认档显示 High（不再有「跟随全局」）', () => {
+  it('value=null 時按預設檔顯示 High（不再有「跟隨全域性」）', () => {
     render(
       <ThinkingLevelSelector
         value={null}
@@ -23,7 +23,7 @@ describe('ThinkingLevelSelector', () => {
     expect(screen.getByRole('button')).toHaveTextContent('High')
   })
 
-  it('下拉项为英文标签且不含「跟随全局」', () => {
+  it('下拉項為英文標籤且不含「跟隨全域性」', () => {
     render(
       <ThinkingLevelSelector
         value="high"
@@ -35,13 +35,13 @@ describe('ThinkingLevelSelector', () => {
     act(() => {
       fireEvent.click(screen.getByRole('button'))
     })
-    expect(screen.queryByText('跟随全局')).not.toBeInTheDocument()
-    // 英文标签存在（Off + 兜底 low/medium/high）。
+    expect(screen.queryByText('跟隨全域性')).not.toBeInTheDocument()
+    // 英文標籤存在（Off + 兜底 low/medium/high）。
     expect(screen.getByText('Off')).toBeInTheDocument()
     expect(screen.getByText('Medium')).toBeInTheDocument()
   })
 
-  it('选择某一档回调原始等级值', () => {
+  it('選擇某一檔回撥原始等級值', () => {
     const onChange = vi.fn()
     render(
       <ThinkingLevelSelector

@@ -28,9 +28,9 @@ import { usesNativeTitlebar } from './platform'
 import { Select } from '../settings/components'
 
 interface SkillCenterProps {
-  /** 返回对话视图 */
+  /** 返回對話檢視 */
   onClose: () => void
-  /** Skill 启用状态 / 列表变化后通知 Chat 刷新其技能列表 */
+  /** Skill 啟用狀態 / 列表變化後通知 Chat 重新整理其技能列表 */
   onSkillsChanged?: () => void
 }
 
@@ -57,9 +57,9 @@ function isBuiltinSkill(skill: SkillMeta): boolean {
 }
 
 function skillSourceLabel(skill: SkillMeta): string {
-  if (skill.source === 'builtin') return '内置'
-  if (skill.source === 'external') return '工作区'
-  return '个人'
+  if (skill.source === 'builtin') return '內建'
+  if (skill.source === 'external') return '工作區'
+  return '個人'
 }
 
 function skillMatches(skill: SkillMeta, query: string): boolean {
@@ -70,7 +70,7 @@ function skillMatches(skill: SkillMeta, query: string): boolean {
   )
 }
 
-/** 自带样式的开关：明暗对比清晰，不依赖设置面板的 CSS 变量作用域 */
+/** 自帶樣式的開關：明暗對比清晰，不依賴設定面板的 CSS 變數作用域 */
 function Switch({
   checked,
   onChange,
@@ -125,7 +125,7 @@ function SkillRow({
         onClick={() => onPreview(skill.id)}
         className="flex min-w-0 flex-1 items-center gap-4 text-left"
         data-tauri-drag-region="false"
-        title="查看完整内容"
+        title="檢視完整內容"
       >
         <span className="grid size-11 shrink-0 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-500">
           <Box size={18} />
@@ -135,12 +135,12 @@ function SkillRow({
             {skill.name}
           </span>
           <span className="mt-0.5 block truncate text-[13px] text-neutral-500 dark:text-neutral-400">
-            {skill.description || '未设置描述'}
+            {skill.description || '未設定描述'}
           </span>
         </span>
       </button>
       <span className="shrink-0 text-[13px] text-neutral-400 dark:text-neutral-500">{skillSourceLabel(skill)}</span>
-      <Switch checked={enabled} onChange={(next) => onToggleEnabled(skill.id, next)} ariaLabel={`启用 ${skill.name}`} />
+      <Switch checked={enabled} onChange={(next) => onToggleEnabled(skill.id, next)} ariaLabel={`啟用 ${skill.name}`} />
     </div>
   )
 }
@@ -199,8 +199,8 @@ export function SkillCenter({ onClose, onSkillsChanged }: SkillCenterProps) {
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [selectedSkillPreview, setSelectedSkillPreview] = useState<SkillDetail | null>(null)
 
-  // 高级设置折叠时内容仍在 DOM（用于 chat-motion-reveal 高度动画），用 inert 让其退出 tab 序 / a11y 树，
-  // 避免键盘 Tab 进入视觉折叠的表单控件（WCAG 2.1.1）。
+  // 進階設定摺疊時內容仍在 DOM（用於 chat-motion-reveal 高度動畫），用 inert 讓其退出 tab 序 / a11y 樹，
+  // 避免鍵盤 Tab 進入視覺摺疊的表單控制元件（WCAG 2.1.1）。
   const advancedRef = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const el = advancedRef.current
@@ -222,7 +222,7 @@ export function SkillCenter({ onClose, onSkillsChanged }: SkillCenterProps) {
         setSkills(result.skills)
         if (result.error) setSkillError(result.error)
       } else {
-        setSkillError(result.error || 'Skill 列表加载失败')
+        setSkillError(result.error || 'Skill 列表載入失敗')
       }
     } catch (err) {
       setSkillError(err instanceof Error ? err.message : String(err))
@@ -260,7 +260,7 @@ export function SkillCenter({ onClose, onSkillsChanged }: SkillCenterProps) {
     }
   }, [onSkillsChanged])
 
-  // 更新 chatTools：本地立即生效，再持久化（文本类编辑防抖，开关/下拉立即保存）
+  // 更新 chatTools：本地立即生效，再持久化（文本類編輯防抖，開關/下拉立即儲存）
   const persistChatTools = useCallback((updates: Partial<ChatToolsConfig>, debounce = false) => {
     setSettings((prev) => {
       if (!prev) return prev
@@ -302,7 +302,7 @@ export function SkillCenter({ onClose, onSkillsChanged }: SkillCenterProps) {
       if (result.success && result.skill) {
         setSelectedSkillPreview(result.skill)
       } else {
-        setSkillError(result.error || '读取 Skill 失败')
+        setSkillError(result.error || '讀取 Skill 失敗')
       }
     } catch (err) {
       setSkillError(err instanceof Error ? err.message : String(err))
@@ -315,7 +315,7 @@ export function SkillCenter({ onClose, onSkillsChanged }: SkillCenterProps) {
       if (typeof selected !== 'string') return
       const result = await api.chatSkillsImport(selected)
       if (!result.success) {
-        setSkillError(result.error || '导入 Skill 失败')
+        setSkillError(result.error || '匯入 Skill 失敗')
         return
       }
       await refreshChatSkills()
@@ -335,7 +335,7 @@ export function SkillCenter({ onClose, onSkillsChanged }: SkillCenterProps) {
       if (typeof selected !== 'string') return
       const result = await api.chatSkillsImport(selected)
       if (!result.success) {
-        setSkillError(result.error || '导入 Skill 失败')
+        setSkillError(result.error || '匯入 Skill 失敗')
         return
       }
       await refreshChatSkills()
@@ -350,7 +350,7 @@ export function SkillCenter({ onClose, onSkillsChanged }: SkillCenterProps) {
     try {
       const result = await api.chatSkillsOpenFolder()
       if (!result.success) {
-        setSkillError(result.error || '打开 Skill 文件夹失败')
+        setSkillError(result.error || '開啟 Skill 資料夾失敗')
       }
     } catch (err) {
       setSkillError(err instanceof Error ? err.message : String(err))
@@ -372,7 +372,7 @@ export function SkillCenter({ onClose, onSkillsChanged }: SkillCenterProps) {
 
   return (
     <div className="assistant-center-root flex h-full min-h-0 flex-col text-neutral-900 dark:text-neutral-100">
-      {/* 顶栏：与聊天主区同底色、无分隔；可拖拽，右侧避开窗口按钮 */}
+      {/* 頂欄：與聊天主區同底色、無分隔；可拖拽，右側避開視窗按鈕 */}
       <div
         className={`flex h-[52px] shrink-0 items-center gap-2 px-3 ${
           !usesNativeTitlebar ? 'chat-win-titlebar-safe' : ''
@@ -391,25 +391,25 @@ export function SkillCenter({ onClose, onSkillsChanged }: SkillCenterProps) {
         <div className="h-full min-w-5 flex-1" data-tauri-drag-region />
       </div>
 
-      {/* 内容区：直接坐在白底上，与聊天主区无缝 */}
+      {/* 內容區：直接坐在白底上，與聊天主區無縫 */}
       <main className="custom-scrollbar min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-[1040px] px-9 pb-10 pt-7">
-            {/* 头部：标题 + 副标题 + 图标动作 */}
+            {/* 頭部：標題 + 副標題 + 圖示動作 */}
             <div className="border-b border-neutral-200/80 pb-6 dark:border-neutral-800/80">
               <h1 className="text-[32px] font-bold leading-none tracking-tight text-neutral-950 dark:text-neutral-50">
                 技能
               </h1>
               <div className="mt-3.5 flex min-w-0 items-center gap-4">
               <p className="min-w-0 flex-1 text-[14px] leading-relaxed text-neutral-500 dark:text-neutral-400">
-                管理内置与用户技能。启用后可在聊天中按需调用。
+                管理內建與使用者技能。啟用後可在聊天中按需呼叫。
               </p>
               <div className="flex shrink-0 items-center gap-0.5">
                 <button
                   type="button"
                   onClick={() => void handleImportSkill()}
                   className={headerActionClass}
-                  title="导入文件夹"
-                  aria-label="导入文件夹"
+                  title="匯入資料夾"
+                  aria-label="匯入資料夾"
                   data-tauri-drag-region="false"
                 >
                   <FolderOpen size={17} />
@@ -418,8 +418,8 @@ export function SkillCenter({ onClose, onSkillsChanged }: SkillCenterProps) {
                   type="button"
                   onClick={() => void handleImportSkillZip()}
                   className={headerActionClass}
-                  title="导入 zip"
-                  aria-label="导入 zip"
+                  title="匯入 zip"
+                  aria-label="匯入 zip"
                   data-tauri-drag-region="false"
                 >
                   <Download size={17} />
@@ -428,8 +428,8 @@ export function SkillCenter({ onClose, onSkillsChanged }: SkillCenterProps) {
                   type="button"
                   onClick={() => void handleOpenSkillFolder()}
                   className={headerActionClass}
-                  title="打开 Skill 文件夹"
-                  aria-label="打开 Skill 文件夹"
+                  title="開啟 Skill 資料夾"
+                  aria-label="開啟 Skill 資料夾"
                   data-tauri-drag-region="false"
                 >
                   <ExternalLink size={17} />
@@ -439,8 +439,8 @@ export function SkillCenter({ onClose, onSkillsChanged }: SkillCenterProps) {
                   onClick={() => void refreshChatSkills()}
                   disabled={skillsLoading}
                   className={headerActionClass}
-                  title="刷新列表"
-                  aria-label="刷新列表"
+                  title="重新整理列表"
+                  aria-label="重新整理列表"
                   data-tauri-drag-region="false"
                 >
                   <RefreshCw size={17} className={skillsLoading ? 'animate-spin' : ''} />
@@ -449,14 +449,14 @@ export function SkillCenter({ onClose, onSkillsChanged }: SkillCenterProps) {
             </div>
           </div>
 
-          {/* 搜索 */}
+          {/* 搜尋 */}
           <div className="relative mt-6">
             <Search size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
             <input
               type="text"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="搜索技能..."
+              placeholder="搜尋技能..."
               className="h-11 w-full rounded-xl border border-neutral-200 bg-white pl-11 pr-4 text-[14px] outline-none placeholder:text-neutral-400 focus:border-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
               data-tauri-drag-region="false"
             />
@@ -468,7 +468,7 @@ export function SkillCenter({ onClose, onSkillsChanged }: SkillCenterProps) {
             </div>
           )}
 
-          {/* 高级设置（默认折叠） */}
+          {/* 進階設定（預設摺疊） */}
           <section className="mt-4 overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800">
             <button
               type="button"
@@ -478,8 +478,8 @@ export function SkillCenter({ onClose, onSkillsChanged }: SkillCenterProps) {
               data-tauri-drag-region="false"
             >
               <Sliders size={15} className="shrink-0 text-neutral-400" />
-              <span className="text-[13px] font-semibold text-neutral-800 dark:text-neutral-100">高级设置</span>
-              <span className="text-[12px] text-neutral-400">自动匹配 · 降级模式 · 解释器白名单 · 扫描路径</span>
+              <span className="text-[13px] font-semibold text-neutral-800 dark:text-neutral-100">進階設定</span>
+              <span className="text-[12px] text-neutral-400">自動匹配 · 降級模式 · 直譯器白名單 · 掃描路徑</span>
               <ChevronDown
                 size={16}
                 className={`ml-auto shrink-0 text-neutral-400 transition-transform duration-[var(--kv-dur-fast)] ease-[var(--kv-ease-standard)] ${advancedOpen ? 'rotate-180' : ''}`}
@@ -489,36 +489,36 @@ export function SkillCenter({ onClose, onSkillsChanged }: SkillCenterProps) {
               <div className="space-y-5 border-t border-neutral-200 px-4 py-4 dark:border-neutral-800">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <div className="text-[13px] font-medium text-neutral-800 dark:text-neutral-100">自动匹配 Skill</div>
+                    <div className="text-[13px] font-medium text-neutral-800 dark:text-neutral-100">自動匹配 Skill</div>
                     <p className="mt-0.5 text-[12px] text-neutral-500 dark:text-neutral-400">
-                      允许模型根据 description 自动 activate skill
+                      允許模型根據 description 自動 activate skill
                     </p>
                   </div>
                   <Switch
                     checked={chatTools.skillAutoMatch !== false}
                     onChange={(skillAutoMatch) => persistChatTools({ skillAutoMatch })}
-                    ariaLabel="自动匹配 Skill"
+                    ariaLabel="自動匹配 Skill"
                   />
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="min-w-0">
                     <div className="mb-1.5 text-[13px] font-medium text-neutral-800 dark:text-neutral-100">
-                      无 Tools 降级模式
+                      無 Tools 降級模式
                     </div>
                     <Select
                       value={chatTools.skillFallbackMode || 'progressive'}
                       onChange={(value) => persistChatTools({ skillFallbackMode: value })}
                       options={[
-                        { value: 'progressive', label: '渐进式（仅 catalog）' },
-                        { value: 'skill_md_only', label: '仅 SKILL.md' },
-                        { value: 'legacy_full_body', label: '旧版全量注入' },
+                        { value: 'progressive', label: '漸進式（僅 catalog）' },
+                        { value: 'skill_md_only', label: '僅 SKILL.md' },
+                        { value: 'legacy_full_body', label: '舊版全量注入' },
                       ]}
                     />
                   </div>
                   <div className="min-w-0">
                     <div className="mb-1.5 text-[13px] font-medium text-neutral-800 dark:text-neutral-100">
-                      脚本解释器白名单
+                      指令碼直譯器白名單
                     </div>
                     <input
                       type="text"
@@ -542,7 +542,7 @@ export function SkillCenter({ onClose, onSkillsChanged }: SkillCenterProps) {
                 </div>
 
                 <div className="min-w-0">
-                  <div className="mb-1.5 text-[13px] font-medium text-neutral-800 dark:text-neutral-100">额外扫描路径</div>
+                  <div className="mb-1.5 text-[13px] font-medium text-neutral-800 dark:text-neutral-100">額外掃描路徑</div>
                   <div className="space-y-1.5">
                     {chatTools.skillScanPaths.map((path, index) => (
                       <div key={`${path}-${index}`} className="flex items-center gap-1.5">
@@ -567,7 +567,7 @@ export function SkillCenter({ onClose, onSkillsChanged }: SkillCenterProps) {
                             void refreshChatSkills(next)
                           }}
                           data-tauri-drag-region="false"
-                          aria-label="移除路径"
+                          aria-label="移除路徑"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -587,7 +587,7 @@ export function SkillCenter({ onClose, onSkillsChanged }: SkillCenterProps) {
                       data-tauri-drag-region="false"
                     >
                       <Plus size={13} />
-                      添加扫描路径
+                      新增掃描路徑
                     </button>
                   </div>
                 </div>
@@ -598,25 +598,25 @@ export function SkillCenter({ onClose, onSkillsChanged }: SkillCenterProps) {
           {/* 技能列表 */}
           <div className="mt-7 space-y-7">
             {skillsLoading && skills.length === 0 ? (
-              <div className="grid min-h-[220px] place-items-center text-[13px] text-neutral-400">正在加载 Skill...</div>
+              <div className="grid min-h-[220px] place-items-center text-[13px] text-neutral-400">正在載入 Skill...</div>
             ) : skills.length === 0 ? (
               <div className="grid min-h-[220px] place-items-center rounded-2xl border border-dashed border-neutral-200 px-6 text-center text-[13px] text-neutral-400 dark:border-neutral-800">
-                暂无 Skill。可导入文件夹/zip，或打开 Skill 文件夹手动添加后刷新。
+                暫無 Skill。可匯入資料夾/zip，或開啟 Skill 資料夾手動新增後重新整理。
               </div>
             ) : (
               <>
                 <SkillSection
-                  title="内置技能"
-                  note="随应用内置提供"
-                  emptyText={normalizedQuery ? '没有匹配的内置技能。' : '当前没有内置技能。'}
+                  title="內建技能"
+                  note="隨應用內建提供"
+                  emptyText={normalizedQuery ? '沒有匹配的內建技能。' : '當前沒有內建技能。'}
                   skills={builtinSkills}
                   disabledSkillIds={disabledSkillIds}
                   onToggleEnabled={handleToggleSkillEnabled}
                   onPreview={handlePreviewSkill}
                 />
                 <SkillSection
-                  title="工作区与个人技能"
-                  emptyText={normalizedQuery ? '没有匹配的技能。' : '当前没有导入的技能。'}
+                  title="工作區與個人技能"
+                  emptyText={normalizedQuery ? '沒有匹配的技能。' : '當前沒有匯入的技能。'}
                   skills={userSkills}
                   disabledSkillIds={disabledSkillIds}
                   onToggleEnabled={handleToggleSkillEnabled}
@@ -628,7 +628,7 @@ export function SkillCenter({ onClose, onSkillsChanged }: SkillCenterProps) {
         </div>
       </main>
 
-      {/* 预览弹窗 */}
+      {/* 預覽彈窗 */}
       {selectedSkillPreview && (
         <div
           className="chat-motion-fade fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
@@ -657,7 +657,7 @@ export function SkillCenter({ onClose, onSkillsChanged }: SkillCenterProps) {
                 className="grid size-7 shrink-0 place-items-center rounded-md text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
                 onClick={() => setSelectedSkillPreview(null)}
                 data-tauri-drag-region="false"
-                aria-label="关闭"
+                aria-label="關閉"
               >
                 <X size={14} />
               </button>

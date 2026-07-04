@@ -14,7 +14,7 @@ export function LanguageStep({ t, lang, onChange }: LanguageStepProps) {
     <OnboardingStepFrame title={t.onboardingLanguageTitle} subtitle={t.onboardingLanguageDesc}>
       <div className="onboarding-panel">
         <div className="onboarding-panel-section onboarding-panel-section--compact">
-          <OnboardingFormRow label={lang === 'zh' ? '显示语言' : 'Display language'} stack>
+          <OnboardingFormRow label={lang === 'zh' ? '顯示語言' : 'Display language'} stack>
             <div className="kv-seg">
               <button
                 type="button"

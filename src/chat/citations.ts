@@ -1,8 +1,8 @@
-// 知识库引用 `[n]` 的 mdast 切分逻辑 + remark 插件。
-// 抽成独立模块（非组件），既便于单测，也避免 ChatMarkdown.tsx 触发
+// 知識庫引用 `[n]` 的 mdast 切分邏輯 + remark 外掛。
+// 抽成獨立模組（非元件），既便於單測，也避免 ChatMarkdown.tsx 觸發
 // react-refresh/only-export-components。
 
-// 极简 mdast 节点视图：只需 type/value/url/children 来切分文本节点。
+// 極簡 mdast 節點檢視：只需 type/value/url/children 來切分文本節點。
 export interface MdNode {
   type: string
   value?: string
@@ -10,7 +10,7 @@ export interface MdNode {
   children?: MdNode[]
 }
 
-/** 把一个文本节点里的 `[n]`（且 n 是有效引用）切成 text / link 混排。 */
+/** 把一個文本節點裡的 `[n]`（且 n 是有效引用）切成 text / link 混排。 */
 export function splitCitations(value: string, validNs: Set<number>): MdNode[] {
   const out: MdNode[] = []
   let last = 0
@@ -27,8 +27,8 @@ export function splitCitations(value: string, validNs: Set<number>): MdNode[] {
   return out
 }
 
-/** remark 插件：遍历树，把 text 节点里的有效 `[n]` 换成 `#kb-cite-n` 链接。
- *  跳过 link/code，避免嵌套链接或污染代码。 */
+/** remark 外掛：遍歷樹，把 text 節點裡的有效 `[n]` 換成 `#kb-cite-n` 連結。
+ *  跳過 link/code，避免巢狀連結或汙染程式碼。 */
 export function remarkCitations(validNs: Set<number>) {
   const walk = (node: MdNode) => {
     if (!node.children || node.type === 'link' || node.type === 'linkReference') return

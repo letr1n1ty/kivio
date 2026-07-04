@@ -68,7 +68,7 @@ export function ChatSectionMenu({
         }}
       >
         <Search size={16} strokeWidth={1.75} className="shrink-0 text-neutral-500" />
-        搜索对话
+        搜尋對話
       </button>
 
       <div className="my-1 border-t border-neutral-200/80 dark:border-neutral-700" />
@@ -84,7 +84,7 @@ export function ChatSectionMenu({
         }}
       >
         <Trash2 size={16} strokeWidth={1.75} className="shrink-0" />
-        清空全部对话
+        清空全部對話
       </button>
     </div>
   )

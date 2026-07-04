@@ -26,7 +26,7 @@ export class ToolCallErrorBoundary extends Component<
     if (this.state.failed) {
       return (
         <div className="not-prose mb-2 text-[11.5px] leading-5 text-red-500 dark:text-red-400">
-          工具调用显示失败
+          工具呼叫顯示失敗
         </div>
       )
     }

@@ -60,16 +60,16 @@ export interface ToolCallBlockProps {
 }
 
 const defaultLabels: ToolCallBlockLabels = {
-  pending: '准备调用',
-  running: '调用中',
+  pending: '準備呼叫',
+  running: '呼叫中',
   success: '已完成',
   completed: '已完成',
-  error: '调用失败',
-  skipped: '已跳过',
+  error: '呼叫失敗',
+  skipped: '已跳過',
   cancelled: '已取消',
-  arguments: '参数',
-  result: '结果',
-  source: '来源',
+  arguments: '引數',
+  result: '結果',
+  source: '來源',
   tool: '工具',
 }
 
@@ -232,9 +232,9 @@ function todoStatusLabel(status?: string): string {
     case 'completed':
       return '已完成'
     case 'in_progress':
-      return '进行中'
+      return '進行中'
     case 'pending':
-      return '待处理'
+      return '待處理'
     default:
       return status ? compactText(status, 24) : ''
   }
@@ -400,15 +400,15 @@ function subagentTitle(agentType: string, name: string): string {
 
 function subagentStatusLine(view: SubagentView | null, status: ToolCallStatus): string {
   if (status === 'completed') return '已完成'
-  if (status === 'error') return view?.error ? compactText(view.error, 160) : '运行失败'
+  if (status === 'error') return view?.error ? compactText(view.error, 160) : '執行失敗'
   if (status === 'cancelled') return '已取消'
   if (status === 'running') {
     const lastStep = view?.steps?.length ? view.steps[view.steps.length - 1] : ''
     if (lastStep) return compactText(lastStep, 160)
     if (view?.preview) return compactText(view.preview, 160)
-    return '运行中…'
+    return '執行中…'
   }
-  return '准备运行…'
+  return '準備執行…'
 }
 
 function SubAgentCard({ toolCall, defaultOpen = false }: ToolCallBlockProps) {
@@ -495,7 +495,7 @@ function SubAgentCard({ toolCall, defaultOpen = false }: ToolCallBlockProps) {
             {prompt && (
               <div>
                 <div className="text-[10.5px] font-medium text-neutral-400 dark:text-neutral-500">
-                  任务
+                  任務
                 </div>
                 <div className="whitespace-pre-wrap break-words text-neutral-500 dark:text-neutral-400">
                   {compactText(prompt, 600)}
@@ -523,7 +523,7 @@ function SubAgentCard({ toolCall, defaultOpen = false }: ToolCallBlockProps) {
             {status !== 'running' && result && (
               <div>
                 <div className="text-[10.5px] font-medium text-neutral-400 dark:text-neutral-500">
-                  结果
+                  結果
                 </div>
                 <ChatMarkdown content={result} />
               </div>
@@ -651,7 +651,7 @@ function fileMutationStats(mutation: FileMutationStructuredContent): string {
 
 function fileMutationTarget(mutation: FileMutationStructuredContent): string {
   if (mutation.files?.length === 1) return mutation.files[0]?.path || ''
-  if (mutation.files?.length) return `${mutation.files.length} 个文件`
+  if (mutation.files?.length) return `${mutation.files.length} 個檔案`
   return mutation.resolvedPath || mutation.resolved_path || ''
 }
 
@@ -672,7 +672,7 @@ function FileMutationDetails({ mutation }: { mutation: FileMutationStructuredCon
       {files.length > 0 && (
         <div>
           <div className="text-[10.5px] font-medium text-neutral-400 dark:text-neutral-500">
-            文件变更
+            檔案變更
           </div>
           <div className="space-y-0.5 text-neutral-500 dark:text-neutral-400">
             {files.map((file, index) => (
@@ -705,7 +705,7 @@ function FileMutationDetails({ mutation }: { mutation: FileMutationStructuredCon
       {diagnostics.length > 0 && (
         <div>
           <div className="text-[10.5px] font-medium text-neutral-400 dark:text-neutral-500">
-            诊断
+            診斷
           </div>
           <div className="whitespace-pre-wrap break-words text-neutral-500 dark:text-neutral-400">
             {previewValue(diagnostics, 900)}
@@ -731,15 +731,15 @@ function fileOperationLabel(operation: string): string {
     case 'create':
       return '新增'
     case 'overwrite':
-      return '覆盖'
+      return '覆蓋'
     case 'edit':
       return '修改'
     case 'delete':
-      return '删除'
+      return '刪除'
     case 'noop':
-      return '无变更'
+      return '無變更'
     default:
-      return operation || '变更'
+      return operation || '變更'
   }
 }
 
@@ -753,17 +753,17 @@ function fileToolArgumentPreview(toolCall: ToolCallRecord, args: Record<string, 
       : ''
   const glob = typeof args?.glob === 'string' ? args.glob.trim() : ''
   if (rawName === 'write' || rawName === 'write_file') {
-    return path ? path : '写入文件'
+    return path ? path : '寫入檔案'
   }
   if (rawName === 'edit' || rawName === 'edit_file') {
     const edits = Array.isArray(args?.edits) ? args.edits : null
     if (edits) {
-      const label = edits.length === 1 ? '1 处编辑' : `${edits.length} 处编辑`
+      const label = edits.length === 1 ? '1 處編輯' : `${edits.length} 處編輯`
       return [path, label].filter(Boolean).join(' · ')
     }
     // Legacy single-edit records (old_string/new_string) from persisted conversations.
     const oldString = typeof args?.old_string === 'string' ? compactText(args.old_string, 80) : ''
-    return [path, oldString ? `替换 ${oldString}` : ''].filter(Boolean).join(' · ')
+    return [path, oldString ? `替換 ${oldString}` : ''].filter(Boolean).join(' · ')
   }
   if (rawName === 'grep' || rawName === 'search_files') {
     const scope = glob
@@ -771,7 +771,7 @@ function fileToolArgumentPreview(toolCall: ToolCallRecord, args: Record<string, 
       : path
     if (!query && !scope) return ''
     const scopeLabel = scope ? compactText(scope, 120) : ''
-    const queryLabel = query ? `搜索 ${compactText(query, 80)}` : ''
+    const queryLabel = query ? `搜尋 ${compactText(query, 80)}` : ''
     return [queryLabel, scopeLabel].filter(Boolean).join(' · ')
   }
   return ''
@@ -805,23 +805,23 @@ function getToolName(toolCall: ToolCallRecord): string {
       ? args.relativePath
       : ''
 
-  if (raw === 'skill_activate') return '激活 Skill'
-  if (raw === 'skill_read_file') return '读取 Skill 文件'
+  if (raw === 'skill_activate') return '啟用 Skill'
+  if (raw === 'skill_read_file') return '讀取 Skill 檔案'
   if (
     raw === 'skill_run_script' &&
     (relativePath.endsWith('pdf_text_digest.py') || relativePath.endsWith('pdf_extract_digest.py'))
   ) {
     return '生成 PDF 摘要上下文'
   }
-  if (raw === 'skill_run_script') return '执行 Skill 脚本'
+  if (raw === 'skill_run_script') return '執行 Skill 指令碼'
   // read/write/edit/bash/grep/find/ls — plus legacy aliases (read_file/…/
   // run_command) and the removed path tools — display their raw tool name.
   if (raw === 'run_python') return 'Python'
-  if (raw === 'web_search') return '联网搜索'
-  if (raw === 'web_fetch') return '网页抓取'
-  if (raw === 'knowledge_search') return '知识库检索'
-  if (raw === 'mixer_vision') return '混音器视觉分析'
-  if (raw === 'mixer_generate_image') return '混音器生图'
+  if (raw === 'web_search') return '聯網搜尋'
+  if (raw === 'web_fetch') return '網頁抓取'
+  if (raw === 'knowledge_search') return '知識庫檢索'
+  if (raw === 'mixer_vision') return '混音器視覺分析'
+  if (raw === 'mixer_generate_image') return '混音器生圖'
   if (raw === 'todo_write' || raw === 'todo_update') return '更新 Todo'
   return raw
 }
@@ -850,14 +850,14 @@ function getArgumentPreview(toolCall: ToolCallRecord): string {
   if (rawName === 'todo_write') {
     const todos = normalizeTodoItems(args?.todos)
     const counts = formatTodoCounts(todos)
-    return counts ? `清单 ${counts}` : todos.length ? `清单 ${todos.length} 项` : '替换 Todo 清单'
+    return counts ? `清單 ${counts}` : todos.length ? `清單 ${todos.length} 項` : '替換 Todo 清單'
   }
   if (rawName === 'todo_update') {
     const content = typeof args?.content === 'string' ? compactText(args.content, 120) : ''
     const status = typeof args?.status === 'string' ? todoStatusLabel(args.status) : ''
     const id = typeof args?.id === 'string' ? compactText(args.id, 80) : ''
     const target = content || id
-    return ['更新条目', status, target].filter(Boolean).join(' · ')
+    return ['更新條目', status, target].filter(Boolean).join(' · ')
   }
   const fileMutation = structuredFileMutation(toolCall)
   if (fileMutation) {
@@ -870,8 +870,8 @@ function getArgumentPreview(toolCall: ToolCallRecord): string {
     const provider = typeof args?.provider === 'string' ? args.provider : ''
     const model = typeof args?.model === 'string' ? args.model : ''
     const imageLabel = imageCount == null
-      ? '图片'
-      : `图片 ${imageCount} 张`
+      ? '圖片'
+      : `圖片 ${imageCount} 張`
     const modelLabel = [provider, model].filter(Boolean).join(' / ')
     return modelLabel ? `${imageLabel} · ${modelLabel}` : imageLabel
   }
@@ -879,7 +879,7 @@ function getArgumentPreview(toolCall: ToolCallRecord): string {
     const prompt = typeof args?.prompt === 'string' ? compactText(args.prompt, 140) : ''
     const size = typeof args?.size === 'string' && args.size ? args.size : ''
     const quality = typeof args?.quality === 'string' && args.quality ? args.quality : ''
-    const count = typeof args?.n === 'number' && Number.isFinite(args.n) ? `${args.n} 张` : ''
+    const count = typeof args?.n === 'number' && Number.isFinite(args.n) ? `${args.n} 張` : ''
     return [prompt, size, quality, count].filter(Boolean).join(' · ')
   }
   return (
@@ -899,7 +899,7 @@ function getResultPreview(toolCall: ToolCallRecord): string {
       ? args.relativePath
       : ''
   if (rawName === 'skill_run_script' && relativePath.endsWith('pdf_extract_digest.py')) {
-    return '已提取 PDF 文本并生成摘要上下文'
+    return '已提取 PDF 文本並生成摘要上下文'
   }
   if (rawName === 'todo_write' || rawName === 'todo_update') {
     if (normalizeToolCallStatus(toolCall.status) !== 'completed') return ''
@@ -911,7 +911,7 @@ function getResultPreview(toolCall: ToolCallRecord): string {
     if (fileMutation.ok === false) {
       return `未完成 ${fileMutationPreview(fileMutation)}`
     }
-    return `已应用 ${fileMutationPreview(fileMutation)}`
+    return `已應用 ${fileMutationPreview(fileMutation)}`
   }
   const raw =
     toolCall.result_preview ||
@@ -927,26 +927,26 @@ function getRunningPreview(toolCall: ToolCallRecord): string {
     return '正在同步 Todo…'
   }
   if (raw === 'run_python') {
-    return '正在加载 Python 环境…'
+    return '正在載入 Python 環境…'
   }
   if (raw === 'write' || raw === 'write_file') {
-    return '正在写入文件…'
+    return '正在寫入檔案…'
   }
   if (raw === 'edit' || raw === 'edit_file') {
-    return '正在应用文件变更…'
+    return '正在應用檔案變更…'
   }
   if (raw === 'mixer_vision') {
-    return '正在分析图片并提取视觉信息…'
+    return '正在分析圖片並提取視覺資訊…'
   }
   if (raw === 'mixer_generate_image') {
-    return '正在生成图片…'
+    return '正在生成圖片…'
   }
   return ''
 }
 
 function stripPythonFailurePrefix(message: string): string {
   return message
-    .replace(/^Python\s*(?:执行失败|语法错误|执行超时|沙盒调用失败)(?:（[^）]+）)?[：:]\s*/i, '')
+    .replace(/^Python\s*(?:執行失敗|語法錯誤|執行超時|沙盒呼叫失敗)(?:（[^）]+）)?[：:]\s*/i, '')
     .trim()
 }
 
@@ -995,15 +995,15 @@ function compactToolError(error: string): string {
     lower.includes('_pyodide/')
   ) {
     const exception = extractPythonException(error)
-    if (exception) return `Python 执行失败：${exception}`
-    return 'Python 执行失败。详情已隐藏，请查看最终回答。'
+    if (exception) return `Python 執行失敗：${exception}`
+    return 'Python 執行失敗。詳情已隱藏，請檢視最終回答。'
   }
   return compactText(error, 260)
 }
 
 function StatusIcon({ status }: { status: ToolCallStatus }) {
-  // 仅在「实时」由非完成态切到完成态时让 ✓ 弹入；历史消息（挂载即完成态）不 pop，
-  // 避免切换会话时大量历史工具的 ✓ 同时弹动造成视觉噪声。
+  // 僅在「即時」由非完成態切到完成態時讓 ✓ 彈入；歷史訊息（掛載即完成態）不 pop，
+  // 避免切換會話時大量歷史工具的 ✓ 同時彈動造成視覺噪聲。
   const prevStatusRef = useRef(status)
   const isDone = status === 'completed' || status === 'success'
   const wasDone = prevStatusRef.current === 'completed' || prevStatusRef.current === 'success'
@@ -1036,7 +1036,7 @@ function StatusIcon({ status }: { status: ToolCallStatus }) {
 }
 
 function ToolTypeIcon({ toolCall, status }: { toolCall: ToolCallRecord; status: ToolCallStatus }) {
-  // 行首按工具类型显示图标；运行/完成/待执行用工具图标本身，出错/跳过/取消保留专用状态图标。
+  // 行首按工具型別顯示圖示；執行/完成/待執行用工具圖示本身，出錯/跳過/取消保留專用狀態圖示。
   const prevStatusRef = useRef(status)
   const isDone = status === 'completed' || status === 'success'
   const wasDone = prevStatusRef.current === 'completed' || prevStatusRef.current === 'success'
@@ -1213,5 +1213,5 @@ function ToolCallBlockComponent(props: ToolCallBlockProps) {
   return <DefaultToolCallBlock {...props} />
 }
 
-// memo：折叠某块 / 流式更新时，props 不变的工具块跳过重渲染（尤其 knowledge_search 的大段源卡片）
+// memo：摺疊某塊 / 流式更新時，props 不變的工具塊跳過重渲染（尤其 knowledge_search 的大段源卡片）
 export const ToolCallBlock = memo(ToolCallBlockComponent)

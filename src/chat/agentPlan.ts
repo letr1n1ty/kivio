@@ -27,14 +27,14 @@ function isMarkdownStep(line: string): boolean {
 }
 
 function isChineseStep(line: string): boolean {
-  return /^(第[一二三四五六七八九十\d]+步|步骤[一二三四五六七八九十\d]+|[一二三四五六七八九十]、)/.test(line)
+  return /^(第[一二三四五六七八九十\d]+步|步驟[一二三四五六七八九十\d]+|[一二三四五六七八九十]、)/.test(line)
 }
 
 function isTodoKeywordStep(line: string): boolean {
-  return /^(todo[:\s]|step\s|步骤[:：]|任务[:：])/i.test(line)
+  return /^(todo[:\s]|step\s|步驟[:：]|任務[:：])/i.test(line)
 }
 
 function hasPlanKeyword(text: string): boolean {
   return /plan|todo|step/i.test(text)
-    || /计划|步骤|待办|任务/.test(text)
+    || /計劃|步驟|待辦|任務/.test(text)
 }

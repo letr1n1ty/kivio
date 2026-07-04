@@ -1,5 +1,5 @@
-// `knowledge_search` 工具结果解析：把 structured_content.hits 转成来源卡视图模型。
-// 拆成独立模块（非组件），避免 ToolCallBlock.tsx 触发 react-refresh/only-export-components。
+// `knowledge_search` 工具結果解析：把 structured_content.hits 轉成來源卡檢視模型。
+// 拆成獨立模組（非元件），避免 ToolCallBlock.tsx 觸發 react-refresh/only-export-components。
 import type { ToolCallRecord } from './types'
 
 export interface KbHitView {

@@ -68,7 +68,7 @@ export function AgentTodoIndicator({ todoState }: AgentTodoIndicatorProps) {
     [items],
   )
   const updatedAt = formatUpdatedAt(todoState)
-  // 全部解决 = 没有 pending / in_progress（cancelled 视为已解决，不算未完成）。
+  // 全部解決 = 沒有 pending / in_progress（cancelled 視為已解決，不算未完成）。
   const allDone = items.length > 0 && !items.some((item) => item.status === 'pending' || item.status === 'in_progress')
 
   if (items.length === 0) return null

@@ -39,13 +39,13 @@ export function formatToolResultPreview(raw: string, max = 220): string {
           : typeof first.raw_content === 'string'
             ? first.raw_content.replace(/\s+/g, ' ').trim()
             : ''
-      const head = `${results.length} 条结果${queryLabel}`
+      const head = `${results.length} 條結果${queryLabel}`
       const detail = [title, snippet].filter(Boolean).join(' — ')
       return compact(detail ? `${head}: ${detail}` : head, max)
     }
 
     if (Array.isArray(parsed.failed_results) && parsed.failed_results.length === 0) {
-      return compact('页面提取完成（无失败项）', max)
+      return compact('頁面提取完成（無失敗項）', max)
     }
   } catch {
     // fall through

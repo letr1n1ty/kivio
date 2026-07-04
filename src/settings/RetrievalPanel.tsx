@@ -1,5 +1,5 @@
-// 知识库「检索」设置：hybrid(向量+关键词 RRF) 开关与权重 + 可选全局 rerank。
-// 只配 embedding 即可用；hybrid 免配可关，rerank 留空即关、失败自动降级。
+// 知識庫「檢索」設定：hybrid(向量+關鍵詞 RRF) 開關與權重 + 可選全域性 rerank。
+// 只配 embedding 即可用；hybrid 免配可關，rerank 留空即關、失敗自動降級。
 import { type ModelProvider, type KnowledgeBaseConfig } from '../api/tauri'
 import { type Lang } from './i18n'
 import { SettingsGroup, Input, Select, Toggle, SettingRow } from './components'
@@ -78,7 +78,7 @@ export function RetrievalPanel({
         <SettingRow
           label={t('Rerank 提供商', 'Rerank provider')}
           description={t(
-            'Cohere / Jina 兼容；留空關閉，調用失敗自動降級為融合順序。',
+            'Cohere / Jina 相容；留空關閉，呼叫失敗自動降級為融合順序。',
             'Cohere/Jina-compatible; blank = off, failures fall back to fused order.',
           )}
         >

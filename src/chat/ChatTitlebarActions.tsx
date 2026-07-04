@@ -13,7 +13,7 @@ export function ChatTitlebarActions({
   onNewConversation,
 }: ChatTitlebarActionsProps) {
   const ToggleIcon = sidebarExpanded ? PanelLeftClose : PanelLeftOpen
-  const toggleLabel = sidebarExpanded ? '收起侧栏' : '展开侧栏'
+  const toggleLabel = sidebarExpanded ? '收起側欄' : '展開側欄'
 
   return (
     <div

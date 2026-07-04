@@ -28,12 +28,12 @@ function useSelectMenuRect(
     const viewportH = window.innerHeight
     const spaceBelow = viewportH - rect.bottom - MENU_GAP - MENU_MARGIN
     const spaceAbove = rect.top - MENU_GAP - MENU_MARGIN
-    // 默认向下展开；下方空间不足且上方更宽裕时向上翻转。
+    // 預設向下展開；下方空間不足且上方更寬裕時向上翻轉。
     const flipUp = spaceBelow < MENU_MAX_HEIGHT && spaceAbove > spaceBelow
     const available = Math.max(flipUp ? spaceAbove : spaceBelow, 0)
     const maxHeight = Math.max(Math.min(MENU_MAX_HEIGHT, available), 80)
     if (flipUp) {
-      // 用 bottom 定位让菜单底边贴着按钮向上生长，避免 top 计算后恒等于 MENU_MARGIN 导致飞到窗口顶部。
+      // 用 bottom 定位讓選單底邊貼著按鈕向上生長，避免 top 計算後恆等於 MENU_MARGIN 導致飛到視窗頂部。
       setMenuRect({ left: rect.left, bottom: viewportH - rect.top + MENU_GAP, width: rect.width, maxHeight })
     } else {
       setMenuRect({ left: rect.left, top: rect.bottom + MENU_GAP, width: rect.width, maxHeight })
@@ -48,7 +48,7 @@ function useSelectMenuRect(
 }
 
 /**
- * 开关切换组件 — on 态用 brand 蓝，slider 加双层阴影
+ * 開關切換元件 — on 態用 brand 藍，slider 加雙層陰影
  */
 export function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -64,7 +64,7 @@ export function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: 
 }
 
 /**
- * 下拉选择 — 自绘菜单，避免 macOS 原生 select 的系统高亮/勾选反馈和受控状态不同步。
+ * 下拉選擇 — 自繪選單，避免 macOS 原生 select 的系統高亮/勾選反饋和受控狀態不同步。
  */
 export function Select({ value, onChange, options, className = '' }: {
   value: string
@@ -183,7 +183,7 @@ export function Select({ value, onChange, options, className = '' }: {
 }
 
 /**
- * 文本输入 — 默认 sans，需要等宽时调用方自行加 font-mono
+ * 文本輸入 — 預設 sans，需要等寬時呼叫方自行加 font-mono
  */
 export function Input({ value, onChange, type = 'text', placeholder = '', className = '', list, mono = false, ...props }: {
   value: string
@@ -192,7 +192,7 @@ export function Input({ value, onChange, type = 'text', placeholder = '', classN
   placeholder?: string
   className?: string
   list?: string
-  /** 启用 font-mono（仅 baseUrl/apiKey/model 名等代码型字段使用） */
+  /** 啟用 font-mono（僅 baseUrl/apiKey/model 名等程式碼型欄位使用） */
   mono?: boolean
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>) {
   return (
@@ -210,7 +210,7 @@ export function Input({ value, onChange, type = 'text', placeholder = '', classN
 }
 
 /**
- * 多行文本输入 — 默认 sans
+ * 多行文本輸入 — 預設 sans
  */
 export function TextArea({ value, onChange, placeholder = '', rows = 2, mono = false }: {
   value: string
@@ -232,7 +232,7 @@ export function TextArea({ value, onChange, placeholder = '', rows = 2, mono = f
 }
 
 /**
- * 字段标签
+ * 欄位標籤
  */
 export function Label({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
@@ -243,7 +243,7 @@ export function Label({ children, className = '' }: { children: ReactNode; class
 }
 
 /**
- * 设置项行（左 label + 可选 description，右控件）
+ * 設定項行（左 label + 可選 description，右控制元件）
  */
 export function SettingRow({ label, description, children, className = '', stack = false }: {
   label: ReactNode
@@ -279,7 +279,7 @@ export function SettingsGroup({ title, children, className = '' }: {
 }
 
 /**
- * 权限状态项（macOS）
+ * 許可權狀態項（macOS）
  */
 export function PermissionItem({
   label,
@@ -328,7 +328,7 @@ export function PermissionItem({
 }
 
 /**
- * 键盘按键徽章
+ * 鍵盤按鍵徽章
  */
 export function KeyBadge({ children }: { children: ReactNode }) {
   return (
@@ -341,7 +341,7 @@ export function KeyBadge({ children }: { children: ReactNode }) {
 }
 
 /**
- * 快捷键展示
+ * 快捷鍵展示
  */
 export function HotkeyDisplay({ hotkey }: { hotkey: string }) {
   const platform = getPlatform()
@@ -356,9 +356,9 @@ export function HotkeyDisplay({ hotkey }: { hotkey: string }) {
 }
 
 /**
- * 快捷键输入(含录制态)
- * onClear / clearLabel: 提供时,值非空且非录制态会渲染 X 按钮以清空(给"想关掉某个功能的热键"留出口);留空则不显示
- * error: 客户端冲突等校验消息,以红色小字显示在输入框下方
+ * 快捷鍵輸入(含錄製態)
+ * onClear / clearLabel: 提供時,值非空且非錄製態會渲染 X 按鈕以清空(給"想關掉某個功能的熱鍵"留出口);留空則不顯示
+ * error: 客戶端衝突等校驗訊息,以紅色小字顯示在輸入框下方
  */
 export function HotkeyInput({
   value,
@@ -427,8 +427,8 @@ export function HotkeyInput({
 }
 
 /**
- * 区块标题 — 小号灰 uppercase + 左侧 brand 细色条
- * 让标题谦逊，把视觉重心交给卡片本身
+ * 區塊標題 — 小號灰 uppercase + 左側 brand 細色條
+ * 讓標題謙遜，把視覺重心交給卡片本身
  */
 export function SectionTitle({ children, icon: Icon }: { children: ReactNode; icon?: LucideIcon }) {
   return (
@@ -440,7 +440,7 @@ export function SectionTitle({ children, icon: Icon }: { children: ReactNode; ic
 }
 
 /**
- * 分段控制器标签按钮（轻量样式）
+ * 分段控制器標籤按鈕（輕量樣式）
  */
 export function TabButton({ active, onClick, label }: {
   active: boolean

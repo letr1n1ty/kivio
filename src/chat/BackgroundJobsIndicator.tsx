@@ -97,8 +97,8 @@ export function BackgroundJobsIndicator() {
             ? 'bg-black/[0.06] text-neutral-800 dark:bg-white/[0.09] dark:text-neutral-100'
             : 'text-emerald-600 hover:text-emerald-700 dark:text-emerald-500 dark:hover:text-emerald-400'
         }`}
-        title={`${jobs.length} 个后台命令运行中`}
-        aria-label={`${jobs.length} 个后台命令运行中`}
+        title={`${jobs.length} 個後臺命令執行中`}
+        aria-label={`${jobs.length} 個後臺命令執行中`}
       >
         <TerminalSquare size={16} strokeWidth={1.8} />
         <span className="absolute -right-0.5 -top-0.5 flex size-2">
@@ -116,7 +116,7 @@ export function BackgroundJobsIndicator() {
               style={{ top: pos.top, left: pos.left }}
             >
               <div className="px-2 py-1.5 text-[12px] font-medium text-neutral-500 dark:text-neutral-400">
-                后台命令 · {jobs.length}
+                後臺命令 · {jobs.length}
               </div>
               {jobs.map((job) => (
                 <div
@@ -139,8 +139,8 @@ export function BackgroundJobsIndicator() {
                     type="button"
                     onClick={() => void kill(job.jobId)}
                     className="grid size-7 shrink-0 place-items-center rounded-md text-neutral-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-300"
-                    title="终止"
-                    aria-label={`终止 ${job.command}`}
+                    title="終止"
+                    aria-label={`終止 ${job.command}`}
                   >
                     <Square size={13} strokeWidth={2} fill="currentColor" />
                   </button>

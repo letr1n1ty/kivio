@@ -1,8 +1,8 @@
-// 连接器面板：目录化 + 一键授权的外部数据源 UX。
-// 每个连接器最终物化成一条带 Authorization header 的 ChatMcpServer，写入
-// chatTools.servers（connectorId 非空），由现有 MCP 管线自动收集工具。
-// token 类（GitHub PAT / Composio key / 自定义 token）直接前端物化；
-// OAuth 类（Notion / 自定义 OAuth）走后端 connector_oauth_connect（PKCE + DCR + loopback）。
+// 連接器面板：目錄化 + 一鍵授權的外部資料來源 UX。
+// 每個連接器最終物化成一條帶 Authorization header 的 ChatMcpServer，寫入
+// chatTools.servers（connectorId 非空），由現有 MCP 管線自動收集工具。
+// token 類（GitHub PAT / Composio key / 自定義 token）直接前端物化；
+// OAuth 類（Notion / 自定義 OAuth）走後端 connector_oauth_connect（PKCE + DCR + loopback）。
 
 import { useCallback, useEffect, useState } from 'react'
 import { open } from '@tauri-apps/plugin-dialog'
@@ -25,7 +25,7 @@ import {
 import { ConnectorDetailModal } from './ConnectorDetailModal'
 import { EmailConnectorModal } from './EmailConnectorModal'
 
-// catalog 项 iconKey → 品牌图标组件查找表；未命中（含自定义连接器）回退到通用 link 图标。
+// catalog 項 iconKey → 品牌圖示元件查詢表；未命中（含自定義連接器）回退到通用 link 圖示。
 const CONNECTOR_ICON_BY_KEY: Record<
   string,
   (props: { size?: number; className?: string }) => JSX.Element
@@ -59,7 +59,7 @@ type Props = {
 const OBSIDIAN_CATALOG_ID = 'obsidian'
 const EMAIL_CATALOG_ID = 'email'
 
-// 目录项 → 已物化 server 的 id 约定。
+// 目錄項 → 已物化 server 的 id 約定。
 function connectorServerId(catalogId: string): string {
   return `connector-${catalogId}`
 }
@@ -90,7 +90,7 @@ export function ConnectorsPanel({
   const obsidianConnected = obsidianVaultPath.trim().length > 0
   const emailConnected = emailAccounts.length > 0
 
-  // Obsidian vault 选择器状态。
+  // Obsidian vault 選擇器狀態。
   const [vaultInputFor, setVaultInputFor] = useState(false)
   const [vaultDraft, setVaultDraft] = useState('')
   const [vaultOptions, setVaultOptions] = useState<{ name: string; path: string }[]>([])
@@ -98,26 +98,26 @@ export function ConnectorsPanel({
 
   const [emailModalOpen, setEmailModalOpen] = useState(false)
 
-  // 哪个目录项正展开 token 输入框。
+  // 哪個目錄項正展開 token 輸入框。
   const [tokenInputFor, setTokenInputFor] = useState<string | null>(null)
   const [tokenDraft, setTokenDraft] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
-  // 每条 server 的工具数（连接后或测试后填充）。
+  // 每條 server 的工具數（連線後或測試後填充）。
   const [toolCounts, setToolCounts] = useState<Record<string, number>>({})
 
-  // 自定义连接器表单状态。
+  // 自定義連接器表單狀態。
   const [showCustomForm, setShowCustomForm] = useState(false)
   const [customName, setCustomName] = useState('')
   const [customUrl, setCustomUrl] = useState('')
   const [customAuth, setCustomAuth] = useState<'none' | 'token' | 'oauth'>('token')
   const [customToken, setCustomToken] = useState('')
 
-  // OAuth 授权进行中的目录项 id（卡片显示「授权中…」）。
+  // OAuth 授權進行中的目錄項 id（卡片顯示「授權中…」）。
   const [oauthBusyFor, setOauthBusyFor] = useState<string | null>(null)
-  // OAuth 错误提示（按目录项 id 暂存）。
+  // OAuth 錯誤提示（按目錄項 id 暫存）。
   const [oauthError, setOauthError] = useState<{ id: string; message: string } | null>(null)
 
-  // 详情弹层：按已连接 server id 或目录项 id 标识。
+  // 詳情彈層：按已連線 server id 或目錄項 id 標識。
   const [detail, setDetail] = useState<
     { kind: 'server'; serverId: string } | { kind: 'entry'; entryId: string } | null
   >(null)
@@ -184,7 +184,7 @@ export function ConnectorsPanel({
     }
   }, [])
 
-  // token 类目录项 → 物化 + 可选测试连接。
+  // token 類目錄項 → 物化 + 可選測試連線。
   const connectTokenConnector = useCallback(
     async (entry: ConnectorCatalogEntry, token: string) => {
       const trimmed = token.trim()
@@ -221,7 +221,7 @@ export function ConnectorsPanel({
     [testServer, writeServer],
   )
 
-  // OAuth 类目录项 → 跑后端 connector_oauth_connect（浏览器授权）→ 合并返回的 server。
+  // OAuth 類目錄項 → 跑後端 connector_oauth_connect（瀏覽器授權）→ 合併返回的 server。
   const connectOauthConnector = useCallback(
     async (entry: ConnectorCatalogEntry) => {
       setOauthError(null)
@@ -229,7 +229,7 @@ export function ConnectorsPanel({
       try {
         const server = await api.connectorOauthConnect({ catalogId: entry.id })
         writeServer(server)
-        // 授权后顺手测一下连接，填充工具数。
+        // 授權後順手測一下連線，填充工具數。
         setBusyId(server.id)
         try {
           const result = await testServer(server)
@@ -253,7 +253,7 @@ export function ConnectorsPanel({
     const url = customUrl.trim()
     if (!name || !url) return
 
-    // OAuth：跑后端 connector_oauth_connect（浏览器授权），返回物化好的 server。
+    // OAuth：跑後端 connector_oauth_connect（瀏覽器授權），返回物化好的 server。
     if (customAuth === 'oauth') {
       setOauthError(null)
       setOauthBusyFor('custom')
@@ -323,9 +323,9 @@ export function ConnectorsPanel({
     }
   }, [customAuth, customName, customToken, customUrl, testServer, writeServer])
 
-  // 已连接卡（MCP server；Obsidian 单独渲染）。
+  // 已連線卡（MCP server；Obsidian 單獨渲染）。
   const connectedServers = servers.filter((s) => s.connectorId)
-  // 目录中尚未连接的项（Obsidian 已配置路径时从可用列表移除）。
+  // 目錄中尚未連線的項（Obsidian 已配置路徑時從可用列表移除）。
   const availableEntries = CONNECTOR_CATALOG.filter((e) => {
     if (e.id === OBSIDIAN_CATALOG_ID) return !obsidianConnected
     if (e.id === EMAIL_CATALOG_ID) return !emailConnected
@@ -794,7 +794,7 @@ export function ConnectorsPanel({
 
       {detail &&
         (() => {
-          // 解析当前详情对应的 server / catalog 项。
+          // 解析當前詳情對應的 server / catalog 項。
           const server =
             detail.kind === 'server'
               ? servers.find((s) => s.id === detail.serverId) ?? null
@@ -803,7 +803,7 @@ export function ConnectorsPanel({
             detail.kind === 'entry'
               ? CONNECTOR_CATALOG.find((e) => e.id === detail.entryId)
               : CONNECTOR_CATALOG.find((e) => e.id === server?.connectorId)
-          // server 不存在（已被断开）时关闭。
+          // server 不存在（已被斷開）時關閉。
           if (detail.kind === 'server' && !server) {
             setDetail(null)
             return null
@@ -847,7 +847,7 @@ export function ConnectorsPanel({
                 } else if (entry.authKind === 'oauth') {
                   void connectOauthConnector(entry)
                 } else {
-                  // token 类：关闭弹层、在可用卡片上展开 token 输入框。
+                  // token 類：關閉彈層、在可用卡片上展開 token 輸入框。
                   setDetail(null)
                   setTokenDraft('')
                   setTokenInputFor(entry.id)

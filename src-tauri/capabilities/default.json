@@ -22,6 +22,7 @@
     "core:window:allow-toggle-maximize",
     "core:window:allow-center",
     "core:window:allow-is-visible",
+    "core:webview:allow-set-webview-zoom",
     "dialog:allow-open",
     "dialog:allow-save",
     "shell:allow-open"

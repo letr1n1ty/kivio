@@ -54,8 +54,8 @@ function artifactInlineDataUrl(artifact: ArtifactLike): string {
   return artifact.dataUrl ?? artifact.data_url ?? ''
 }
 
-// 图片 artifact 现在以"磁盘整图 + path + 内联缩略图"存储。需要全分辨率(点开查看器)时,
-// 用 path 经 chat_read_attachment 懒加载;无 path 的老 artifact 直接回退到内联 data_url。
+// 圖片 artifact 現在以"磁碟整圖 + path + 內聯縮圖"儲存。需要全解析度(點開檢視器)時,
+// 用 path 經 chat_read_attachment 懶載入;無 path 的老 artifact 直接回退到內聯 data_url。
 export async function loadArtifactDataUrl(
   artifact: ArtifactLike,
   conversationId?: string | null,

@@ -10,9 +10,9 @@ type ChatImageViewerProps = {
 
 export function ChatImageViewer({ item, onClose }: ChatImageViewerProps) {
   const [zoom, setZoom] = useState(1)
-  // 先显示缩略图(item.src),若有 path 则懒加载全分辨率原图并替换。
+  // 先顯示縮圖(item.src),若有 path 則懶載入全解析度原圖並替換。
   const [fullSrc, setFullSrc] = useState<string | null>(null)
-  const title = item.name || item.alt || '图片附件'
+  const title = item.name || item.alt || '圖片附件'
 
   useEffect(() => {
     setZoom(1)
@@ -42,14 +42,14 @@ export function ChatImageViewer({ item, onClose }: ChatImageViewerProps) {
   }, [onClose])
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col bg-[#f6f6f4] dark:bg-[#181818]" aria-label="图片查看">
+    <section className="flex min-h-0 flex-1 flex-col bg-[#f6f6f4] dark:bg-[#181818]" aria-label="圖片檢視">
       <div className="flex h-[52px] shrink-0 items-center gap-2 border-b border-neutral-200/80 bg-white/90 px-4 backdrop-blur dark:border-neutral-800 dark:bg-[#202020]/92">
         <button
           type="button"
           onClick={onClose}
           className="grid h-8 w-8 place-items-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
-          title="返回对话"
-          aria-label="返回对话"
+          title="返回對話"
+          aria-label="返回對話"
         >
           <ArrowLeft size={18} strokeWidth={1.9} />
         </button>
@@ -61,7 +61,7 @@ export function ChatImageViewer({ item, onClose }: ChatImageViewerProps) {
             {title}
           </div>
           <div className="truncate text-[11px] text-neutral-400 dark:text-neutral-500">
-            Esc 返回对话
+            Esc 返回對話
           </div>
         </div>
         <div className="flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-50 p-1 dark:border-neutral-700 dark:bg-neutral-900">
@@ -69,8 +69,8 @@ export function ChatImageViewer({ item, onClose }: ChatImageViewerProps) {
             type="button"
             onClick={() => setZoom((value) => Math.max(0.5, Number((value - 0.25).toFixed(2))))}
             className="grid h-7 w-7 place-items-center rounded-full text-neutral-500 hover:bg-white hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
-            title="缩小"
-            aria-label="缩小"
+            title="縮小"
+            aria-label="縮小"
           >
             <Minus size={15} strokeWidth={1.9} />
           </button>
@@ -90,8 +90,8 @@ export function ChatImageViewer({ item, onClose }: ChatImageViewerProps) {
             type="button"
             onClick={() => setZoom(1)}
             className="grid h-7 w-7 place-items-center rounded-full text-neutral-500 hover:bg-white hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
-            title="重置缩放"
-            aria-label="重置缩放"
+            title="重置縮放"
+            aria-label="重置縮放"
           >
             <RotateCcw size={14} strokeWidth={1.9} />
           </button>
@@ -107,7 +107,7 @@ export function ChatImageViewer({ item, onClose }: ChatImageViewerProps) {
               width: zoom <= 1 ? 'auto' : `${zoom * 100}%`,
               maxWidth: zoom <= 1 ? '100%' : 'none',
               maxHeight: zoom <= 1 ? 'calc(100vh - 8rem)' : 'none',
-              // 连续放大/缩小步进（%↔%）平滑过渡；auto↔% 边界为 width 模型固有限制，瞬跳。
+              // 連續放大/縮小步進（%↔%）平滑過渡；auto↔% 邊界為 width 模型固有限制，瞬跳。
               transition: 'width var(--kv-dur-fast) var(--kv-ease-out)',
             }}
           />

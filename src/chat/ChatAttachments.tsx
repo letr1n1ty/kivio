@@ -64,8 +64,8 @@ function ImagePreview({
               : 'chat-motion-fade block max-w-full cursor-zoom-in rounded-xl p-0 text-left'
           }
           onClick={() => onPreview?.(src, attachment.name)}
-          title="预览图片"
-          aria-label="预览图片"
+          title="預覽圖片"
+          aria-label="預覽圖片"
         >
           <img
             src={src}
@@ -81,7 +81,7 @@ function ImagePreview({
       )}
       {!loading && failed && (
         <div className={`${loadingClass} px-4 text-center text-[12px] text-neutral-400`}>
-          图片无法预览
+          圖片無法預覽
         </div>
       )}
     </div>
@@ -159,7 +159,7 @@ export function ChatAttachments({
   variant,
   onRemove,
 }: ChatAttachmentsProps) {
-  // 移除中的附件：先打退出动画，animationend 后再真正 onRemove（卸载节点）。
+  // 移除中的附件：先打退出動畫，animationend 後再真正 onRemove（解除安裝節點）。
   const [removingIds, setRemovingIds] = useState<ReadonlySet<string>>(() => new Set())
 
   const beginRemove = onRemove
@@ -218,8 +218,8 @@ export function ChatAttachments({
                         ? 'absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-neutral-950/90 text-white shadow-sm transition-colors hover:bg-neutral-800'
                         : 'absolute right-2 top-2 rounded-full bg-black/50 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm hover:bg-black/65'
                     }
-                    title="移除图片"
-                    aria-label="移除图片"
+                    title="移除圖片"
+                    aria-label="移除圖片"
                   >
                     {variant === 'composer' ? <X size={12} strokeWidth={2.4} /> : '移除'}
                   </button>

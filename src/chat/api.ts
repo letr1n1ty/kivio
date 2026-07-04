@@ -1,4 +1,4 @@
-// Chat API 调用封装
+// Chat API 呼叫封裝
 import { invoke } from '@tauri-apps/api/core'
 import { estimateTokens } from '../utils/tokens'
 import { isExecutableAgentPlanText } from './agentPlan'
@@ -152,8 +152,8 @@ function assistantSnapshot(assistant: ChatAssistant): ChatAssistantSnapshot {
 
 function normalizeProjectName(name: string): string {
   const trimmed = name.trim()
-  if (!trimmed) throw new Error('项目名称不能为空')
-  if ([...trimmed].length > 80) throw new Error('项目名称不能超过 80 个字符')
+  if (!trimmed) throw new Error('專案名稱不能為空')
+  if ([...trimmed].length > 80) throw new Error('專案名稱不能超過 80 個字元')
   return trimmed
 }
 
@@ -301,7 +301,7 @@ const mockChatApi = {
     const snapshot = assistant ? assistantSnapshot(assistant) : null
     const conversation: Conversation = {
       id: `conv_dev_${crypto.randomUUID()}`,
-      title: '新对话',
+      title: '新對話',
       provider_id: providerId?.trim() || snapshot?.provider_id || snapshot?.providerId || 'dev-provider',
       model: model?.trim() || snapshot?.model || 'dev-model',
       messages: [],
@@ -340,7 +340,7 @@ const mockChatApi = {
     const normalized = normalizeProjectName(name)
     const projects = loadMockProjectsWithLegacyFolders()
     if (projects.some((project) => project.name === normalized)) {
-      throw new Error('项目名称已存在')
+      throw new Error('專案名稱已存在')
     }
     const now = nowSeconds()
     const project: ChatProject = {
@@ -363,11 +363,11 @@ const mockChatApi = {
   ): Promise<ChatProject> {
     const projects = loadMockProjectsWithLegacyFolders()
     const index = projects.findIndex((project) => project.id === projectId)
-    if (index < 0) throw new Error('项目不存在')
+    if (index < 0) throw new Error('專案不存在')
     const oldName = projects[index].name
     const nextName = updates.name === undefined ? oldName : normalizeProjectName(updates.name)
     if (nextName !== oldName && projects.some((project) => project.name === nextName)) {
-      throw new Error('项目名称已存在')
+      throw new Error('專案名稱已存在')
     }
     const nextProject: ChatProject = {
       ...projects[index],
@@ -394,16 +394,16 @@ const mockChatApi = {
 
   async openProjectFolder(projectId: string): Promise<void> {
     const project = loadMockProjectsWithLegacyFolders().find((item) => item.id === projectId)
-    if (!project) throw new Error('项目不存在')
+    if (!project) throw new Error('專案不存在')
     const rootPath = (project.root_path ?? project.rootPath ?? '').trim()
-    if (!rootPath) throw new Error('该项目尚未配置文件夹')
+    if (!rootPath) throw new Error('該專案尚未配置資料夾')
     console.info('[mock] open project folder:', rootPath)
   },
 
   async deleteProject(projectId: string): Promise<void> {
     const projects = loadMockProjectsWithLegacyFolders()
     const project = projects.find((item) => item.id === projectId)
-    if (!project) throw new Error('项目不存在')
+    if (!project) throw new Error('專案不存在')
     saveMockProjects(projects.filter((item) => item.id !== projectId))
     saveMockConversations(
       loadMockConversations().map((conversation) =>
@@ -425,10 +425,10 @@ const mockChatApi = {
       built_in: false,
       created_at: assistant.created_at ?? nowSeconds(),
     })
-    if (!next.name) throw new Error('助手名称不能为空')
+    if (!next.name) throw new Error('助手名稱不能為空')
     const assistants = loadMockAssistants()
     if (assistants.some((item) => !item.archived && item.name === next.name)) {
-      throw new Error('助手名称已存在')
+      throw new Error('助手名稱已存在')
     }
     saveMockAssistants([next, ...assistants])
     return next
@@ -443,9 +443,9 @@ const mockChatApi = {
       built_in: assistants[index].built_in,
       created_at: assistants[index].created_at,
     })
-    if (!next.name) throw new Error('助手名称不能为空')
+    if (!next.name) throw new Error('助手名稱不能為空')
     if (assistants.some((item) => item.id !== next.id && !item.archived && item.name === next.name)) {
-      throw new Error('助手名称已存在')
+      throw new Error('助手名稱已存在')
     }
     assistants[index] = next
     saveMockAssistants(assistants)
@@ -516,7 +516,7 @@ const mockChatApi = {
       {
         id: `msg_dev_${crypto.randomUUID()}`,
         role: 'assistant',
-        content: '这是浏览器预览模式的本地回复。启动 Tauri 桌面应用后会调用真实模型接口。',
+        content: '這是瀏覽器預覽模式的本地回覆。啟動 Tauri 桌面應用後會呼叫真實模型介面。',
         active_skill_id: conversation.active_skill_id,
         timestamp: now,
       },
@@ -540,7 +540,7 @@ const mockChatApi = {
         }
       }
     }
-    if (conversation.title === '新对话') {
+    if (conversation.title === '新對話') {
       conversation.title = content.length > 30 ? `${content.slice(0, 30)}...` : content
     }
     conversation.updated_at = now
@@ -585,11 +585,11 @@ const mockChatApi = {
     const messageIndex = messageId
       ? conversations[index].messages.findIndex((message) => message.id === messageId && message.role === 'assistant')
       : -1
-    if (messageId && messageIndex < 0) throw new Error('计划消息不存在')
+    if (messageId && messageIndex < 0) throw new Error('計劃訊息不存在')
     const messagePlan = messageIndex >= 0
       ? conversations[index].messages[messageIndex].agent_plan ?? conversations[index].messages[messageIndex].agentPlan ?? null
       : null
-    if (messageId && !isExecutableAgentPlanText(messagePlan?.plan)) throw new Error('该消息不是可执行计划')
+    if (messageId && !isExecutableAgentPlanText(messagePlan?.plan)) throw new Error('該訊息不是可執行計劃')
     const current = messagePlan ?? conversations[index].agent_plan_state ?? conversations[index].agentPlanState ?? {
       mode: 'act',
       status: 'empty',
@@ -709,12 +709,12 @@ const mockChatApi = {
     const index = conversations.findIndex((item) => item.id === conversationId)
     if (index < 0) throw new Error('Conversation not found')
     const trimmed = content.trim()
-    if (!trimmed) throw new Error('消息内容不能为空')
+    if (!trimmed) throw new Error('訊息內容不能為空')
     const conversation = { ...conversations[index] }
     const messageIndex = conversation.messages.findIndex((message) => message.id === messageId)
     if (messageIndex < 0) throw new Error('Message not found')
     if (conversation.messages[messageIndex].role !== 'assistant') {
-      throw new Error('仅支持编辑助手回复')
+      throw new Error('僅支援編輯助手回覆')
     }
     conversation.messages = conversation.messages.map((message, i) =>
       i === messageIndex
@@ -737,7 +737,7 @@ const mockChatApi = {
     const conversation = { ...conversations[index] }
     const target = conversation.messages.find((message) => message.id === messageId)
     if (!target) throw new Error('Message not found')
-    if (target.role !== 'assistant') throw new Error('仅支持删除助手回复')
+    if (target.role !== 'assistant') throw new Error('僅支援刪除助手回覆')
     conversation.messages = conversation.messages.filter((message) => message.id !== messageId)
     conversation.updated_at = nowSeconds()
     const contextState = estimateMockContext(conversation)
@@ -757,9 +757,9 @@ const mockChatApi = {
     if (messageIndex < 0) throw new Error('Message not found')
     const target = conversation.messages[messageIndex]
     if (target.role === 'user') {
-      // 编辑提问并重新生成（镜像后端 chat_regenerate_message 的 user 分支）。
+      // 編輯提問並重新生成（映象後端 chat_regenerate_message 的 user 分支）。
       const trimmed = (newContent ?? '').trim()
-      if (newContent !== undefined && !trimmed) throw new Error('消息内容不能为空')
+      if (newContent !== undefined && !trimmed) throw new Error('訊息內容不能為空')
       const edited = trimmed
         ? { ...target, content: trimmed, timestamp: nowSeconds() }
         : target
@@ -769,24 +769,24 @@ const mockChatApi = {
         {
           id: `msg_dev_${crypto.randomUUID()}`,
           role: 'assistant',
-          content: `（重新生成预览）${edited.content.slice(0, 80)}`,
+          content: `（重新生成預覽）${edited.content.slice(0, 80)}`,
           timestamp: nowSeconds(),
         },
       ]
     } else {
-      if (newContent !== undefined) throw new Error('编辑内容仅支持用户消息')
-      if (target.role !== 'assistant') throw new Error('仅支持重新生成助手回复')
+      if (newContent !== undefined) throw new Error('編輯內容僅支援使用者訊息')
+      if (target.role !== 'assistant') throw new Error('僅支援重新生成助手回覆')
       const kept = conversation.messages.slice(0, messageIndex)
       const lastUser = kept[kept.length - 1]
       if (!lastUser || lastUser.role !== 'user') {
-        throw new Error('缺少对应的用户消息，无法重新生成')
+        throw new Error('缺少對應的使用者訊息，無法重新生成')
       }
       conversation.messages = [
         ...kept,
         {
           id: `msg_dev_${crypto.randomUUID()}`,
           role: 'assistant',
-          content: `（重新生成预览）${lastUser.content.slice(0, 80)}`,
+          content: `（重新生成預覽）${lastUser.content.slice(0, 80)}`,
           timestamp: nowSeconds(),
         },
       ]
@@ -818,7 +818,7 @@ const mockChatApi = {
     const cutoff = Math.max(0, conversation.messages.length - 8)
     const source = conversation.messages.slice(0, cutoff)
     if (source.length < 2) {
-      throw new Error('没有足够的旧消息可以压缩')
+      throw new Error('沒有足夠的舊訊息可以壓縮')
     }
     const summary = {
       id: `ctxsum_dev_${crypto.randomUUID()}`,
@@ -869,7 +869,7 @@ const mockChatApi = {
 }
 
 export const chatApi = {
-  // 获取对话列表
+  // 獲取對話列表
   async getConversations(
     offset = 0,
     limit = 50,
@@ -888,7 +888,7 @@ export const chatApi = {
     return result.conversations
   },
 
-  // 全量索引搜索对话（覆盖所有对话，不止侧栏默认加载的前 N 个）
+  // 全量索引搜尋對話（覆蓋所有對話，不止側欄預設載入的前 N 個）
   async searchConversations(query: string, limit = 30): Promise<ConversationListItem[]> {
     if (!isTauriRuntime()) return []
     const trimmed = query.trim()
@@ -900,7 +900,7 @@ export const chatApi = {
     return result.success ? result.conversations : []
   },
 
-  // 获取对话详情
+  // 獲取對話詳情
   async getConversation(conversationId: string): Promise<Conversation> {
     if (!isTauriRuntime()) return mockChatApi.getConversation(conversationId)
     const result = await invoke<{ success: boolean; conversation: Conversation }>(
@@ -913,7 +913,7 @@ export const chatApi = {
     return result.conversation
   },
 
-  // 创建新对话
+  // 建立新對話
   async createConversation(
     providerId?: string,
     model?: string,
@@ -933,7 +933,7 @@ export const chatApi = {
     return result.conversation
   },
 
-  // 用预置的多轮历史 + 截图创建一个新会话（不触发回复）。Lens「在 AI 客户端继续」交接使用。
+  // 用預置的多輪歷史 + 截圖建立一個新會話（不觸發回覆）。Lens「在 AI 客戶端繼續」交接使用。
   async importExternalConversation(
     messages: { role: string; content: string }[],
     attachmentPaths: string[],
@@ -952,14 +952,14 @@ export const chatApi = {
     return result.conversation
   },
 
-  // 创建「对话搭建专家」会话(瞬态搭建助手,只暴露 save_assistant 工具)
+  // 建立「對話搭建專家」會話(瞬態搭建助手,只暴露 save_assistant 工具)
   async createBuilderConversation(
     providerId?: string,
     model?: string,
     projectId?: string | null,
   ): Promise<Conversation> {
     if (!isTauriRuntime()) {
-      // dev 浏览器无后端 LLM,搭建流程只在 Tauri 内真正可用;这里仅返回一个占位会话。
+      // dev 瀏覽器無後端 LLM,搭建流程只在 Tauri 內真正可用;這裡僅返回一個佔位會話。
       return mockChatApi.createConversation(providerId, model, undefined, projectId, null)
     }
     const result = await invoke<{ success: boolean; conversation: Conversation }>(
@@ -998,7 +998,7 @@ export const chatApi = {
     defaultAssistantId?: string | null,
     color?: string | null,
   ): Promise<ChatSet> {
-    if (!isTauriRuntime()) throw new Error('集功能仅在桌面应用内可用')
+    if (!isTauriRuntime()) throw new Error('集功能僅在桌面應用內可用')
     const result = await invoke<{ success: boolean; set: ChatSet }>(
       'chat_create_set',
       { name, systemPrompt, defaultAssistantId, color },
@@ -1018,7 +1018,7 @@ export const chatApi = {
       color?: string | null
     },
   ): Promise<ChatSet> {
-    if (!isTauriRuntime()) throw new Error('集功能仅在桌面应用内可用')
+    if (!isTauriRuntime()) throw new Error('集功能僅在桌面應用內可用')
     const result = await invoke<{ success: boolean; set: ChatSet }>(
       'chat_update_set',
       {
@@ -1105,7 +1105,7 @@ export const chatApi = {
       { projectId },
     )
     if (!result.success) {
-      throw new Error('打开项目文件夹失败')
+      throw new Error('開啟專案資料夾失敗')
     }
   },
 
@@ -1164,7 +1164,7 @@ export const chatApi = {
     }
   },
 
-  // 发送消息
+  // 傳送訊息
   async sendMessage(
     conversationId: string,
     content: string,
@@ -1187,7 +1187,7 @@ export const chatApi = {
       const error: Error & { conversation?: Conversation } = new Error(
         result.error || 'Failed to send message',
       )
-      // 生成失败但后端保留了用户消息（不再回滚）：把对话挂到错误上，调用方据此让问题留在线程里、可重试。
+      // 生成失敗但後端保留了使用者訊息（不再回滾）：把對話掛到錯誤上，呼叫方據此讓問題留線上程裡、可重試。
       if (result.conversation) {
         error.conversation = result.conversation
       }
@@ -1196,7 +1196,7 @@ export const chatApi = {
     return result.conversation
   },
 
-  // 删除对话
+  // 刪除對話
   async deleteConversation(conversationId: string): Promise<void> {
     if (!isTauriRuntime()) return mockChatApi.deleteConversation(conversationId)
     const result = await invoke<{ success: boolean }>('chat_delete_conversation', {
@@ -1207,7 +1207,7 @@ export const chatApi = {
     }
   },
 
-  // 更新对话
+  // 更新對話
   async updateConversation(
     conversationId: string,
     updates: {
@@ -1244,9 +1244,9 @@ export const chatApi = {
         activeSkillId: updates.activeSkillId,
         assistantId: updates.assistantId,
         knowledgeBaseIds: updates.knowledgeBaseIds,
-        // null/未知 → 空串，后端解析为 None（回到「跟随全局」）。
+        // null/未知 → 空串，後端解析為 None（回到「跟隨全域性」）。
         thinkingLevel: hasThinkingUpdate ? updates.thinkingLevel ?? '' : undefined,
-        // 多模型一问多答（任务 06-30）：持久化会话级多答模型集（决策 D2/D4）。
+        // 多模型一問多答（任務 06-30）：持久化會話級多答模型集（決策 D2/D4）。
         replyModels: updates.replyModels,
       }
     )
@@ -1290,7 +1290,7 @@ export const chatApi = {
     return result.conversation
   },
 
-  // 多模型一问多答（任务 06-30）：设置某多答组的「选中条」（续聊以它为准，决策 D5）。
+  // 多模型一問多答（任務 06-30）：設定某多答組的「選中條」（續聊以它為準，決策 D5）。
   async setGroupSelection(
     conversationId: string,
     groupId: string,

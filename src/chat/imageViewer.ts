@@ -2,7 +2,7 @@ export type ChatImageViewerItem = {
   src: string
   alt?: string
   name?: string
-  // 当 src 是缩略图时,提供 path + conversationId 让查看器按需懒加载全分辨率原图。
+  // 當 src 是縮圖時,提供 path + conversationId 讓檢視器按需懶載入全解析度原圖。
   path?: string | null
   conversationId?: string | null
 }

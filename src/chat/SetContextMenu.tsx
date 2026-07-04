@@ -47,7 +47,7 @@ export function SetContextMenu({ anchor, onRename, onDelete, onClose }: SetConte
         }}
       >
         <Pencil size={16} strokeWidth={1.75} className="shrink-0 text-neutral-500" />
-        重命名 / 设置
+        重新命名 / 設定
       </button>
       <div className="my-1 border-t border-neutral-200/80 dark:border-neutral-700" />
       <button
@@ -60,7 +60,7 @@ export function SetContextMenu({ anchor, onRename, onDelete, onClose }: SetConte
         }}
       >
         <Trash2 size={16} strokeWidth={1.75} className="shrink-0" />
-        删除集
+        刪除集
       </button>
     </div>,
     document.body,

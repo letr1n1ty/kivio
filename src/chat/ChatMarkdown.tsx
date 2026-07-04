@@ -20,7 +20,7 @@ interface ChatMarkdownProps {
   artifacts?: ChatToolArtifact[]
   onImageClick?: (src: string, alt: string, name?: string) => void
   variant?: 'default' | 'reasoning' | 'lens' | 'lens-muted'
-  /** 知识库引用：把答案里的 `[n]` 渲染成可点来源片段（n → 命中片段）。 */
+  /** 知識庫引用：把答案裡的 `[n]` 渲染成可點來源片段（n → 命中片段）。 */
   citations?: Map<number, KbHitView>
 }
 
@@ -67,7 +67,7 @@ type TokenRule = {
   pattern: RegExp
 }
 
-/** 语法高亮 token 色：浅色/暗色各一套，避免暗色主题下对比度不足。 */
+/** 語法高亮 token 色：淺色/暗色各一套，避免暗色主題下對比度不足。 */
 const syntax = {
   comment: 'text-neutral-400 dark:text-neutral-500',
   string: 'text-emerald-700 dark:text-emerald-400',
@@ -351,8 +351,8 @@ function CodeBlock({ code, language }: { code: string; language: string }) {
           type="button"
           onClick={() => void handleCopy()}
           className="-mr-1 ml-auto rounded-md p-1.5 text-neutral-500 transition-colors hover:bg-neutral-200/70 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-          title={copied ? '已复制' : '复制代码'}
-          aria-label={copied ? '已复制' : '复制代码'}
+          title={copied ? '已複製' : '複製程式碼'}
+          aria-label={copied ? '已複製' : '複製程式碼'}
         >
           {copied ? <Check size={17} strokeWidth={2.2} className="chat-motion-pop" /> : <Copy size={17} strokeWidth={2.2} />}
         </button>
@@ -366,10 +366,10 @@ function CodeBlock({ code, language }: { code: string; language: string }) {
 
 let mermaidRenderCounter = 0
 
-// 已渲染 mermaid SVG 的缓存：键 = 主题 + 源码。虚拟列表（virtua）会卸载屏外的消息气泡，
-// 往回翻时图会重新挂载；若每次都重新 import+parse+render，会出现 spinner(小)→大SVG 的高度
-// 突变，导致 virtua 纠正滚动 → 抽搐/闪烁。缓存后命中即同步拿到完整 SVG，挂载时高度即确定，
-// 消除回滚 jank。用外部 Map 而非 useMemo（React 可能在内存压力下丢弃 useMemo 缓存）。
+// 已渲染 mermaid SVG 的快取：鍵 = 主題 + 原始碼。虛擬列表（virtua）會解除安裝屏外的訊息氣泡，
+// 往回翻時圖會重新掛載；若每次都重新 import+parse+render，會出現 spinner(小)→大SVG 的高度
+// 突變，導致 virtua 糾正滾動 → 抽搐/閃爍。快取後命中即同步拿到完整 SVG，掛載時高度即確定，
+// 消除回滾 jank。用外部 Map 而非 useMemo（React 可能在記憶體壓力下丟棄 useMemo 快取）。
 const mermaidSvgCache = new Map<string, string>()
 const MERMAID_SVG_CACHE_MAX = 80
 function cacheMermaidSvg(key: string, svg: string) {
@@ -388,7 +388,7 @@ function MermaidBlock({ code }: { code: string }) {
   const renderBaseId = useRef('')
   const renderSeq = useRef(0)
   const [view, setView] = useState<'diagram' | 'source'>('diagram')
-  // 初始即读缓存：命中则首帧就有完整 SVG（高度确定、无 spinner、无闪烁）。
+  // 初始即讀快取：命中則首幀就有完整 SVG（高度確定、無 spinner、無閃爍）。
   const [svg, setSvg] = useState(() => mermaidSvgCache.get(cacheKey) ?? '')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(() => !mermaidSvgCache.has(cacheKey))
@@ -399,7 +399,7 @@ function MermaidBlock({ code }: { code: string }) {
   }
 
   useEffect(() => {
-    // 命中缓存：同步设回（处理主题/源码切换时的更新；首帧已由 useState 初始值覆盖）。无异步、无闪烁。
+    // 命中快取：同步設回（處理主題/原始碼切換時的更新；首幀已由 useState 初始值覆蓋）。無非同步、無閃爍。
     const cached = mermaidSvgCache.get(cacheKey)
     if (cached) {
       setSvg(cached)
@@ -412,10 +412,10 @@ function MermaidBlock({ code }: { code: string }) {
     renderSeq.current += 1
     const renderId = `${renderBaseId.current}-${renderSeq.current}`
 
-    // 业界标准做法（Vercel AI 实践 / Open WebUI）：渲染前先用 mermaid.parse 校验。
-    // suppressErrors=true 时非法/半截代码返回 false 而非抛错——流式中的不完整代码直接跳过
-    // 渲染、不报错，语法完整时立刻 render。错误只在“代码已稳定仍解析失败”后才显示，
-    // 不在流式途中报红。
+    // 業界標準做法（Vercel AI 實踐 / Open WebUI）：渲染前先用 mermaid.parse 校驗。
+    // suppressErrors=true 時非法/半截程式碼返回 false 而非拋錯——流式中的不完整程式碼直接跳過
+    // 渲染、不報錯，語法完整時立刻 render。錯誤只在“程式碼已穩定仍解析失敗”後才顯示，
+    // 不在流式途中報紅。
     void (async () => {
       try {
         const { default: mermaid } = await import('mermaid')
@@ -435,8 +435,8 @@ function MermaidBlock({ code }: { code: string }) {
           setError('')
           setLoading(false)
         } else {
-          // 尚不合法：可能流式未写完，也可能最终就是错的。先保持上一次结果/加载态、不报错；
-          // 若 ~600ms 内代码不再变化仍不合法，视为“写完且确实有语法错”，取真实报错信息再显示。
+          // 尚不合法：可能流式未寫完，也可能最終就是錯的。先保持上一次結果/載入態、不報錯；
+          // 若 ~600ms 內程式碼不再變化仍不合法，視為“寫完且確實有語法錯”，取真實報錯資訊再顯示。
           errorTimer = setTimeout(() => {
             void mermaid
               .parse(normalizedCode)
@@ -475,8 +475,8 @@ function MermaidBlock({ code }: { code: string }) {
             type="button"
             onClick={() => setView((current) => (current === 'diagram' ? 'source' : 'diagram'))}
             className="-mr-1 ml-auto rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-            title={view === 'diagram' ? '查看源码' : '查看图表'}
-            aria-label={view === 'diagram' ? '查看源码' : '查看图表'}
+            title={view === 'diagram' ? '檢視原始碼' : '檢視圖表'}
+            aria-label={view === 'diagram' ? '檢視原始碼' : '檢視圖表'}
           >
             {view === 'diagram' ? <Code2 size={15} strokeWidth={2} /> : <Eye size={15} strokeWidth={2} />}
           </button>
@@ -487,12 +487,12 @@ function MermaidBlock({ code }: { code: string }) {
       ) : loading ? (
         <div className="flex min-h-28 items-center justify-center gap-2 px-4 py-8 text-[13px] text-neutral-400 dark:text-neutral-500">
           <Loader2 size={15} className="animate-spin" />
-          正在渲染图表
+          正在渲染圖表
         </div>
       ) : error ? (
         <>
           <div className="border-b border-red-100 bg-red-50 px-4 py-2 text-[12px] leading-5 text-red-600 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
-            Mermaid 渲染失败：{error}
+            Mermaid 渲染失敗：{error}
           </div>
           <CodeBlock code={normalizedCode} language="mermaid" />
         </>
@@ -548,7 +548,7 @@ function HtmlCodePreview({ html }: { html: string }) {
       {view === 'preview' ? (
         <div className="my-3 overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-950">
           <iframe
-            title="HTML 预览"
+            title="HTML 預覽"
             srcDoc={previewHtml}
             className="h-[520px] w-full border-0 bg-white dark:bg-neutral-950"
           />
@@ -560,8 +560,8 @@ function HtmlCodePreview({ html }: { html: string }) {
           type="button"
           onClick={() => setView((current) => (current === 'preview' ? 'source' : 'preview'))}
           className="rounded p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
-          title={view === 'preview' ? '查看源码' : '查看预览'}
-          aria-label={view === 'preview' ? '查看源码' : '查看预览'}
+          title={view === 'preview' ? '檢視原始碼' : '檢視預覽'}
+          aria-label={view === 'preview' ? '檢視原始碼' : '檢視預覽'}
         >
           {view === 'preview' ? <Code2 size={14} strokeWidth={2} /> : <Eye size={14} strokeWidth={2} />}
         </button>
@@ -569,8 +569,8 @@ function HtmlCodePreview({ html }: { html: string }) {
           type="button"
           onClick={openInBrowser}
           className="rounded p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
-          title="在浏览器打开"
-          aria-label="在浏览器打开"
+          title="在瀏覽器開啟"
+          aria-label="在瀏覽器開啟"
         >
           <ExternalLink size={14} strokeWidth={2} />
         </button>
@@ -639,7 +639,7 @@ function LinkAnchor({ href, children }: { href: string; children?: ReactNode }) 
   )
 }
 
-/** 知识库引用角标 `[n]`：点击弹出对应来源片段（文档名 · 标题 · 正文）。 */
+/** 知識庫引用角標 `[n]`：點選彈出對應來源片段（檔名 · 標題 · 正文）。 */
 function CitationChip({ n, hit }: { n: number; hit?: KbHitView }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLSpanElement>(null)
@@ -657,7 +657,7 @@ function CitationChip({ n, hit }: { n: number; hit?: KbHitView }) {
         type="button"
         onClick={() => setOpen((value) => !value)}
         className="mx-0.5 rounded bg-indigo-500/15 px-1 align-baseline text-[0.82em] font-medium text-indigo-500 transition hover:bg-indigo-500/25"
-        aria-label={`来源 ${n}`}
+        aria-label={`來源 ${n}`}
       >
         [{n}]
       </button>
@@ -677,7 +677,7 @@ function CitationChip({ n, hit }: { n: number; hit?: KbHitView }) {
               </span>
             </>
           ) : (
-            <span className="text-neutral-400">未找到对应来源片段</span>
+            <span className="text-neutral-400">未找到對應來源片段</span>
           )}
         </span>
       )}
@@ -830,8 +830,8 @@ function ShadowKatex({ html, display }: { html: string; display: boolean }) {
   return <span ref={hostRef} className={cls} data-katex-shadow-host="true" />
 }
 
-// 按 (tex, display) 缓存 KaTeX 渲染结果：流式时每帧重渲会对每个公式重复调用，
-// 同一公式只算一次。简单上限防无界增长(超了清空)。
+// 按 (tex, display) 快取 KaTeX 渲染結果：流式時每幀重渲會對每個公式重複呼叫，
+// 同一公式只算一次。簡單上限防無界增長(超了清空)。
 const texCache = new Map<string, string>()
 function renderTex(tex: string, display: boolean): string {
   const key = (display ? 'd:' : 'i:') + tex
@@ -850,8 +850,8 @@ function renderTex(tex: string, display: boolean): string {
 }
 
 function LazyMath({ tex, display }: { tex: string; display: boolean }) {
-  // 即时渲染（不再用 IntersectionObserver 延迟到滚动进视口才渲染）。KaTeX 子树进入
-  // Shadow DOM，避免已完成公式让 WebKit 后续全局 UI 交互反复扫大段普通 DOM。
+  // 即時渲染（不再用 IntersectionObserver 延遲到滾動進視口才渲染）。KaTeX 子樹進入
+  // Shadow DOM，避免已完成公式讓 WebKit 後續全域性 UI 互動反覆掃大段普通 DOM。
   const html = useMemo(() => renderTex(tex, display), [tex, display])
   if (html) {
     return <ShadowKatex html={html} display={display} />
@@ -860,16 +860,16 @@ function LazyMath({ tex, display }: { tex: string; display: boolean }) {
   return <span className={`${cls} katex-lazy--pending`}>{tex}</span>
 }
 
-// 模块级稳定组件：remark-math 产出的 <kvmath> → <LazyMath>。无闭包依赖，必须放模块级——
-// 若写成 components useMemo 里的内联函数，每次重建 components（artifacts/citations 变化、或流式每帧）
-// 都是新函数类型，ReactMarkdown 会把 LazyMath 整个卸载重挂（公式 remount 闪烁）。
+// 模組級穩定元件：remark-math 產出的 <kvmath> → <LazyMath>。無閉包依賴，必須放模組級——
+// 若寫成 components useMemo 裡的行內函式，每次重建 components（artifacts/citations 變化、或流式每幀）
+// 都是新函式型別，ReactMarkdown 會把 LazyMath 整個解除安裝重掛（公式 remount 閃爍）。
 function KvMath({ node }: { node?: { properties?: { tex?: string; display?: string } } }) {
   const props = node?.properties ?? {}
   return <LazyMath tex={String(props.tex ?? '')} display={props.display === 'true'} />
 }
 
-// remark-math 产出的 math/inlineMath 节点 → 自定义 <kvmath> 元素(携带 tex + display)，
-// 由下方 components 的 kvmath 映射到 <LazyMath>。替代 rehype-katex 的即时渲染。
+// remark-math 產出的 math/inlineMath 節點 → 自定義 <kvmath> 元素(攜帶 tex + display)，
+// 由下方 components 的 kvmath 對映到 <LazyMath>。替代 rehype-katex 的即時渲染。
 const remarkRehypeOptions = {
   handlers: {
     math: (_state: unknown, node: { value?: string }) => ({
@@ -929,7 +929,7 @@ function ChatMarkdownComponent({
             onClick={() => {
               if (resolvedSrc) onImageClick?.(resolvedSrc, altText, rawSrc)
             }}
-            aria-label="预览图片"
+            aria-label="預覽圖片"
           >
             <img
               src={resolvedSrc}
@@ -959,5 +959,5 @@ function ChatMarkdownComponent({
   )
 }
 
-// memo：仅当 content / artifacts 变化时才重渲染（配合 MessageBubble 的 memo）
+// memo：僅當 content / artifacts 變化時才重渲染（配合 MessageBubble 的 memo）
 export const ChatMarkdown = memo(ChatMarkdownComponent)

@@ -6,14 +6,14 @@ import { chatTitlebarPillButtonClass } from './platform'
 import type { ThinkingLevel } from './types'
 
 interface ThinkingLevelSelectorProps {
-  /** 当前等级；null = 未显式设置，按默认档 DEFAULT_LEVEL 处理。 */
+  /** 當前等級；null = 未顯式設定，按預設檔 DEFAULT_LEVEL 處理。 */
   value: ThinkingLevel | null
   currentProviderId: string
   currentModel: string
   onChange: (level: ThinkingLevel) => void
 }
 
-// 固定项 + 各等级标签（英文，跨语言更通用）。具体显示哪些等级由后端按模型库决定。
+// 固定項 + 各等級標籤（英文，跨語言更通用）。具體顯示哪些等級由後端按模型庫決定。
 const LABELS: Record<string, string> = {
   off: 'Off',
   low: 'Low',
@@ -22,9 +22,9 @@ const LABELS: Record<string, string> = {
   xhigh: 'XHigh',
   max: 'Max',
 }
-// 未显式选等级时的默认档（与后端 resolve_thinking 保持一致）。
+// 未顯式選等級時的預設檔（與後端 resolve_thinking 保持一致）。
 const DEFAULT_LEVEL: ThinkingLevel = 'high'
-// 未取到模型能力时的安全兜底（全模型通用子集）。
+// 未取到模型能力時的安全兜底（全模型通用子集）。
 const FALLBACK_LEVELS = ['low', 'medium', 'high']
 
 function labelFor(value: ThinkingLevel): string {
@@ -40,7 +40,7 @@ function ThinkingLevelSelectorBase({
   const [open, setOpen] = useState(false)
   const [levels, setLevels] = useState<string[]>(FALLBACK_LEVELS)
 
-  // 思考等级清单来自后端模型库（reasoningEfforts），按 (model, apiFormat) 解析。
+  // 思考等級清單來自後端模型庫（reasoningEfforts），按 (model, apiFormat) 解析。
   useEffect(() => {
     let alive = true
     void (async () => {
@@ -64,7 +64,7 @@ function ThinkingLevelSelectorBase({
     }
   }, [currentProviderId, currentModel])
 
-  // null（未显式设置）按默认档处理，UI 永远高亮一个具体等级。
+  // null（未顯式設定）按預設檔處理，UI 永遠高亮一個具體等級。
   const effective: ThinkingLevel = value ?? DEFAULT_LEVEL
 
   const options = useMemo<Array<{ value: ThinkingLevel; label: string }>>(
@@ -81,8 +81,8 @@ function ThinkingLevelSelectorBase({
         type="button"
         onClick={() => setOpen(!open)}
         className={`${chatTitlebarPillButtonClass} max-w-full min-w-0`}
-        title={`思考等级：${labelFor(effective)}`}
-        aria-label={`思考等级：${labelFor(effective)}`}
+        title={`思考等級：${labelFor(effective)}`}
+        aria-label={`思考等級：${labelFor(effective)}`}
       >
         <Brain size={15} className="shrink-0 text-neutral-500 dark:text-neutral-400" />
         <span className="max-w-[64px] truncate font-medium text-neutral-800 dark:text-neutral-200">
@@ -126,5 +126,5 @@ function ThinkingLevelSelectorBase({
   )
 }
 
-// memo：顶栏选择器，仅在 props 变化时重渲。
+// memo：頂欄選擇器，僅在 props 變化時重渲。
 export const ThinkingLevelSelector = memo(ThinkingLevelSelectorBase)

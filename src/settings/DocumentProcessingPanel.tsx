@@ -1,5 +1,5 @@
-// 文档处理设置区（知识库页）：仅 Kivio 内置本地解析 + 图片 OCR。
-// 第三方处理器（MinerU/Doc2X/自定义）已挂起。
+// 檔案處理設定區（知識庫頁）：僅 Kivio 內建本地解析 + 圖片 OCR。
+// 第三方處理器（MinerU/Doc2X/自定義）已掛起。
 import { Download, RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import {
@@ -39,7 +39,7 @@ export function DocumentProcessingPanel({
         <SettingRow
           label={t('OCR 引擎', 'OCR engine')}
           description={t(
-            '圖片入庫前識別文字；關閉則跳過圖片文件。',
+            '圖片入庫前識別文字；關閉則跳過圖片檔案。',
             'Recognize text in images before indexing; off skips image files.',
           )}
         >
@@ -68,7 +68,7 @@ export function DocumentProcessingPanel({
         <SettingRow
           label={t('PDF 處理策略', 'PDF strategy')}
           description={t(
-            '默認讀取 PDF 文字層；掃描版強制 OCR 暫未啟用。',
+            '預設讀取 PDF 文字層；掃描版強制 OCR 暫未啟用。',
             'Reads the PDF text layer by default; force OCR for scans is not enabled yet.',
           )}
         >
@@ -86,7 +86,7 @@ export function DocumentProcessingPanel({
         {cfg.pdfStrategy === 'force_ocr' && (
           <p className="px-1 pb-1 text-[11px] text-amber-700 dark:text-amber-200">
             {t(
-              '內置僅支持 PDF 文字層，強制 OCR（掃描版）暫未啟用。',
+              '內建僅支援 PDF 文字層，強制 OCR（掃描版）暫未啟用。',
               'Built-in only supports the PDF text layer; force OCR (scanned PDFs) is not yet enabled.',
             )}
           </p>
@@ -95,7 +95,7 @@ export function DocumentProcessingPanel({
 
       <p className="text-xs leading-relaxed text-zinc-400 dark:text-zinc-500">
         {t(
-          '支持格式：txt / md / html / PDF（文字層）/ docx / xlsx；圖片 png/jpg/webp 等需開啟 OCR。',
+          '支援格式：txt / md / html / PDF（文字層）/ docx / xlsx；圖片 png/jpg/webp 等需開啟 OCR。',
           'Supported: txt, md, html, PDF (text layer), docx, xlsx; images (png/jpg/webp) require OCR.',
         )}
       </p>
@@ -103,7 +103,7 @@ export function DocumentProcessingPanel({
   )
 }
 
-/** RapidOCR 离线引擎的状态/下载组件，本地自管状态。 */
+/** RapidOCR 離線引擎的狀態/下載元件，本地自管狀態。 */
 function RapidOcrWidget({ t }: { t: (zh: string, en: string) => string }) {
   const [status, setStatus] = useState<RapidOcrStatus | null>(null)
   const [downloadState, setDownloadState] = useState<'idle' | 'downloading' | 'failed'>('idle')
@@ -151,7 +151,7 @@ function RapidOcrWidget({ t }: { t: (zh: string, en: string) => string }) {
               <div className="mt-0.5 break-all font-mono text-[11px] text-zinc-500">{status.modelDir}</div>
             )}
           </div>
-          <button onClick={refresh} className="kv-icon-btn" title={t('刷新', 'Refresh')}>
+          <button onClick={refresh} className="kv-icon-btn" title={t('重新整理', 'Refresh')}>
             <RefreshCw size={12} strokeWidth={2.25} />
           </button>
         </div>
@@ -166,7 +166,7 @@ function RapidOcrWidget({ t }: { t: (zh: string, en: string) => string }) {
               onClick={refresh}
               disabled={downloadState === 'downloading'}
               className="kv-icon-btn disabled:opacity-40"
-              title={t('刷新', 'Refresh')}
+              title={t('重新整理', 'Refresh')}
             >
               <RefreshCw size={12} strokeWidth={2.25} />
             </button>

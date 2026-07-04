@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
-// Pyodide 执行 Worker：把整个 Python 沙盒运行时关在这里。主线程用完后 terminate() 本 worker，
-// 即可把 Pyodide 的 WASM 线性内存（matplotlib/numpy 跑后可达数百 MB、且只增不减）整个还给 OS——
-// 这是在不关闭 chat 窗口的前提下唯一能真正回收 Pyodide 内存的办法。
+// Pyodide 執行 Worker：把整個 Python 沙盒執行時關在這裡。主執行緒用完後 terminate() 本 worker，
+// 即可把 Pyodide 的 WASM 線性記憶體（matplotlib/numpy 跑後可達數百 MB、且只增不減）整個還給 OS——
+// 這是在不關閉 chat 視窗的前提下唯一能真正回收 Pyodide 記憶體的辦法。
 import { runPythonInSandbox, type PythonInputFile } from './pyodideRunner'
 
 interface RunRequest {
@@ -17,7 +17,7 @@ self.onmessage = async (event: MessageEvent<RunRequest>) => {
     const outcome = await runPythonInSandbox(code, timeoutMs, files ?? [])
     self.postMessage({ id, outcome })
   } catch (err) {
-    // runPythonInSandbox 内部已兜底返回 isError 结果；这里只防御它自身抛出的意外。
+    // runPythonInSandbox 內部已兜底返回 isError 結果；這裡只防御它自身拋出的意外。
     const message = err instanceof Error ? err.message : String(err)
     self.postMessage({ id, error: message })
   }
