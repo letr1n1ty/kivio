@@ -761,7 +761,7 @@ export type Settings = {
       searchDepth: 'ultra-fast' | 'fast' | 'basic' | 'advanced'
     }
   }
-  settingsLanguage?: 'zh' | 'zh-TW' | 'en'
+  settingsLanguage?: 'zh' | 'zh-TW' | 'zh-Hant' | 'en'
   /** 首次使用引導：`pending` | `completed` | `skipped` */
   onboardingStatus?: 'pending' | 'completed' | 'skipped'
   /** 启动时静默检查 GH Releases 是否有新版（默认 true） */
@@ -1204,7 +1204,12 @@ function normalizeSettings(settings: Settings): Settings {
         searchDepth: current.lens?.webSearch?.searchDepth ?? 'basic',
       },
     },
-    settingsLanguage: current.settingsLanguage ?? 'zh',
+    settingsLanguage:
+      current.settingsLanguage === 'en'
+        ? 'en'
+        : current.settingsLanguage === 'zh'
+          ? 'zh'
+          : 'zh-TW',
     onboardingStatus: normalizeOnboardingStatus(current),
     autoCheckUpdate: current.autoCheckUpdate ?? true,
     imageArchiveEnabled: current.imageArchiveEnabled ?? false,
@@ -1221,10 +1226,12 @@ export type DefaultPromptTemplates = {
   selectedTextTranslationTemplate?: string
   lensPrompts: {
     zh: { system: string; question: string }
+    'zh-TW'?: { system: string; question: string }
     en: { system: string; question: string }
   }
   chatPrompts?: {
     zh: string
+    'zh-TW'?: string
     en: string
   }
 }

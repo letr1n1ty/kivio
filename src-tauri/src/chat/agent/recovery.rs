@@ -198,7 +198,7 @@ pub(crate) fn assemble_results_from_tool_records(
     /// 每条工具结果保留的最大字符数(只取首行)。
     const MAX_PREVIEW_CHARS: usize = 200;
 
-    let zh = language.starts_with("zh");
+    let zh = crate::locale::is_chinese_language(language);
     let mut blocks: Vec<String> = Vec::new();
     let mut overflow = 0usize;
     for record in records {
@@ -224,7 +224,13 @@ pub(crate) fn assemble_results_from_tool_records(
             .find(|l| !l.is_empty())
             .unwrap_or(preview);
         let clipped: String = if first_line.chars().count() > MAX_PREVIEW_CHARS {
-            format!("{}…", first_line.chars().take(MAX_PREVIEW_CHARS).collect::<String>())
+            format!(
+                "{}…",
+                first_line
+                    .chars()
+                    .take(MAX_PREVIEW_CHARS)
+                    .collect::<String>()
+            )
         } else {
             first_line.to_string()
         };
@@ -233,9 +239,15 @@ pub(crate) fn assemble_results_from_tool_records(
     if blocks.is_empty() {
         return String::new();
     }
-    let reason = failure_reason_line(kind, zh);
+    let reason = failure_reason(language, kind);
     let note = if zh {
-        format!("本轮已完成 {} 个工具调用,完整结果见上方卡片:", blocks.len() + overflow)
+        crate::locale::localize_zh_hans(
+            language,
+            format!(
+                "本轮已完成 {} 个工具调用,完整结果见上方卡片:",
+                blocks.len() + overflow
+            ),
+        )
     } else {
         format!(
             "Completed {} tool call(s) this round — full results are shown above:",
@@ -245,7 +257,7 @@ pub(crate) fn assemble_results_from_tool_records(
     let mut out = format!("{reason}\n\n{note}\n{}", blocks.join("\n"));
     if overflow > 0 {
         out.push_str(&if zh {
-            format!("\n…(另有 {overflow} 条见上方)")
+            crate::locale::localize_zh_hans(language, format!("\n…(另有 {overflow} 条见上方)"))
         } else {
             format!("\n… ({overflow} more above)")
         });
@@ -257,7 +269,7 @@ pub(crate) fn assemble_results_from_tool_records(
 /// 工具结果可降级时，至少给用户一条明确的上下文超长提示，而不是空字符串/笼统报错。
 /// 复用 `failure_reason_line` 的 ContextOverflow 文案，保持口径一致。
 pub(crate) fn overflow_static_message(language: &str) -> String {
-    failure_reason_line(FailureKind::ContextOverflow, language.starts_with("zh")).to_string()
+    failure_reason(language, FailureKind::ContextOverflow)
 }
 
 /// 一行人读的失败原因(按 `kind`)。这是修复「降级消息误导」的核心:429 就说限流,
@@ -299,6 +311,16 @@ fn failure_reason_line(kind: FailureKind, zh: bool) -> &'static str {
                 "⚠️ The model call failed. Retry or switch providers."
             }
         }
+    }
+}
+
+fn failure_reason(language: &str, kind: FailureKind) -> String {
+    let zh = crate::locale::is_chinese_language(language);
+    let line = failure_reason_line(kind, zh);
+    if zh {
+        crate::locale::localize_zh_hans(language, line.to_string())
+    } else {
+        line.to_string()
     }
 }
 
@@ -451,7 +473,9 @@ mod tests {
         // 真实原因行出现(限流),不再是误导的"可能上下文过长"。
         assert!(out.contains("限流") || out.contains("429"));
 
-        assert!(assemble_results_from_tool_records(&[], "zh-CN", FailureKind::Exhausted).is_empty());
+        assert!(
+            assemble_results_from_tool_records(&[], "zh-CN", FailureKind::Exhausted).is_empty()
+        );
     }
 
     #[test]
@@ -459,13 +483,29 @@ mod tests {
         // 单条超长 + 多行只保留首行裁剪;>8 条折叠为计数 —— 不再刷几百行。
         let long = "x".repeat(5000);
         let mut records: Vec<ToolCallRecord> = (0..12)
-            .map(|i| rec("read", ToolCallStatus::Success, Some(Box::leak(format!("行{i}首行\n{long}").into_boxed_str()))))
+            .map(|i| {
+                rec(
+                    "read",
+                    ToolCallStatus::Success,
+                    Some(Box::leak(format!("行{i}首行\n{long}").into_boxed_str())),
+                )
+            })
             .collect();
-        records.push(rec("read", ToolCallStatus::Success, Some(Box::leak(long.clone().into_boxed_str()))));
+        records.push(rec(
+            "read",
+            ToolCallStatus::Success,
+            Some(Box::leak(long.clone().into_boxed_str())),
+        ));
         let out = assemble_results_from_tool_records(&records, "en", FailureKind::Other);
         let lines = out.lines().count();
-        assert!(lines < 20, "degrade message must stay compact, got {lines} lines");
+        assert!(
+            lines < 20,
+            "degrade message must stay compact, got {lines} lines"
+        );
         assert!(!out.contains(&long), "must not dump the full long preview");
-        assert!(out.contains("more above"), "overflow tools should be folded into a count");
+        assert!(
+            out.contains("more above"),
+            "overflow tools should be folded into a count"
+        );
     }
 }

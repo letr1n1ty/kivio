@@ -94,14 +94,17 @@ pub fn apply_todo_write(arguments: Value) -> Result<TodoToolOutcome, String> {
 
 pub fn format_prompt(state: &AgentTodoState, language: &str, todo_tools_available: bool) -> String {
     let current = format_state_lines(state);
-    if language.starts_with("zh") {
+    if crate::locale::is_chinese_language(language) {
         let tool_hint = if todo_tools_available {
             "你可以使用 todo_write 维护这个列表（整表替换）。"
         } else {
             "当前请求没有可用的 todo 工具；只能把它作为上下文参考。"
         };
-        format!(
-            "Agent todo list（内部工作状态）：这个 todo list 由助手自己维护，用户不能手动编辑。{tool_hint} 对复杂、多步骤、需要持续跟进的任务，应保持简洁、可执行的条目；开始或切换任务时标记 in_progress，完成后标记 completed，最多只能有一个 in_progress。不要告诉用户他们可以编辑 todo。\n\n当前 todo 状态：\n{current}"
+        crate::locale::localize_zh_hans(
+            language,
+            format!(
+                "Agent todo list（内部工作状态）：这个 todo list 由助手自己维护，用户不能手动编辑。{tool_hint} 对复杂、多步骤、需要持续跟进的任务，应保持简洁、可执行的条目；开始或切换任务时标记 in_progress，完成后标记 completed，最多只能有一个 in_progress。不要告诉用户他们可以编辑 todo。\n\n当前 todo 状态：\n{current}"
+            ),
         )
     } else {
         let tool_hint = if todo_tools_available {
@@ -152,7 +155,10 @@ pub fn tool_result(state: &AgentTodoState, changed: &[String]) -> McpToolCallRes
         format!("Changed: {}\n\n", changed.join(", "))
     };
     McpToolCallResult {
-        content: format!("Todo list updated.\n\n{changed_line}{}", format_state_lines(state)),
+        content: format!(
+            "Todo list updated.\n\n{changed_line}{}",
+            format_state_lines(state)
+        ),
         is_error: false,
         raw: structured.clone(),
         artifacts: Vec::new(),

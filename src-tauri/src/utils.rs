@@ -13,14 +13,27 @@ pub fn provider_supports_thinking_field(base_url: &str) -> bool {
  * - 否则目标语言为中文
  */
 pub fn resolve_target_lang(target: &str, text: &str) -> String {
+    resolve_target_lang_with_preference(target, text, "zh")
+}
+
+pub fn resolve_target_lang_with_preference(
+    target: &str,
+    text: &str,
+    preferred_chinese: &str,
+) -> String {
     if target == "auto" {
         if has_chinese(text) {
             "en".to_string()
         } else {
-            "zh".to_string()
+            crate::locale::normalize_model_language(preferred_chinese).to_string()
         }
     } else {
-        target.to_string()
+        match target.trim() {
+            "zh-TW" | "zh-Hant" => "zh-Hant".to_string(),
+            "zh" | "zh-CN" | "zh-Hans" => "zh".to_string(),
+            "en" | "ja" | "ko" | "fr" | "de" => target.trim().to_string(),
+            other => other.to_string(),
+        }
     }
 }
 
@@ -36,13 +49,59 @@ pub fn has_chinese(text: &str) -> bool {
  */
 pub fn language_name(code: &str) -> &'static str {
     match code {
-        "zh" | "zh-Hans" => "Simplified Chinese",
-        "zh-Hant" => "Traditional Chinese",
-        "en" => "English",
         "ja" => "Japanese",
         "ko" => "Korean",
         "fr" => "French",
         "de" => "German",
-        _ => "English",
+        "en" => "English",
+        _ => crate::locale::AppLocale::from_code(code).language_name(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn target_lang_auto_respects_traditional_chinese_preference() {
+        assert_eq!(
+            resolve_target_lang_with_preference("auto", "hello", "zh-TW"),
+            "zh-Hant"
+        );
+        assert_eq!(
+            resolve_target_lang_with_preference("auto", "hello", "zh-Hant"),
+            "zh-Hant"
+        );
+        assert_eq!(
+            resolve_target_lang_with_preference("auto", "hello", "zh"),
+            "zh"
+        );
+    }
+
+    #[test]
+    fn target_lang_preserves_non_chinese_languages() {
+        assert_eq!(
+            resolve_target_lang_with_preference("ja", "hello", "zh-TW"),
+            "ja"
+        );
+        assert_eq!(
+            resolve_target_lang_with_preference("ko", "hello", "zh-TW"),
+            "ko"
+        );
+        assert_eq!(
+            resolve_target_lang_with_preference("fr", "hello", "zh-TW"),
+            "fr"
+        );
+        assert_eq!(
+            resolve_target_lang_with_preference("de", "hello", "zh-TW"),
+            "de"
+        );
+    }
+
+    #[test]
+    fn language_names_include_zh_tw_alias() {
+        assert_eq!(language_name("zh-TW"), "Traditional Chinese");
+        assert_eq!(language_name("zh-Hant"), "Traditional Chinese");
+        assert_eq!(language_name("zh"), "Simplified Chinese");
     }
 }

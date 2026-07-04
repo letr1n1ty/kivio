@@ -2,7 +2,7 @@ import { lazy, Suspense, useState, useEffect, useLayoutEffect, useRef, useCallba
 import { Settings as SettingsIcon, Cpu } from 'lucide-react'
 import { listen } from '@tauri-apps/api/event'
 import { api } from './api/tauri'
-import { i18n, type Lang } from './settings/i18n'
+import { i18n, normalizeLang, type Lang } from './settings/i18n'
 import { useWindowInteractionFocus } from './utils/windowFocus'
 import { ChatWindowHost } from './chat/ChatWindowHost'
 import {
@@ -233,7 +233,7 @@ function App() {
   const [mode, setMode] = useState(getMode)
   const [themeMode, setThemeMode] = useState<'system' | 'light' | 'dark'>('system')
   const [translateSource, setTranslateSource] = useState<string>('')
-  const [lang, setLang] = useState<Lang>('zh')
+  const [lang, setLang] = useState<Lang>('zh-TW')
 
   useEffect(() => {
     const path = hashPath()
@@ -265,7 +265,7 @@ function App() {
     void api.setChatWindowBackground(isDark)
     document.documentElement.dataset.themeColor = normalizeThemeColorId(settings.themeColor)
     setTranslateSource(settings.translatorModel || 'AI')
-    setLang((settings.settingsLanguage as Lang) || 'zh')
+    setLang(normalizeLang(settings.settingsLanguage))
     // 首次应用主题后（下一帧）再开启主题色过渡，避免初始 light↔dark 闪烁；
     // 之后用户切换主题/系统主题变化时才平滑过渡。classList.add 幂等。
     requestAnimationFrame(() => {
