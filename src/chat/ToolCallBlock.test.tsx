@@ -21,7 +21,7 @@ describe('ToolCallBlock', () => {
     // Cursor-style row: 動詞 + 目標（檔名 basename）
     expect(within(button).getByText('讀取')).toBeInTheDocument()
     expect(within(button).getByText('README.md')).toBeInTheDocument()
-    // 已刪除的後綴 / 全路徑不再出現在折疊列
+    // 已刪除的字尾 / 全路徑不再出現在折疊列
     expect(within(button).queryByText(/已完成/)).not.toBeInTheDocument()
     expect(within(button).queryByText(/Kivio/)).not.toBeInTheDocument()
     expect(within(button).queryByText(/file contents loaded/)).not.toBeInTheDocument()
@@ -57,7 +57,7 @@ describe('ToolCallBlock', () => {
     await user.click(button)
     const detail = screen.getByText(/permission denied/)
     expect(detail).toBeInTheDocument()
-    // 错误不再标红
+    // 錯誤不再標紅
     expect(detail.className).not.toContain('text-red-500')
   })
 

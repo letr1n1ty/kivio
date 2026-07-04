@@ -6,8 +6,8 @@ export type OnboardingStepId =
   | 'hotkey'
   | 'done'
 
-// 不做语言选择步：首次运行按系统语言自动设定（见 OnboardingShell 的 detectSystemLang），
-// 之后可在「设置 → 基础」里随时改。
+// 不做語言選擇步：首次執行按系統語言自動設定（見 OnboardingShell 的 detectSystemLang），
+// 之後可在「設定 → 基礎」裡隨時改。
 export const ONBOARDING_STEPS: OnboardingStepId[] = [
   'welcome',
   'provider',

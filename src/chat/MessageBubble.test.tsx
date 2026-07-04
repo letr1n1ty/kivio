@@ -239,7 +239,7 @@ describe('MessageBubble timeline grouping', () => {
 
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByText('planning details')).toBeInTheDocument()
-    // 展开后组内工具块挂载：Cursor 式动词 Read + 目标（文件名）
+    // 展開後組內工具塊掛載：Cursor 式動詞 Read + 目標（檔名）
     expect(screen.getByText('a.ts')).toBeInTheDocument()
   })
 
@@ -294,7 +294,7 @@ describe('MessageBubble timeline grouping', () => {
 
     await user.click(screen.getByRole('button', { name: /編輯 20 個檔案/ }))
 
-    expect(screen.getAllByText('Write')).toHaveLength(toolCount)
+    expect(screen.getAllByText('寫入')).toHaveLength(toolCount)
     expect(screen.getAllByText('file-0.ts').length).toBeGreaterThan(0)
   })
 

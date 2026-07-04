@@ -17,7 +17,7 @@ type OnboardingShellProps = {
   onSettingsChange?: () => void
 }
 
-/** 首次运行按系统语言（浏览器/系统 locale）自动选定界面语言：中文 locale → zh，其余 → en。 */
+/** 首次執行按系統語言（瀏覽器/系統 locale）自動選定介面語言：中文 locale → zh，其餘 → en。 */
 function detectSystemLang(): Lang {
   const raw = (
     (typeof navigator !== 'undefined' && (navigator.language || navigator.languages?.[0])) || ''
@@ -43,7 +43,7 @@ export function OnboardingShell({ onComplete, onSkip, onSettingsChange }: Onboar
     setLoadError(null)
     try {
       const loaded = await api.getSettings()
-      // 首次运行无需让用户选语言：按系统语言自动设定，欢迎页起即本地化。
+      // 首次執行無需讓使用者選語言：按系統語言自動設定，歡迎頁起即本機化。
       setSettings({ ...loaded, settingsLanguage: detectSystemLang() })
     } catch (err) {
       console.error('Failed to load settings for onboarding:', err)

@@ -46,7 +46,7 @@ function ModelSelectorBase({
   }, [loadProviders])
 
   const activeProviders = providers.filter(isProviderEnabled)
-  // 只显示有可选模型的服务商，避免没配置模型的服务商变成空的分组标题。
+  // 只顯示有可選模型的供應商，避免沒配置模型的供應商變成空的分組標題。
   const visibleProviders = activeProviders
     .map((provider) => ({
       provider,

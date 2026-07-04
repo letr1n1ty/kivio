@@ -319,7 +319,7 @@ export function ProviderSetupPanel({ t, lang, settings, onChange }: ProviderSetu
   }
 
   const hasAnyEnabledModels = settings.providers.some((item) => item.enabledModels.length > 0)
-  // 未添加过的预设直接以「+ 名称」虚线 chip 混排在服务商列表尾部，避免「已添加」和「快速添加」两块重复列表。
+  // 未新增過的預設直接以「+ 名稱」虛線 chip 混排在供應商列表尾部，避免「已新增」和「快速新增」兩塊重複列表。
   const unaddedPresets = PROVIDER_PRESETS.filter(
     (preset) => !settings.providers.some((item) => isPresetMatch(item, preset)),
   )
@@ -404,7 +404,7 @@ export function ProviderSetupPanel({ t, lang, settings, onChange }: ProviderSetu
                 mono
               />
               {(() => {
-                // 命中快速预设 baseUrl 时，给出「获取 API Key」外链引导申请（与设置页一致）。
+                // 命中快速預設 baseUrl 時，給出「取得 API Key」外鏈引導申請（與設定頁一致）。
                 const preset = PROVIDER_PRESETS.find(
                   (p) => p.baseUrl === provider.baseUrl && p.apiKeyUrl,
                 )
@@ -416,7 +416,7 @@ export function ProviderSetupPanel({ t, lang, settings, onChange }: ProviderSetu
                     className="inline-flex w-fit items-center text-[12px] text-indigo-500 hover:underline dark:text-indigo-300"
                     data-tauri-drag-region="false"
                   >
-                    {lang === 'zh' ? `获取 ${preset.name} API Key ↗` : `Get ${preset.name} API key ↗`}
+                    {lang.startsWith('zh') ? `取得 ${preset.name} API Key ↗` : `Get ${preset.name} API key ↗`}
                   </button>
                 )
               })()}

@@ -10,7 +10,7 @@ type ProviderSortableListProps = {
   providerNameLabel: string
   onSelect: (id: string) => void
   onReorder: (fromId: string, toId: string) => void
-  /** 追加在真实供应商项之后、同一列表容器内的节点（如快速预设项），保证连续排列不被撑到底部。 */
+  /** 追加在真實供應商項之後、同一列表容器內的節點（如快速預設項），保證連續排列不被撐到底部。 */
   trailing?: ReactNode
 }
 

@@ -4191,7 +4191,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                           <FieldBlock label={t.apiKey} description={t.apiKeysHint}>
                             <div className="space-y-1.5">
                               {(() => {
-                                // 命中快速预设 baseUrl 时，给出「获取 API Key」外链引导用户申请。
+                                // 命中快速預設 baseUrl 時，給出「取得 API Key」外鏈引導使用者申請。
                                 const preset = PROVIDER_PRESETS.find(
                                   (p) => p.baseUrl === provider.baseUrl && p.apiKeyUrl,
                                 )
@@ -4203,7 +4203,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                                     className="inline-flex w-fit items-center gap-0.5 text-[12px] text-indigo-500 hover:underline dark:text-indigo-300"
                                     data-tauri-drag-region="false"
                                   >
-                                    {lang === 'zh' ? `获取 ${preset.name} API Key ↗` : `Get ${preset.name} API key ↗`}
+                                    {lang.startsWith('zh') ? `取得 ${preset.name} API Key ↗` : `Get ${preset.name} API key ↗`}
                                   </button>
                                 )
                               })()}

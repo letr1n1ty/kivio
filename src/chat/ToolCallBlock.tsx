@@ -869,15 +869,15 @@ function firstString(...values: unknown[]): string {
   return ''
 }
 
-/** 只取路径最后一段（Cursor 行内用文件名而非全路径）：`src/a/Lens.tsx` → `Lens.tsx`。 */
+/** 只取路徑最後一段（Cursor 行內用檔名而非全路徑）：`src/a/Lens.tsx` → `Lens.tsx`。 */
 function basename(path: string): string {
   const trimmed = path.trim().replace(/[\\/]+$/, '')
   const idx = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'))
   return idx >= 0 ? trimmed.slice(idx + 1) : trimmed
 }
 
-/** read 的行号范围 `L起-止`：优先用结果里的真实 start/end（structured_content 保留了
- *  ReadFileResult），流式未出结果时回退到请求窗口 offset/limit；整文件读取则为空。 */
+/** read 的行號範圍 `L起-止`：優先用結果裡的真實 start/end（structured_content 保留了
+ *  ReadFileResult），流式未出結果時回退到請求視窗 offset/limit；整檔案讀取則為空。 */
 function readLineLabel(toolCall: ToolCallRecord, args: Record<string, unknown> | null): string {
   const structured = objectValue(toolCall.structured_content ?? toolCall.structuredContent)
   const start = numberValue(structured?.start_line ?? structured?.startLine)
@@ -889,8 +889,8 @@ function readLineLabel(toolCall: ToolCallRecord, args: Record<string, unknown> |
   return ''
 }
 
-/** 折叠行的「目标」：以输入参数为主（文件名 / 命令 / pattern / url），不含动词、不含结果。
- *  Cursor 风格 —— 行内只呈现「动词 + 目标」，其余细节（结果、diff、错误）放展开区。 */
+/** 摺疊行的「目標」：以輸入引數為主（檔名 / 命令 / pattern / url），不含動詞、不含結果。
+ *  Cursor 風格 —— 行內只呈現「動詞 + 目標」，其餘細節（結果、diff、錯誤）放展開區。 */
 function getToolTarget(toolCall: ToolCallRecord): string {
   const raw = toolRawName(toolCall)
   const args = parsedArguments(toolCall)
@@ -959,8 +959,8 @@ function getToolTarget(toolCall: ToolCallRecord): string {
     }
   })()
   if (primary) return primary
-  // run_python 只显示动词「Python」，不追加目标；其余工具（含参数尚未解析出的情况）
-  // 回退到已有的输入参数摘要（todo / mixer / skill / MCP 及流式占位 argumentPreview）。
+  // run_python 只顯示動詞「Python」，不追加目標；其餘工具（含引數尚未解析出的情況）
+  // 回退到已有的輸入引數摘要（todo / mixer / skill / MCP 及流式佔位 argumentPreview）。
   if (raw === 'run_python') return ''
   return getArgumentPreview(toolCall)
 }

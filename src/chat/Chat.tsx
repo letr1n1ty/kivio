@@ -973,8 +973,8 @@ export default function Chat({ onSettingsChange }: ChatProps) {
   const storedActiveSkillId = currentConversation
     ? currentConversation.active_skill_id ?? currentConversation.activeSkillId ?? null
     : null
-  // 当前会话自身所属项目（id + 名 folder）。传给输入栏，使从「最近」打开的项目内对话
-  // 也能在项目按钮上显示其项目，即便导航态 selectedProject 已被清空。
+  // 當前會話自身所屬專案（id + 名 folder）。傳給輸入欄，使從「最近」開啟的專案內對話
+  // 也能在專案按鈕上顯示其專案，即便導航態 selectedProject 已被清空。
   const conversationProject = useMemo<{ id: string; name: string } | null>(() => {
     const id = currentConversation?.project_id ?? currentConversation?.projectId ?? null
     if (!id) return null

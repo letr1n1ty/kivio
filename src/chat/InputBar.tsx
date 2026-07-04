@@ -389,8 +389,8 @@ interface InputBarProps {
   enabledSkills?: SlashSkill[]
   onOpenSkillSettings?: () => void
   selectedProject?: ChatProject | null
-  // 当前会话自身所属的项目（id + 名）。用于在没有 selectedProject（导航态）时，
-  // 让项目按钮仍反映"这条会话属于哪个项目"——例如从「最近」打开一条项目内的对话。
+  // 當前會話自身所屬的專案（id + 名）。用於在沒有 selectedProject（導航態）時，
+  // 讓專案按鈕仍反映"這條會話屬於哪個專案"——例如從「最近」開啟一條專案內的對話。
   conversationProject?: { id: string; name: string } | null
   onSelectProject?: (project: ChatProject | null) => void | Promise<void>
   showProjectEntry?: boolean

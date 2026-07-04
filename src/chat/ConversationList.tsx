@@ -6,8 +6,8 @@ import {
   type ConversationMenuAnchor,
 } from './ConversationContextMenu'
 
-/** 对话所属分组标签：优先「集 · 名」，否则项目名（按 project_id，退回 folder===项目名）。
- *  与 Sidebar 搜索弹层的显示逻辑一致。无归属时返回空串。 */
+/** 對話所屬分組標籤：優先「集 · 名」，否則專案名（按 project_id，退回 folder===專案名）。
+ *  與 Sidebar 搜尋彈層的顯示邏輯一致。無歸屬時返回空串。 */
 function conversationFolderLabel(
   conv: ConversationListItem,
   projects: ChatProject[],
@@ -35,8 +35,8 @@ interface ConversationListProps {
   emptyLabel?: string
   indent?: boolean
   showAssistantName?: boolean
-  // 「最近」平铺列表用：在每条对话右侧显示其所属「集 / 项目」标签（与搜索弹层一致）。
-  // 项目/集 tab 的嵌套列表不传（已在该分组下，标签冗余）。
+  // 「最近」平鋪列表用：在每條對話右側顯示其所屬「集 / 專案」標籤（與搜尋彈層一致）。
+  // 專案/集 tab 的巢狀列表不傳（已在該分組下，標籤冗餘）。
   showFolderLabel?: boolean
   onSelectConversation: (id: string) => void
   onRenameConversation: (id: string, title: string) => Promise<void>

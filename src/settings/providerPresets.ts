@@ -5,7 +5,7 @@ export type ProviderPreset = {
   name: string
   /** OpenAI-compatible base URL, usually including /v1. */
   baseUrl: string
-  /** 申请 API Key 的页面（在 API 密钥区显示「获取 API Key」引导链接）。本地/无需 key 的可省略。 */
+  /** 申請 API Key 的頁面（在 API 金鑰區顯示「取得 API Key」引導連結）。本機/無需 key 的可省略。 */
   apiKeyUrl?: string
 }
 

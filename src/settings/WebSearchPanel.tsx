@@ -5,7 +5,7 @@ import type { I18n, Lang } from './i18n'
 import { Input, Select, SettingRow, SettingsGroup, TextArea, Toggle } from './components'
 
 type WebSearchConfig = NonNullable<Settings['lens']['webSearch']>
-/** 后端已接入的搜索源（settings 的 provider 枚举值）。 */
+/** 後端已接入的搜尋源（settings 的 provider 列舉值）。 */
 type ProviderId = 'tavily' | 'exa' | 'exa_mcp' | 'ollama' | 'grok'
 
 type WebSearchPanelProps = {
@@ -36,18 +36,18 @@ type ProviderDef = {
   name: string
   site: string
   apiKeyUrl?: string
-  /** 使用哪个密钥字段；ExaMCP 无需密钥则留空。 */
+  /** 使用哪個金鑰欄位；ExaMCP 無需金鑰則留空。 */
   keyField?: 'tavilyApiKey' | 'exaApiKey' | 'ollamaApiKey' | 'grokApiKey'
-  /** API Key 输入框占位符。 */
+  /** API Key 輸入框佔位符。 */
   keyPlaceholder?: string
-  /** 只读展示的固定 endpoint。 */
+  /** 只讀展示的固定 endpoint。 */
   endpoint?: string
-  /** 可编辑 endpoint（写入 exaMcpUrl）。 */
+  /** 可編輯 endpoint（寫入 exaMcpUrl）。 */
   editableEndpoint?: boolean
   supportsDepth?: boolean
-  /** 模型驱动搜索（Grok）：额外显示 型号 / 自定义网址 / 系统提示。 */
+  /** 模型驅動搜尋（Grok）：額外顯示 型號 / 自訂網址 / 系統提示。 */
   modelBased?: boolean
-  /** 本地品牌图标路径（public/），无则回退到文字标。 */
+  /** 本機品牌圖示路徑（public/），無則回退到文字標。 */
   icon?: string
 }
 
@@ -77,7 +77,7 @@ const PROVIDERS: ProviderDef[] = [
     id: 'exa_mcp',
     name: 'ExaMCP',
     site: 'https://docs.exa.ai/reference/exa-mcp',
-    // Exa MCP 无需 API Key，只需 endpoint。
+    // Exa MCP 無需 API Key，只需 endpoint。
     editableEndpoint: true,
     icon: '/search-icons/exa.png',
   },
@@ -103,7 +103,7 @@ const PROVIDERS: ProviderDef[] = [
   },
 ]
 
-/** 品牌图标：优先本地真实 logo（public/search-icons），加载失败回退到灰底首字母。 */
+/** 品牌圖示：優先本機真實 logo（public/search-icons），載入失敗回退到灰底首字母。 */
 function ProviderMark({ name, icon, size = 20 }: { name: string; icon?: string; size?: number }) {
   const [failed, setFailed] = useState(false)
   if (icon && !failed) {
@@ -173,7 +173,7 @@ type TestState =
   | { status: 'ok'; count: number; results: { title: string; url: string }[] }
   | { status: 'error'; message: string }
 
-/** 测试搜索：用当前（可能未保存的）配置真实跑一次搜索，展示结果或错误。 */
+/** 測試搜尋：用當前（可能未儲存的）配置真實跑一次搜尋，展示結果或錯誤。 */
 function TestSearch({ t, config }: { t: I18n; config: WebSearchConfig }) {
   const [query, setQuery] = useState('')
   const [state, setState] = useState<TestState>({ status: 'idle' })
@@ -265,7 +265,7 @@ export function WebSearchPanel({ t, lang, webSearch, onChange }: WebSearchPanelP
 
   return (
     <div className="websearch-panel-root flex min-h-full items-stretch gap-0">
-      {/* 左侧二级侧边栏：搜索服务商 */}
+      {/* 左側二級側邊欄：搜尋供應商 */}
       <nav className="relative flex h-full min-h-full w-44 shrink-0 flex-col self-stretch pr-3">
         <div
           className="pointer-events-none absolute inset-y-0 right-0 w-px bg-zinc-200/80 dark:bg-zinc-800"
@@ -303,9 +303,9 @@ export function WebSearchPanel({ t, lang, webSearch, onChange }: WebSearchPanelP
         </div>
       </nav>
 
-      {/* 右侧内容 */}
+      {/* 右側內容 */}
       <div className="min-w-0 flex-1 pl-5">
-        {/* Hero 头部：名称 + 外链 + 默认控制 */}
+        {/* Hero 頭部：名稱 + 外鏈 + 預設控制 */}
         <div className="mb-5 flex items-center gap-3 border-b border-zinc-200/70 pb-4 dark:border-zinc-800">
           <ProviderMark name={selected.name} icon={selected.icon} size={32} />
           <div className="min-w-0">
@@ -442,11 +442,11 @@ export function WebSearchPanel({ t, lang, webSearch, onChange }: WebSearchPanelP
             )}
           </SettingsGroup>
 
-          {/* key 绑定当前查看的服务商：切换时重置测试状态；provider 覆盖为 selected.id，
-              确保测试的是"正在查看"的服务商，而非已保存的默认服务商。 */}
+          {/* key 繫結當前檢視的供應商：切換時重置測試狀態；provider 覆蓋為 selected.id，
+              確保測試的是"正在檢視"的供應商，而非已儲存的預設供應商。 */}
           <TestSearch key={selected.id} t={t} config={{ ...config, provider: selected.id }} />
 
-          {/* 结果数量对模型驱动搜索（Grok，返回合成答案）无意义，故隐藏。 */}
+          {/* 結果數量對模型驅動搜尋（Grok，返回合成答案）無意義，故隱藏。 */}
           {!selected.modelBased && (
             <SettingsGroup title={t.webSearchGeneralSection}>
               <SettingRow label={t.lensWebSearchMaxResults}>
@@ -474,8 +474,8 @@ export function WebSearchPanel({ t, lang, webSearch, onChange }: WebSearchPanelP
           </SettingsGroup>
 
           <p className="kv-row-desc px-1">
-            {lang === 'zh'
-              ? 'Chat 联网开关在 MCP → 内置工具。'
+            {lang.startsWith('zh')
+              ? 'Chat 網路開關在 MCP → 內建工具。'
               : 'Chat web toggles: MCP → Built-in tools.'}
           </p>
         </div>
