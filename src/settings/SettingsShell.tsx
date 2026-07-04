@@ -2404,7 +2404,7 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                 </SettingsGroup>
 
                 <SettingsGroup title={lang.startsWith('zh') ? '行為' : 'Behavior'}>
-                  <SettingRow label={t.launchAtStartup} description={lang.startsWith('zh') ? '登錄後在後臺啟動 Kivio。' : 'Open Kivio in the background when you sign in.'}>
+                  <SettingRow label={t.launchAtStartup} description={lang.startsWith('zh') ? '登入後在背景啟動 Kivio。' : 'Open Kivio in the background when you sign in.'}>
                     <Toggle
                       checked={settings.launchAtStartup ?? false}
                       onChange={(v) => updateSettings({ launchAtStartup: v })}
@@ -2430,6 +2430,16 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                       />
                     </SettingRow>
                   )}
+                  <SettingRow label={t.onboardingRestart} description={t.onboardingRestartDesc}>
+                    <button
+                      type="button"
+                      className="kv-btn sm"
+                      onClick={handleRestartOnboarding}
+                      data-tauri-drag-region="false"
+                    >
+                      {t.onboardingRestart}
+                    </button>
+                  </SettingRow>
                 </SettingsGroup>
 
                 <SettingsGroup title={lang.startsWith('zh') ? '備份與恢復' : 'Backup & Restore'}>
