@@ -817,7 +817,7 @@ function getToolName(toolCall: ToolCallRecord): string {
   // read/write/edit/bash/grep/find/ls — plus legacy aliases (read_file/…/
   // run_command) and the removed path tools — display their raw tool name.
   if (raw === 'run_python') return 'Python'
-  if (raw === 'web_search') return '聯網搜尋'
+  if (raw === 'web_search') return '網路搜尋'
   if (raw === 'web_fetch') return '網頁抓取'
   if (raw === 'knowledge_search') return '知識庫檢索'
   if (raw === 'mixer_vision') return '混音器視覺分析'
@@ -899,7 +899,7 @@ function getResultPreview(toolCall: ToolCallRecord): string {
       ? args.relativePath
       : ''
   if (rawName === 'skill_run_script' && relativePath.endsWith('pdf_extract_digest.py')) {
-    return '已提取 PDF 文本並生成摘要上下文'
+    return '已提取 PDF 文字並生成摘要上下文'
   }
   if (rawName === 'todo_write' || rawName === 'todo_update') {
     if (normalizeToolCallStatus(toolCall.status) !== 'completed') return ''

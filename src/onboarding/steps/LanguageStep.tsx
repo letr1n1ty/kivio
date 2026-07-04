@@ -14,7 +14,7 @@ export function LanguageStep({ t, lang, onChange }: LanguageStepProps) {
     <OnboardingStepFrame title={t.onboardingLanguageTitle} subtitle={t.onboardingLanguageDesc}>
       <div className="onboarding-panel">
         <div className="onboarding-panel-section onboarding-panel-section--compact">
-          <OnboardingFormRow label={lang === 'zh' ? '顯示語言' : 'Display language'} stack>
+          <OnboardingFormRow label={lang.startsWith('zh') ? '顯示語言' : 'Display language'} stack>
             <div className="kv-seg">
               <button
                 type="button"
@@ -23,6 +23,14 @@ export function LanguageStep({ t, lang, onChange }: LanguageStepProps) {
                 data-tauri-drag-region="false"
               >
                 中文
+              </button>
+              <button
+                type="button"
+                className={lang === 'zh-TW' ? 'active' : ''}
+                onClick={() => onChange('zh-TW')}
+                data-tauri-drag-region="false"
+              >
+                繁體中文
               </button>
               <button
                 type="button"

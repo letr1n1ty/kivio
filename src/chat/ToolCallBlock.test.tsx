@@ -115,6 +115,6 @@ describe('ToolCallBlock', () => {
     )
     const button = screen.getByRole('button', { name: /grep/i })
     expect(within(button).getByText(/正在生成工具引數/)).toBeInTheDocument()
-    expect(within(button).queryByText(/搜尋文本/)).not.toBeInTheDocument()
+    expect(within(button).queryByText(/搜尋文字/)).not.toBeInTheDocument()
   })
 })
