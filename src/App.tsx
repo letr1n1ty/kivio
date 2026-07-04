@@ -247,7 +247,9 @@ function App() {
     const settings = await api.getSettings()
     const nextMode = (settings.theme || 'system') as 'system' | 'light' | 'dark'
     setThemeMode(nextMode)
-    const isDark = nextMode === 'dark' || (nextMode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    const themeColor = normalizeThemeColorId(settings.themeColor)
+    const isDark = nextMode === 'dark'
+      || (nextMode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
     if (isDark) {
       document.documentElement.classList.add('dark')
     } else {
@@ -255,7 +257,7 @@ function App() {
     }
     // 同步 chat 窗口原生背景（Windows 不透明窗口），避免伸缩时露白底闪烁。其他窗口/平台 no-op。
     void api.setChatWindowBackground(isDark)
-    document.documentElement.dataset.themeColor = normalizeThemeColorId(settings.themeColor)
+    document.documentElement.dataset.themeColor = themeColor
     setTranslateSource(settings.translatorModel || 'AI')
     setLang((settings.settingsLanguage as Lang) || 'zh')
     // 首次应用主题后（下一帧）再开启主题色过渡，避免初始 light↔dark 闪烁；

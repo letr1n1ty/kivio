@@ -45,7 +45,11 @@ import { ModelDetailDrawer } from '../components/ModelDetailDrawer'
 import { resolveModelInfo } from '../data/modelMatching'
 import { useWindowInteractionFocus } from '../utils/windowFocus'
 import { hasEnabledNativeBuiltinTool, hasEnabledSkillRuntime } from '../utils/chatTools'
-import { THEME_COLOR_PRESETS, normalizeThemeColorId } from '../themeColors'
+import {
+  THEME_COLOR_PRESETS,
+  normalizeThemeColorId,
+  type ThemeColorPreset,
+} from '../themeColors'
 import {
   Toggle, Select, Input, TextArea,
   SettingRow, PermissionItem, HotkeyInput,
@@ -76,6 +80,11 @@ const SUB_AGENT_CONCURRENCY_PRESETS = [3, 6, 12, 24, 48]
 const SUB_AGENT_CONCURRENCY_MIN = 1
 const SUB_AGENT_CONCURRENCY_MAX = 64
 const textEncoder = new TextEncoder()
+
+function resolveThemePreviewIsDark(theme: SettingsData['theme'] | undefined): boolean {
+  return theme === 'dark'
+    || (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+}
 
 function utf8ByteLength(value: string): number {
   return textEncoder.encode(value).length
@@ -648,15 +657,38 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
   const [reloadKey, setReloadKey] = useState(0)
   const saveSuccessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const readyEmittedRef = useRef(false)
+  const onSettingsChangeRef = useRef(onSettingsChange)
 
   const lang = settings?.settingsLanguage || 'zh'
   const t = i18n[lang]
   const themeColor = normalizeThemeColorId(settings?.themeColor)
+  const hasLoadedSettings = settings !== null
+  const previewTheme = settings?.theme
+  const previewThemeColor = settings?.themeColor
   const chatTools = settings?.chatTools || defaultChatTools()
   const nativeBuiltinToolsEnabled = hasEnabledNativeBuiltinTool(chatTools.nativeTools)
   const skillRuntimeEnabled = hasEnabledSkillRuntime(chatTools.nativeTools)
   // 判断是否有未保存的更改
   const hasUnsavedChanges = settings ? stableStringify(settings) !== initialSettingsSnapshot : false
+
+  useEffect(() => {
+    onSettingsChangeRef.current = onSettingsChange
+  }, [onSettingsChange])
+
+  useEffect(() => {
+    if (!hasLoadedSettings) return
+    const nextThemeColor = normalizeThemeColorId(previewThemeColor)
+    const isDark = resolveThemePreviewIsDark(previewTheme)
+    document.documentElement.classList.toggle('dark', isDark)
+    document.documentElement.dataset.themeColor = nextThemeColor
+    void api.setChatWindowBackground(isDark)
+  }, [hasLoadedSettings, previewTheme, previewThemeColor])
+
+  useEffect(() => {
+    return () => {
+      onSettingsChangeRef.current()
+    }
+  }, [])
 
   // 客户端热键冲突检测:在保存前发现"两个启用功能用了同一个组合"。
   // OS 层面的冲突(Spotlight 占用 Cmd+Space 等)仍需保存后从后端拿到结果。
@@ -2327,9 +2359,16 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                       ))}
                     </div>
                   </SettingRow>
-                  <SettingRow label={t.themeColor}>
+                  <SettingRow
+                    label={t.themeColor}
+                    description={
+                      lang.startsWith('zh')
+                        ? '選擇 Kivio 的色彩主題；會依目前外觀自動使用淺色或深色配置。'
+                        : 'Choose Kivio color theme. It adapts to the current light or dark appearance.'
+                    }
+                  >
                     <div className="kv-theme-colors" role="radiogroup" aria-label={t.themeColor}>
-                      {THEME_COLOR_PRESETS.map((preset) => {
+                      {THEME_COLOR_PRESETS.map((preset: ThemeColorPreset) => {
                         const active = themeColor === preset.id
                         return (
                           <button
@@ -2340,10 +2379,16 @@ export const SettingsShell = forwardRef<SettingsShellHandle, SettingsShellProps>
                             role="radio"
                             aria-checked={active}
                             aria-label={preset.labels[lang]}
-                            title={`${preset.labels[lang]} ${preset.hex}`}
+                            title={`${preset.labels[lang]} ${preset.lightHex} / ${preset.darkHex}`}
                             data-tauri-drag-region="false"
                           >
-                            <span style={{ background: preset.hex }} />
+                            <span
+                              style={{
+                                background: `linear-gradient(135deg, ${preset.lightHex} 0%, ${preset.lightHex} 50%, ${preset.darkHex} 50%, ${preset.darkHex} 100%)`,
+                              }}
+                            >
+                              <i style={{ background: preset.accentHex }} />
+                            </span>
                           </button>
                         )
                       })}
