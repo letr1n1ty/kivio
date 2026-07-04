@@ -56,13 +56,13 @@ export function ProjectContextMenu({
         }}
       >
         <Pencil size={16} strokeWidth={1.75} className="shrink-0 text-neutral-500" />
-        重命名
+        重新命名
       </button>
       <button
         type="button"
         role="menuitem"
         disabled={!hasRootFolder}
-        title={hasRootFolder ? undefined : '请先在项目设置中选择文件夹'}
+        title={hasRootFolder ? undefined : '請先在專案設定中選擇資料夾'}
         className="flex w-full items-center gap-3 px-3.5 py-2 text-left text-[13px] text-neutral-800 transition-colors hover:bg-black/[0.04] disabled:cursor-default disabled:opacity-40 dark:text-neutral-100 dark:hover:bg-white/[0.06] dark:disabled:hover:bg-transparent"
         onClick={() => {
           if (!hasRootFolder) return
@@ -71,7 +71,7 @@ export function ProjectContextMenu({
         }}
       >
         <FolderOpen size={16} strokeWidth={1.75} className="shrink-0 text-neutral-500" />
-        打开项目文件夹
+        開啟專案資料夾
       </button>
       <div className="my-1 border-t border-neutral-200/80 dark:border-neutral-700" />
       <button
@@ -84,7 +84,7 @@ export function ProjectContextMenu({
         }}
       >
         <Trash2 size={16} strokeWidth={1.75} className="shrink-0" />
-        删除项目
+        刪除專案
       </button>
     </div>,
     document.body,

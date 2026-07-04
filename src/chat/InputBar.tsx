@@ -90,8 +90,8 @@ function isExternalMcpTool(tool: ChatToolDefinition): boolean {
   return tool.source !== 'skill' && tool.source !== 'native'
 }
 
-// MCP 官方标志（Model Context Protocol，路径取自官方 logo，viewBox 180）。
-// 描边用 currentColor 跟随主题，粗细换算到与 lucide 18px 图标视重一致。
+// MCP 官方標誌（Model Context Protocol，路徑取自官方 logo，viewBox 180）。
+// 描邊用 currentColor 跟隨主題，粗細換算到與 lucide 18px 圖示視重一致。
 function McpIcon({ size = 18, className }: { size?: number; className?: string }) {
   return (
     <svg
@@ -131,12 +131,12 @@ function projectUpdatedAt(project: ChatProject): number {
 
 function nextBlankProjectName(projects: ChatProject[]): string {
   const names = new Set(projects.map((project) => project.name))
-  if (!names.has('新项目')) return '新项目'
+  if (!names.has('新專案')) return '新專案'
   for (let index = 2; index < 100; index += 1) {
-    const name = `新项目 ${index}`
+    const name = `新專案 ${index}`
     if (!names.has(name)) return name
   }
-  return `新项目 ${Date.now()}`
+  return `新專案 ${Date.now()}`
 }
 
 type SlashCommandId =
@@ -166,7 +166,7 @@ const LOCAL_SLASH_COMMANDS: LocalSlashCommand[] = [
     description: 'Show commands',
     category: 'Local',
     kind: 'action',
-    keywords: ['help', 'commands', '帮助', '命令'],
+    keywords: ['help', 'commands', '幫助', '命令'],
   },
   {
     id: 'plan',
@@ -175,7 +175,7 @@ const LOCAL_SLASH_COMMANDS: LocalSlashCommand[] = [
     description: 'Enter plan mode',
     category: 'Local',
     kind: 'action',
-    keywords: ['plan', 'act', 'mode', '计划', '模式', '切换'],
+    keywords: ['plan', 'act', 'mode', '計劃', '模式', '切換'],
   },
   {
     id: 'orchestrate',
@@ -184,7 +184,7 @@ const LOCAL_SLASH_COMMANDS: LocalSlashCommand[] = [
     description: 'Enter orchestrate mode (proactive subagents)',
     category: 'Local',
     kind: 'action',
-    keywords: ['orchestrate', 'agent', 'subagent', 'fanout', 'mode', '编排', 'subagents', '子代理', '模式', '切换'],
+    keywords: ['orchestrate', 'agent', 'subagent', 'fanout', 'mode', '編排', 'subagents', '子代理', '模式', '切換'],
   },
   {
     id: 'new',
@@ -193,7 +193,7 @@ const LOCAL_SLASH_COMMANDS: LocalSlashCommand[] = [
     description: 'Start a new chat',
     category: 'Local',
     kind: 'action',
-    keywords: ['new', 'chat', 'conversation', '新建', '新对话'],
+    keywords: ['new', 'chat', 'conversation', '新建', '新對話'],
   },
   {
     id: 'compact',
@@ -202,7 +202,7 @@ const LOCAL_SLASH_COMMANDS: LocalSlashCommand[] = [
     description: 'Compress context',
     category: 'Local',
     kind: 'action',
-    keywords: ['compact', 'compress', 'context', '压缩', '上下文'],
+    keywords: ['compact', 'compress', 'context', '壓縮', '上下文'],
   },
   {
     id: 'clear',
@@ -211,7 +211,7 @@ const LOCAL_SLASH_COMMANDS: LocalSlashCommand[] = [
     description: 'Clear current chat',
     category: 'Local',
     kind: 'action',
-    keywords: ['clear', 'delete', 'reset', '清空', '删除', '重置'],
+    keywords: ['clear', 'delete', 'reset', '清空', '刪除', '重置'],
   },
   {
     id: 'settings',
@@ -220,7 +220,7 @@ const LOCAL_SLASH_COMMANDS: LocalSlashCommand[] = [
     description: 'Open chat settings',
     category: 'Local',
     kind: 'action',
-    keywords: ['settings', 'config', '设置', '配置'],
+    keywords: ['settings', 'config', '設定', '配置'],
   },
   {
     id: 'tools',
@@ -238,7 +238,7 @@ const LOCAL_SLASH_COMMANDS: LocalSlashCommand[] = [
     description: 'Add files or images',
     category: 'Local',
     kind: 'action',
-    keywords: ['attach', 'file', 'image', '附件', '文件', '图片'],
+    keywords: ['attach', 'file', 'image', '附件', '檔案', '圖片'],
   },
 ]
 
@@ -288,18 +288,18 @@ const AGENT_MODE_OPTIONS: {
   {
     mode: 'plan',
     label: 'Plan',
-    description: '计划模式 · Enter plan mode',
+    description: '計劃模式 · Enter plan mode',
     icon: ListChecks,
   },
   {
     mode: 'orchestrate',
     label: 'Orchestrate',
-    description: '主动派 Subagent · Proactive subagents',
+    description: '主動派 Subagent · Proactive subagents',
     icon: Network,
   },
 ]
 
-// pill 颜色呼应输入框边框：Act=neutral、Plan=emerald、Orchestrate=violet
+// pill 顏色呼應輸入框邊框：Act=neutral、Plan=emerald、Orchestrate=violet
 const AGENT_MODE_PILL_CLASS: Record<AgentPlanMode, { idle: string; iconColor: string }> = {
   act: {
     idle: 'text-neutral-600 hover:bg-neutral-200/60 dark:text-neutral-300 dark:hover:bg-neutral-700/55',
@@ -364,7 +364,7 @@ function readFileAsBase64(file: File): Promise<string> {
       const result = typeof reader.result === 'string' ? reader.result : ''
       resolve(result.split(',')[1] ?? '')
     }
-    reader.onerror = () => reject(reader.error ?? new Error('读取剪贴板图片失败'))
+    reader.onerror = () => reject(reader.error ?? new Error('讀取剪貼簿圖片失敗'))
     reader.readAsDataURL(file)
   })
 }
@@ -394,27 +394,27 @@ interface InputBarProps {
   conversationProject?: { id: string; name: string } | null
   onSelectProject?: (project: ChatProject | null) => void | Promise<void>
   showProjectEntry?: boolean
-  /** 当前生效的专家(无则为空);显示在底部栏 */
+  /** 當前生效的專家(無則為空);顯示在底部欄 */
   currentAssistant?: { id: string; name: string } | null
   onOpenAssistantCenter?: () => void
   onClearAssistant?: () => void
   autoFocus?: boolean
-  /** footer：贴底（有消息时）；inline：嵌入居中区域（空对话欢迎页） */
+  /** footer：貼底（有訊息時）；inline：嵌入居中區域（空對話歡迎頁） */
   layout?: 'footer' | 'inline'
-  /** 外部 CLI 模式：斜杠命令直通 Agent，不展示 Kivio 弹层 */
+  /** 外部 CLI 模式：斜槓命令直通 Agent，不展示 Kivio 彈層 */
   usesExternalRuntime?: boolean
   externalAgentName?: string | null
   conversationId?: string | null
-  /** 本会话挂载的知识库 id；缺省时 knowledge_search 检索全部库 */
+  /** 本會話掛載的知識庫 id；預設時 knowledge_search 檢索全部庫 */
   knowledgeBaseIds?: string[]
   onChangeKnowledgeBaseIds?: (ids: string[]) => void | Promise<void>
-  /** 已配置的 MCP 服务器；底栏 MCP 按钮切换各服务器 enabled(是否加载) */
+  /** 已配置的 MCP 伺服器；底欄 MCP 按鈕切換各伺服器 enabled(是否載入) */
   mcpServers?: ChatMcpServer[]
   onToggleMcpServer?: (serverId: string) => void | Promise<void>
-  /** 多答模型集（会话级 reply_models / replyModels；0/1 个=单模型，≥2=一问多答） */
+  /** 多答模型集（會話級 reply_models / replyModels；0/1 個=單模型，≥2=一問多答） */
   replyModels?: ModelRef[]
   onChangeReplyModels?: (models: ModelRef[]) => void | Promise<void>
-  /** 上下文用量指示器：由 Chat 注入 <ContextIndicator>，渲染在底栏右侧 Act 左边 */
+  /** 上下文用量指示器：由 Chat 注入 <ContextIndicator>，渲染在底欄右側 Act 左邊 */
   contextSlot?: ReactNode
 }
 
@@ -484,11 +484,11 @@ export function InputBar({
   const agentPlanActive = agentPlanMode === 'plan'
   const agentOrchestrateActive = agentPlanMode === 'orchestrate'
   const projectEntryEnabled = Boolean(showProjectEntry && onSelectProject)
-  // 项目按钮的显示态：优先导航选中的项目；否则回退到当前会话自身的项目（有名才算），
-  // 这样从「最近」打开一条属于项目的对话时，按钮仍能显示该项目。
+  // 專案按鈕的顯示態：優先使用導覽選中的專案；否則回退到目前對話自身的專案（有名稱才算），
+  // 這樣從「最近」開啟一則屬於專案的對話時，按鈕仍能顯示該專案。
   const effectiveProject: { id: string; name: string } | null =
     selectedProject ?? (conversationProject?.name ? conversationProject : null)
-  // 专家入口:欢迎页与对话中都显示,未选时为「选择专家」图标,已选时高亮 + 清除按钮。
+  // 專家入口:歡迎頁與對話中都顯示,未選時為「選擇專家」圖示,已選時高亮 + 清除按鈕。
   const showAssistantEntry = Boolean(onOpenAssistantCenter)
   const modeEntryEnabled = Boolean(onAgentPlanModeChange)
   const activeModeOption = AGENT_MODE_OPTIONS.find((option) => option.mode === agentPlanMode)
@@ -541,7 +541,7 @@ export function InputBar({
       setProjectOptions(await chatApi.getProjects())
     } catch (err) {
       console.error('Failed to load chat projects:', err)
-      setProjectOptionsError(typeof err === 'string' ? err : err instanceof Error ? err.message : '项目加载失败')
+      setProjectOptionsError(typeof err === 'string' ? err : err instanceof Error ? err.message : '專案載入失敗')
     } finally {
       setProjectOptionsLoading(false)
     }
@@ -585,7 +585,7 @@ export function InputBar({
       await onSelectProject(project)
     } catch (err) {
       console.error('Failed to create blank chat project from input bar:', err)
-      setProjectOptionsError(typeof err === 'string' ? err : err instanceof Error ? err.message : '项目创建失败')
+      setProjectOptionsError(typeof err === 'string' ? err : err instanceof Error ? err.message : '專案建立失敗')
     } finally {
       setProjectCreating(false)
       requestAnimationFrame(() => textareaRef.current?.focus({ preventScroll: true }))
@@ -600,7 +600,7 @@ export function InputBar({
       const picked = await open({
         directory: true,
         multiple: false,
-        title: '选择项目文件夹',
+        title: '選擇專案資料夾',
       })
       const rootPath = Array.isArray(picked) ? picked[0] : picked
       if (!rootPath) return
@@ -613,7 +613,7 @@ export function InputBar({
       await onSelectProject(project)
     } catch (err) {
       console.error('Failed to create chat project from input bar:', err)
-      setProjectOptionsError(typeof err === 'string' ? err : err instanceof Error ? err.message : '项目创建失败')
+      setProjectOptionsError(typeof err === 'string' ? err : err instanceof Error ? err.message : '專案建立失敗')
     } finally {
       setProjectCreating(false)
       requestAnimationFrame(() => textareaRef.current?.focus({ preventScroll: true }))
@@ -669,7 +669,7 @@ export function InputBar({
         if (cancelled) return
         setExternalCliSlashCommands([])
         setExternalCliSlashHint(
-          typeof err === 'string' ? err : err instanceof Error ? err.message : '无法加载 CLI 命令',
+          typeof err === 'string' ? err : err instanceof Error ? err.message : '無法載入 CLI 命令',
         )
       })
       .finally(() => {
@@ -778,7 +778,7 @@ export function InputBar({
         ? next.filter((attachment) => attachment.type === 'image')
         : next.filter((attachment) => attachment.name.trim() !== '')
       if (filtered.length === 0) {
-        setAttachmentError(options?.imagesOnly ? '请拖入图片文件' : '未识别到可添加的文件')
+        setAttachmentError(options?.imagesOnly ? '請拖入圖片檔案' : '未識別到可新增的檔案')
         return
       }
 
@@ -790,7 +790,7 @@ export function InputBar({
           return true
         })
         if (dedupedNext.length === 0) {
-          setAttachmentError('附件已添加')
+          setAttachmentError('附件已新增')
           return prev
         }
         setAttachmentError('')
@@ -848,7 +848,7 @@ export function InputBar({
     } catch (err) {
       console.error('Failed to add chat attachment:', err)
       setAttachmentError(
-        typeof err === 'string' ? err : err instanceof Error ? err.message : '添加附件失败',
+        typeof err === 'string' ? err : err instanceof Error ? err.message : '新增附件失敗',
       )
     }
   }, [addAttachments, attachmentsFromPaths, closeProjectMenu, disabled])
@@ -1033,7 +1033,7 @@ export function InputBar({
     const selectionEnd = textarea?.selectionEnd ?? input.length
     const valueBeforePaste = textarea?.value ?? input
 
-    // 剪贴板里已有 File 对象时可同步拦截；系统文件路径只能异步读取，后面再精确撤销文件名文本。
+    // 剪貼簿裡已有 File 物件時可同步攔截；系統檔案路徑只能非同步讀取，後面再精確撤銷檔名文本。
     if (attachableClipboardFiles.length > 0) {
       e.preventDefault()
     }
@@ -1051,11 +1051,11 @@ export function InputBar({
     const hasNativeFiles = nativePaths.length > 0
     const hasClipboardFiles = attachableClipboardFiles.length > 0
 
-    // 纯文字粘贴：不拦截，交给浏览器默认处理
+    // 純文字貼上：不攔截，交給瀏覽器預設處理
     if (!hasNativeFiles && !hasClipboardFiles) return
 
     if (hasNativeFiles && textarea) {
-      // 等浏览器默认粘贴与 React onChange 完成后，只在内容完全等于“插入了文件名”时撤销。
+      // 等瀏覽器預設貼上與 React onChange 完成後，只在內容完全等於“插入了檔名”時撤銷。
       window.setTimeout(() => {
         undoAccidentalFilenamePaste(
           textarea,
@@ -1090,7 +1090,7 @@ export function InputBar({
             dataBase64,
           )
           if (!result.success || !result.path || !result.name) {
-            throw new Error(result.error || '粘贴图片失败')
+            throw new Error(result.error || '貼上圖片失敗')
           }
           pastedAttachments.push({
             id: `pending-att-${crypto.randomUUID()}`,
@@ -1107,7 +1107,7 @@ export function InputBar({
         const dataBase64 = await readFileAsBase64(file)
         const result = await api.chatSavePastedAttachment(name, dataBase64)
         if (!result.success || !result.path || !result.name) {
-          throw new Error(result.error || '粘贴附件失败')
+          throw new Error(result.error || '貼上附件失敗')
         }
         pastedAttachments.push({
           id: `pending-att-${crypto.randomUUID()}`,
@@ -1118,7 +1118,7 @@ export function InputBar({
       }
 
       if (pastedAttachments.length === 0) {
-        setAttachmentError('未识别到可添加的文件')
+        setAttachmentError('未識別到可新增的檔案')
         return
       }
 
@@ -1126,7 +1126,7 @@ export function InputBar({
     } catch (err) {
       console.error('Failed to paste chat attachment:', err)
       setAttachmentError(
-        typeof err === 'string' ? err : err instanceof Error ? err.message : '粘贴附件失败',
+        typeof err === 'string' ? err : err instanceof Error ? err.message : '貼上附件失敗',
       )
     }
   }
@@ -1325,7 +1325,7 @@ export function InputBar({
     ? 'top-full mt-1.5'
     : 'bottom-full mb-1.5'
   const projectPanelOrigin = layout === 'inline' ? 'top left' : 'bottom left'
-  // 模式菜单移到发送键旁、右对齐：原点跟随展开方向用右侧
+  // 模式選單移到傳送鍵旁、右對齊：原點跟隨展開方向用右側
   const modePanelOrigin = layout === 'inline' ? 'top right' : 'bottom right'
   const externalMcpTools = enabledTools.filter(isExternalMcpTool)
   const showMcpSection = externalMcpTools.length > 0 || Boolean(toolsDisabledReason)
@@ -1362,7 +1362,7 @@ export function InputBar({
                 </div>
                 <div className="text-[11px] leading-4 text-neutral-600 dark:text-neutral-300">
                   <span className="text-neutral-500 dark:text-neutral-400">
-                    已启用 {enabledSkills.length} 个
+                    已啟用 {enabledSkills.length} 個
                   </span>
                   {enabledSkills.length > 0 && (
                     <>
@@ -1443,7 +1443,7 @@ export function InputBar({
                 <div className="flex h-[26px] items-center px-2 text-[11px] font-medium text-neutral-400 dark:text-neutral-500">
                   {usesExternalRuntime
                     ? (externalCliSlashLoading
-                      ? '正在加载 CLI 命令…'
+                      ? '正在載入 CLI 命令…'
                       : externalCliSlashHint ?? 'No matching CLI command')
                     : 'No matching command'}
                 </div>
@@ -1461,7 +1461,7 @@ export function InputBar({
               role="menu"
             >
               <div className="flex items-center justify-between gap-2 px-2 py-1">
-                <span className="text-[10.5px] text-neutral-400">勾选要加载的 MCP 服务器</span>
+                <span className="text-[10.5px] text-neutral-400">勾選要載入的 MCP 伺服器</span>
                 {onOpenSettings && (
                   <button
                     type="button"
@@ -1520,7 +1520,7 @@ export function InputBar({
                 <input
                   value={projectSearchQuery}
                   onChange={(event) => setProjectSearchQuery(event.target.value)}
-                  placeholder="搜索项目"
+                  placeholder="搜尋專案"
                   className="min-w-0 flex-1 border-0 bg-transparent text-[12px] font-semibold text-neutral-800 outline-none placeholder:text-neutral-400 dark:text-neutral-100 dark:placeholder:text-neutral-500"
                 />
               </div>
@@ -1528,7 +1528,7 @@ export function InputBar({
               <div className="chat-popover-scroll mt-0.5 max-h-48 overflow-y-auto">
                 {projectOptionsLoading ? (
                   <div className="px-2 py-2.5 text-[12px] text-neutral-400 dark:text-neutral-500">
-                    正在加载项目…
+                    正在載入專案…
                   </div>
                 ) : projectOptionsError ? (
                   <div className="px-2 py-2 text-[12px] text-red-500 dark:text-red-400">
@@ -1566,7 +1566,7 @@ export function InputBar({
                   </div>
                 ) : (
                   <div className="px-2 py-2.5 text-[12px] leading-5 text-neutral-400 dark:text-neutral-500">
-                    {projectSearchQuery.trim() ? '没有匹配的项目' : '还没有最近项目'}
+                    {projectSearchQuery.trim() ? '沒有匹配的專案' : '還沒有最近專案'}
                   </div>
                 )}
               </div>
@@ -1579,7 +1579,7 @@ export function InputBar({
                     className="flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-[12px] font-semibold text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
                   >
                     <Folder size={14} strokeWidth={1.75} className="shrink-0" />
-                    <span className="min-w-0 flex-1 truncate">退出项目工作</span>
+                    <span className="min-w-0 flex-1 truncate">退出專案工作</span>
                   </button>
                 )}
                 <div className="relative">
@@ -1597,7 +1597,7 @@ export function InputBar({
                   >
                     <FolderPlus size={14} strokeWidth={1.75} className="shrink-0 text-neutral-600 dark:text-neutral-300" />
                     <span className="min-w-0 flex-1 truncate">
-                      {projectCreating ? '正在添加…' : '添加新项目'}
+                      {projectCreating ? '正在新增…' : '新增新專案'}
                     </span>
                     <ChevronRight size={13} strokeWidth={1.9} className="shrink-0 text-neutral-400" />
                   </button>
@@ -1613,7 +1613,7 @@ export function InputBar({
                         className="flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-[12px] font-semibold text-neutral-800 transition-colors hover:bg-neutral-100 disabled:cursor-default disabled:opacity-50 dark:text-neutral-100 dark:hover:bg-neutral-800"
                       >
                         <Plus size={14} strokeWidth={1.8} className="shrink-0 text-neutral-600 dark:text-neutral-300" />
-                        <span className="min-w-0 flex-1 truncate">新建空白项目</span>
+                        <span className="min-w-0 flex-1 truncate">新建空白專案</span>
                       </button>
                       <button
                         type="button"
@@ -1622,7 +1622,7 @@ export function InputBar({
                         className="flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-[12px] font-semibold text-neutral-800 transition-colors hover:bg-neutral-100 disabled:cursor-default disabled:opacity-50 dark:text-neutral-100 dark:hover:bg-neutral-800"
                       >
                         <Folder size={14} strokeWidth={1.75} className="shrink-0 text-neutral-600 dark:text-neutral-300" />
-                        <span className="min-w-0 flex-1 truncate">使用现有文件夹</span>
+                        <span className="min-w-0 flex-1 truncate">使用現有資料夾</span>
                       </button>
                     </div>
                   )}
@@ -1645,7 +1645,7 @@ export function InputBar({
         >
           {dragActive && (
             <div className="chat-motion-fade-up mb-2 rounded-2xl border border-dashed border-[#e8a090]/70 bg-[#e8a090]/10 px-3 py-2 text-center text-[13px] font-medium text-[#a35f51] dark:text-[#f1b4a7]">
-              松开即可添加附件
+              鬆開即可新增附件
             </div>
           )}
           {attachments.length > 0 && (
@@ -1676,7 +1676,7 @@ export function InputBar({
             onSelect={handleSelect}
             placeholder={
               usesExternalRuntime
-                ? `${cliAgentLabel} 命令，输入 / 补全`
+                ? `${cliAgentLabel} 命令，輸入 / 補全`
                 : 'Ask me anything...'
             }
             rows={1}
@@ -1689,8 +1689,8 @@ export function InputBar({
               disabled={disabled}
               tabIndex={-1}
               className="grid size-7 shrink-0 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 disabled:opacity-40 dark:hover:bg-neutral-800"
-              title="添加附件"
-              aria-label="添加附件"
+              title="新增附件"
+              aria-label="新增附件"
             >
               <Plus size={18} strokeWidth={1.75} />
             </button>
@@ -1716,7 +1716,7 @@ export function InputBar({
                 }`}
                 aria-expanded={mcpMenuOpen}
                 aria-haspopup="menu"
-                title="选择加载的 MCP"
+                title="選擇載入的 MCP"
               >
                 <McpIcon size={18} />
               </button>
@@ -1735,7 +1735,7 @@ export function InputBar({
                 }`}
                 aria-expanded={projectMenuOpen}
                 aria-haspopup="menu"
-                title={effectiveProject ? `项目 · ${effectiveProject.name}` : '进入项目工作'}
+                title={effectiveProject ? `專案 · ${effectiveProject.name}` : '進入專案工作'}
               >
                 {effectiveProject ? (
                   <Folder size={18} strokeWidth={1.75} />
@@ -1755,8 +1755,8 @@ export function InputBar({
                       ? 'text-indigo-500 hover:bg-neutral-100 dark:text-indigo-300 dark:hover:bg-neutral-800'
                       : 'text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800'
                   }`}
-                  title={currentAssistant ? `专家 · ${currentAssistant.name}` : '选择或创建专家'}
-                  aria-label={currentAssistant ? currentAssistant.name : '选择或创建专家'}
+                  title={currentAssistant ? `專家 · ${currentAssistant.name}` : '選擇或建立專家'}
+                  aria-label={currentAssistant ? currentAssistant.name : '選擇或建立專家'}
                 >
                   {currentAssistant
                     ? builtinAssistantGlyph(currentAssistant.id, 18) ?? <Bot size={18} strokeWidth={1.75} />
@@ -1767,8 +1767,8 @@ export function InputBar({
                     type="button"
                     onClick={onClearAssistant}
                     className="grid size-7 shrink-0 place-items-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
-                    title="清除专家"
-                    aria-label="清除专家"
+                    title="清除專家"
+                    aria-label="清除專家"
                   >
                     <X size={15} strokeWidth={2} />
                   </button>
@@ -1788,7 +1788,7 @@ export function InputBar({
             )}
 
             <div className="ml-auto flex items-center gap-1.5">
-            {/* 注入 anchorRef/placement：上下文弹层与项目/知识库/MCP 共用容器锚点与翻转方向 */}
+            {/* 注入 anchorRef/placement：上下文彈層與專案/知識庫/MCP 共用容器錨點與翻轉方向 */}
             {isValidElement<{ anchorRef?: RefObject<HTMLDivElement | null>; placement?: 'up' | 'down' }>(contextSlot)
               ? cloneElement(contextSlot, {
                   anchorRef: innerRef,
@@ -1809,7 +1809,7 @@ export function InputBar({
                   } disabled:cursor-default disabled:opacity-50`}
                   aria-expanded={modeMenuOpen}
                   aria-haspopup="menu"
-                  title="切换模式 · Switch mode"
+                  title="切換模式 · Switch mode"
                 >
                   <activeModeOption.icon
                     size={13}
@@ -1873,15 +1873,15 @@ export function InputBar({
               </div>
             )}
 
-            {/* 发送 / 停止：两按钮共存于同一槽位，按 cancelVisible 做 opacity+scale crossfade */}
+            {/* 傳送 / 停止：兩按鈕共存於同一槽位，按 cancelVisible 做 opacity+scale crossfade */}
             <div className="relative h-9 w-9 shrink-0">
               <button
                 type="button"
                 onClick={handleSend}
                 disabled={!canSend}
                 tabIndex={-1}
-                title={sendDisabledReason || (canSend ? '发送' : '输入消息后发送')}
-                aria-label={sendDisabledReason || '发送'}
+                title={sendDisabledReason || (canSend ? '傳送' : '輸入訊息後傳送')}
+                aria-label={sendDisabledReason || '傳送'}
                 aria-hidden={cancelVisible && !!onCancel}
                 className={`absolute inset-0 flex items-center justify-center rounded-full transition-all duration-[var(--kv-dur-fast)] ease-[var(--kv-ease-spring)] ${
                   cancelVisible && onCancel

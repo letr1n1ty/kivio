@@ -18,12 +18,12 @@ afterEach(() => {
 })
 
 describe('useMultiAnswerViewMode', () => {
-  it('默认 tabs', () => {
+  it('預設 tabs', () => {
     const { result } = renderHook(() => useMultiAnswerViewMode())
     expect(result.current[0]).toBe('tabs')
   })
 
-  it('setMode 写入 localStorage 并更新返回值', () => {
+  it('setMode 寫入 localStorage 並更新返回值', () => {
     const { result } = renderHook(() => useMultiAnswerViewMode())
     act(() => {
       result.current[1]('columns')
@@ -32,7 +32,7 @@ describe('useMultiAnswerViewMode', () => {
     expect(window.localStorage.getItem(MULTI_ANSWER_VIEW_STORAGE_KEY)).toBe('columns')
   })
 
-  it('多个订阅者即时同步（全局偏好）', () => {
+  it('多個訂閱者即時同步（全域性偏好）', () => {
     const a = renderHook(() => useMultiAnswerViewMode())
     const b = renderHook(() => useMultiAnswerViewMode())
     act(() => {
@@ -42,7 +42,7 @@ describe('useMultiAnswerViewMode', () => {
     expect(b.result.current[0]).toBe('columns')
   })
 
-  it('跨窗口同步：另一窗口改偏好 → storage 事件同步本窗口', () => {
+  it('跨視窗同步：另一視窗改偏好 → storage 事件同步本視窗', () => {
     const { result } = renderHook(() => useMultiAnswerViewMode())
     expect(result.current[0]).toBe('tabs')
     act(() => {
@@ -55,7 +55,7 @@ describe('useMultiAnswerViewMode', () => {
     expect(result.current[0]).toBe('columns')
   })
 
-  it('非法值回退默认 tabs', () => {
+  it('非法值回退預設 tabs', () => {
     window.localStorage.setItem(MULTI_ANSWER_VIEW_STORAGE_KEY, 'garbage')
     const { result } = renderHook(() => useMultiAnswerViewMode())
     act(() => {

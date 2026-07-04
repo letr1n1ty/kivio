@@ -1,11 +1,11 @@
 import type { ReactElement } from 'react'
 
-// 内置专家的内联 SVG 图标（line 风格，stroke=currentColor 继承调用处的文字色）。
-// 刻意不用名字首字 / emoji 这类「字体字形」：按内置专家 id 映射到手绘 SVG；
-// 非内置专家返回 null，由调用处自行回退到首字头像。
+// 內建專家的內聯 SVG 圖示（line 風格，stroke=currentColor 繼承呼叫處的文字色）。
+// 刻意不用名字首字 / emoji 這類「字型字形」：按內建專家 id 對映到手繪 SVG；
+// 非內建專家返回 null，由呼叫處自行回退到首字頭像。
 //
-// 实现注记：图标以「record 内的箭头函数」而非顶层组件声明的形式存在，避免
-// react-refresh/only-export-components 警告（本模块只对外导出一个 helper，不是组件模块）。
+// 實現註記：圖示以「record 內的箭頭函式」而非頂層元件宣告的形式存在，避免
+// react-refresh/only-export-components 警告（本模組只對外匯出一個 helper，不是元件模組）。
 
 const baseProps = {
   viewBox: '0 0 24 24',
@@ -18,7 +18,7 @@ const baseProps = {
 } as const
 
 const BUILTIN_ASSISTANT_GLYPHS: Record<string, (size: number) => ReactElement> = {
-  // 写作助手：铅笔在基线上书写
+  // 寫作助手：鉛筆在基線上書寫
   asst_builtin_writer: (size) => (
     <svg width={size} height={size} {...baseProps}>
       <path d="M4 20h6" />
@@ -26,7 +26,7 @@ const BUILTIN_ASSISTANT_GLYPHS: Record<string, (size: number) => ReactElement> =
       <path d="m12.5 6.5 5 5" />
     </svg>
   ),
-  // 编程助手：代码尖括号 + 斜杠
+  // 程式設計助手：程式碼尖括號 + 斜槓
   asst_builtin_coder: (size) => (
     <svg width={size} height={size} {...baseProps}>
       <polyline points="15 7 20 12 15 17" />
@@ -34,7 +34,7 @@ const BUILTIN_ASSISTANT_GLYPHS: Record<string, (size: number) => ReactElement> =
       <line x1="13" y1="5" x2="11" y2="19" />
     </svg>
   ),
-  // 研究助手：放大镜（带内部十字，区别于通用搜索）
+  // 研究助手：放大鏡（帶內部十字，區別於通用搜尋）
   asst_builtin_researcher: (size) => (
     <svg width={size} height={size} {...baseProps}>
       <circle cx="10.5" cy="10.5" r="6.5" />
@@ -43,7 +43,7 @@ const BUILTIN_ASSISTANT_GLYPHS: Record<string, (size: number) => ReactElement> =
       <path d="M8 10.5h5" />
     </svg>
   ),
-  // 数据分析：坐标轴 + 柱状图
+  // 資料分析：座標軸 + 柱狀圖
   asst_builtin_data: (size) => (
     <svg width={size} height={size} {...baseProps}>
       <path d="M4 4v16h16" />
@@ -54,7 +54,7 @@ const BUILTIN_ASSISTANT_GLYPHS: Record<string, (size: number) => ReactElement> =
   ),
 }
 
-/** 返回内置专家的 SVG 图标；非内置（无映射）返回 null，调用处回退到首字头像。 */
+/** 返回內建專家的 SVG 圖示；非內建（無對映）返回 null，呼叫處回退到首字頭像。 */
 export function builtinAssistantGlyph(id: string, size = 20): ReactElement | null {
   return BUILTIN_ASSISTANT_GLYPHS[id]?.(size) ?? null
 }

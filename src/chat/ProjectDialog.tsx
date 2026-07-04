@@ -22,7 +22,7 @@ export function ProjectDialog({
   const [name, setName] = useState(project?.name ?? '')
   const [rootPath, setRootPath] = useState(project?.root_path ?? project?.rootPath ?? '')
   const inputRef = useRef<HTMLInputElement>(null)
-  const title = project ? '编辑项目' : '新建项目'
+  const title = project ? '編輯專案' : '新建專案'
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -49,7 +49,7 @@ export function ProjectDialog({
       const picked = await open({
         directory: true,
         multiple: false,
-        title: '选择项目文件夹',
+        title: '選擇專案資料夾',
       })
       const path = Array.isArray(picked) ? picked[0] : picked
       if (!path) return
@@ -83,7 +83,7 @@ export function ProjectDialog({
       >
         <h3 className="text-[14px] font-semibold text-neutral-900 dark:text-neutral-50">{title}</h3>
         <label className="mt-3 block text-[12px] font-medium text-neutral-500 dark:text-neutral-400">
-          项目名称
+          專案名稱
         </label>
         <input
           ref={inputRef}
@@ -92,10 +92,10 @@ export function ProjectDialog({
           maxLength={80}
           onChange={(e) => setName(e.target.value)}
           className="mt-1.5 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-[13px] text-neutral-900 outline-none transition-colors placeholder:text-neutral-400 focus:border-neutral-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-          placeholder="例如：产品发布计划"
+          placeholder="例如：產品釋出計劃"
         />
         <label className="mt-3 block text-[12px] font-medium text-neutral-500 dark:text-neutral-400">
-          项目文件夹
+          專案資料夾
         </label>
         <div className="mt-1.5 flex min-w-0 gap-2">
           <button
@@ -106,7 +106,7 @@ export function ProjectDialog({
           >
             <FolderOpen size={15} strokeWidth={1.75} className="shrink-0 text-neutral-500" />
             <span className={`min-w-0 flex-1 truncate ${rootPath ? '' : 'text-neutral-400'}`}>
-              {rootPath || '选择文件夹'}
+              {rootPath || '選擇資料夾'}
             </span>
           </button>
           {rootPath && (
@@ -115,8 +115,8 @@ export function ProjectDialog({
               onClick={() => setRootPath('')}
               disabled={saving}
               className="shrink-0 rounded-lg border border-neutral-200 bg-white p-2 text-neutral-400 transition-colors hover:border-neutral-300 hover:text-neutral-700 disabled:cursor-default disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:border-neutral-600 dark:hover:text-neutral-200"
-              aria-label="清除项目文件夹"
-              title="清除项目文件夹"
+              aria-label="清除專案資料夾"
+              title="清除專案資料夾"
             >
               <X size={15} strokeWidth={1.75} />
             </button>
@@ -136,7 +136,7 @@ export function ProjectDialog({
             disabled={!name.trim() || saving}
             className="rounded-lg bg-neutral-900 px-3 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-neutral-800 disabled:cursor-default disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-950 dark:hover:bg-white"
           >
-            {saving ? '保存中…' : project ? '保存' : '创建'}
+            {saving ? '儲存中…' : project ? '儲存' : '建立'}
           </button>
         </div>
       </form>

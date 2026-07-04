@@ -1,7 +1,7 @@
-// 连接器详情弹层：点击卡片打开。
-// 左栏概览/账户/链接/开发者，右栏工具列表 + 逐工具允许/停用开关。
-// 已连接才拉工具列表；未连接（可用）只显示概览/链接 + 连接按钮。
-// 复用 .kv-modal-backdrop / .kv-modal 风格（见 ProviderModelsPicker / index.css）。
+// 連接器詳情彈層：點選卡片開啟。
+// 左欄概覽/賬戶/連結/開發者，右欄工具列表 + 逐工具允許/停用開關。
+// 已連線才拉工具列表；未連線（可用）只顯示概覽/連結 + 連線按鈕。
+// 複用 .kv-modal-backdrop / .kv-modal 風格（見 ProviderModelsPicker / index.css）。
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Loader2, Search, Trash2, UserRound, X } from 'lucide-react'
@@ -16,24 +16,24 @@ type ConnectorToolInfo = { name: string; description: string }
 type Props = {
   lang: Lang
   entry?: ConnectorCatalogEntry
-  /** 已连接时存在的 server；未连接为 null。 */
+  /** 已連線時存在的 server；未連線為 null。 */
   server: ChatMcpServer | null
-  /** 兜底展示名称（自定义连接器无 catalog 项时）。 */
+  /** 兜底展示名稱（自定義連接器無 catalog 項時）。 */
   fallbackName: string
-  /** 兜底端点 URL（自定义连接器）。 */
+  /** 兜底端點 URL（自定義連接器）。 */
   fallbackUrl?: string
   onClose: () => void
-  /** 写回某条 server（用于更新 enabledTools）。 */
+  /** 寫回某條 server（用於更新 enabledTools）。 */
   onUpdateServer: (server: ChatMcpServer) => void
-  /** 在 modal 内断开连接。 */
+  /** 在 modal 內斷開連線。 */
   onDisconnect: (serverId: string) => void
-  /** 在 modal 内发起连接（token / oauth 由父级决定）。 */
+  /** 在 modal 內發起連線（token / oauth 由父級決定）。 */
   onConnect: () => void
-  /** 连接按钮是否处于忙碌态。 */
+  /** 連線按鈕是否處於忙碌態。 */
   connectBusy: boolean
-  /** vault 类连接器：已保存的本地路径。 */
+  /** vault 類連接器：已儲存的本地路徑。 */
   vaultPath?: string
-  /** vault 类连接器：断开（清空路径）。 */
+  /** vault 類連接器：斷開（清空路徑）。 */
   onDisconnectVault?: () => void
 }
 
@@ -60,7 +60,7 @@ export function ConnectorDetailModal({
   const [loadingTools, setLoadingTools] = useState(false)
   const [query, setQuery] = useState('')
 
-  // Esc 关闭。
+  // Esc 關閉。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -69,7 +69,7 @@ export function ConnectorDetailModal({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  // 已连接才拉工具列表。
+  // 已連線才拉工具列表。
   useEffect(() => {
     if (!server) {
       setTools(null)
@@ -133,7 +133,7 @@ export function ConnectorDetailModal({
         data-tauri-drag-region="false"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        {/* 头部 */}
+        {/* 頭部 */}
         <div className="kv-connector-detail-header">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
@@ -164,7 +164,7 @@ export function ConnectorDetailModal({
         </div>
 
         <div className="kv-connector-detail-body custom-scrollbar">
-          {/* 左栏 */}
+          {/* 左欄 */}
           <div className="kv-connector-detail-left">
             {entry?.overview && entry.overview[lang].length > 0 && (
               <section>
@@ -237,7 +237,7 @@ export function ConnectorDetailModal({
               </section>
             )}
 
-            {/* 连接 / 断开操作 */}
+            {/* 連線 / 斷開操作 */}
             <div className="pt-1">
               {connected ? (
                 <button
@@ -275,7 +275,7 @@ export function ConnectorDetailModal({
             </div>
           </div>
 
-          {/* 右栏：工具（仅 MCP 已连接） */}
+          {/* 右欄：工具（僅 MCP 已連線） */}
           {connected && server && (
             <div className="kv-connector-detail-right">
               <div className="kv-connector-detail-right-header">

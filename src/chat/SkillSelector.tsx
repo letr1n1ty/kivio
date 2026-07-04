@@ -23,8 +23,8 @@ function recommendedTools(skill: SkillMeta): string[] {
 
 function sourceLabel(skill: SkillMeta): string {
   if (!skill.source) return ''
-  if (skill.source === 'builtin') return '内置'
-  if (skill.source === 'user') return '用户'
+  if (skill.source === 'builtin') return '內建'
+  if (skill.source === 'user') return '使用者'
   if (skill.source === 'external') return '外部'
   return skill.source
 }
@@ -36,7 +36,7 @@ export function SkillSelector({
   disabled = false,
   loading = false,
   placeholder = 'Skill',
-  emptyLabel = '暂无 Skill',
+  emptyLabel = '暫無 Skill',
   clearLabel = '清除 Skill',
   variant = 'titlebar',
   align = 'left',
@@ -65,7 +65,7 @@ export function SkillSelector({
         >
           <Sparkles size={14} strokeWidth={1.9} className="shrink-0 text-[#C56646] dark:text-[#E39A78]" />
           <span className="min-w-0 max-w-[180px] truncate font-medium text-neutral-800 dark:text-neutral-200">
-            {selectedSkill?.name || (loading ? '加载中…' : placeholder)}
+            {selectedSkill?.name || (loading ? '載入中…' : placeholder)}
           </span>
         </button>
         {selectedSkill && (
@@ -176,8 +176,8 @@ export function SkillSelector({
                         <span
                           role="button"
                           tabIndex={0}
-                          title="预览 Skill"
-                          aria-label={`预览 ${skill.name}`}
+                          title="預覽 Skill"
+                          aria-label={`預覽 ${skill.name}`}
                           onClick={(event) => {
                             event.stopPropagation()
                             onPreviewSkill(skill)
@@ -215,7 +215,7 @@ export function SkillSelector({
             )}
             {loading && (
               <div className="px-4 py-6 text-center text-sm text-neutral-500 dark:text-neutral-400">
-                加载中…
+                載入中…
               </div>
             )}
           </div>

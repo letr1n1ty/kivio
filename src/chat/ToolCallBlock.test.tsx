@@ -15,13 +15,13 @@ function buildToolCall(overrides: Partial<ToolCallRecord> = {}): ToolCallRecord 
 }
 
 describe('ToolCallBlock', () => {
-  it('renders a capitalized verb + basename target, dropping status/source/duration', () => {
+  it('renders a localized verb + basename target, dropping status/source/duration', () => {
     render(<ToolCallBlock toolCall={buildToolCall({ arguments: { path: 'src/a/README.md' } })} />)
-    const button = screen.getByRole('button', { name: /Read/ })
-    // Cursor-style row: 大写动词 + 目标（文件名 basename）
-    expect(within(button).getByText('Read')).toBeInTheDocument()
+    const button = screen.getByRole('button', { name: /讀取/ })
+    // Cursor-style row: 動詞 + 目標（檔名 basename）
+    expect(within(button).getByText('讀取')).toBeInTheDocument()
     expect(within(button).getByText('README.md')).toBeInTheDocument()
-    // 已删除的后缀 / 全路径不再出现在折叠行
+    // 已刪除的後綴 / 全路徑不再出現在折疊列
     expect(within(button).queryByText(/已完成/)).not.toBeInTheDocument()
     expect(within(button).queryByText(/Kivio/)).not.toBeInTheDocument()
     expect(within(button).queryByText(/file contents loaded/)).not.toBeInTheDocument()
@@ -38,7 +38,7 @@ describe('ToolCallBlock', () => {
         })}
       />,
     )
-    const button = screen.getByRole('button', { name: /Read/ })
+    const button = screen.getByRole('button', { name: /讀取/ })
     expect(within(button).getByText('Lens.tsx L1880-1939')).toBeInTheDocument()
   })
 
@@ -52,7 +52,7 @@ describe('ToolCallBlock', () => {
         })}
       />,
     )
-    const button = screen.getByRole('button', { name: /Read/ })
+    const button = screen.getByRole('button', { name: /讀取/ })
     expect(within(button).queryByText(/permission denied/)).not.toBeInTheDocument()
     await user.click(button)
     const detail = screen.getByText(/permission denied/)
@@ -71,9 +71,9 @@ describe('ToolCallBlock', () => {
         defaultOpen={false}
       />,
     )
-    await user.click(screen.getByRole('button', { name: /Read/ }))
-    expect(screen.getByText('参数')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /讀取/ }))
     expect(screen.getAllByText(/README\.md/).length).toBeGreaterThan(0)
+    expect(screen.getByText('引數')).toBeInTheDocument()
   })
 
   it('uses the search pattern as the grep target', () => {
@@ -89,14 +89,14 @@ describe('ToolCallBlock', () => {
         })}
       />,
     )
-    const button = screen.getByRole('button', { name: /Grep/ })
-    expect(within(button).getByText('Grep')).toBeInTheDocument()
+    const button = screen.getByRole('button', { name: /搜尋/ })
+    expect(within(button).getByText('搜尋')).toBeInTheDocument()
     expect(within(button).getByText('ClaudeAgentClient')).toBeInTheDocument()
-    // 目标只取 pattern，不再把 scope 塞进折叠行
+    // 目標只取 pattern，不再把 scope 塞進折疊列
     expect(within(button).queryByText(/agent\.ts/)).not.toBeInTheDocument()
   })
 
-  it('renders glob as "Glob <pattern> in <dir>"', () => {
+  it('renders glob as localized verb + pattern + directory', () => {
     render(
       <ToolCallBlock
         toolCall={buildToolCall({
@@ -106,9 +106,9 @@ describe('ToolCallBlock', () => {
         })}
       />,
     )
-    const button = screen.getByRole('button', { name: /Glob/ })
-    expect(within(button).getByText('Glob')).toBeInTheDocument()
-    expect(within(button).getByText('**/*overlay* in lens')).toBeInTheDocument()
+    const button = screen.getByRole('button', { name: /比對/ })
+    expect(within(button).getByText('比對')).toBeInTheDocument()
+    expect(within(button).getByText('**/*overlay* 於 lens')).toBeInTheDocument()
   })
 
   it('falls back to stored grep argument preview when parsed arguments are unavailable', () => {
@@ -118,16 +118,16 @@ describe('ToolCallBlock', () => {
           toolName: 'grep',
           result_preview: '',
           arguments: '{"query":',
-          argumentPreview: '正在生成工具参数…',
-          argumentsPreview: '正在生成工具参数…',
+          argumentPreview: '正在生成工具引數…',
+          argumentsPreview: '正在生成工具引數…',
         })}
       />,
     )
-    const button = screen.getByRole('button', { name: /Grep/ })
-    expect(within(button).getByText(/正在生成工具参数/)).toBeInTheDocument()
+    const button = screen.getByRole('button', { name: /搜尋/ })
+    expect(within(button).getByText(/正在生成工具引數/)).toBeInTheDocument()
   })
 
-  it('shows the command as the bash target', () => {
+  it('shows the command as the command target', () => {
     render(
       <ToolCallBlock
         toolCall={buildToolCall({
@@ -137,8 +137,8 @@ describe('ToolCallBlock', () => {
         })}
       />,
     )
-    const button = screen.getByRole('button', { name: /Run/ })
-    expect(within(button).getByText('Run')).toBeInTheDocument()
+    const button = screen.getByRole('button', { name: /執行/ })
+    expect(within(button).getByText('執行')).toBeInTheDocument()
     expect(within(button).getByText('npm test')).toBeInTheDocument()
     expect(within(button).queryByText(/exit_code/)).not.toBeInTheDocument()
   })

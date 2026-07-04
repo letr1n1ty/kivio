@@ -1,8 +1,8 @@
 import type { ChatMessage } from './types'
 
-// 多模型一问多答（任务 06-30）：把消息线性数组折叠成「单条消息 / 多答组」两类项。
-// 同一 group_id 的连续 assistant 消息聚成一组（横向并排多列渲染）；其余保持线性。
-// 纯函数，便于单测（grouping 边界 / 单模型零回归）。
+// 多模型一問多答（任務 06-30）：把訊息線性陣列摺疊成「單條訊息 / 多答組」兩類項。
+// 同一 group_id 的連續 assistant 訊息聚成一組（橫向並排多列渲染）；其餘保持線性。
+// 純函式，便於單測（grouping 邊界 / 單模型零迴歸）。
 
 export type MessageListItem =
   | { type: 'message'; message: ChatMessage }

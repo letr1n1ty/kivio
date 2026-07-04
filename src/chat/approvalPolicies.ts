@@ -3,21 +3,21 @@
 export const APPROVAL_POLICY_OPTIONS = [
   {
     value: 'always_confirm',
-    label: '每次确认',
-    title: '请求批准',
-    description: '所有工具调用都先问你',
+    label: '每次確認',
+    title: '請求批准',
+    description: '所有工具呼叫都先問你',
   },
   {
     value: 'readonly_auto_sensitive_confirm',
-    label: '敏感确认',
-    title: '替我审批',
-    description: '只对写文件、终端等风险操作确认',
+    label: '敏感確認',
+    title: '替我審批',
+    description: '只對寫檔案、終端等風險操作確認',
   },
   {
     value: 'auto',
-    label: '完全访问',
-    title: '完全访问权限',
-    description: '工具调用自动放行',
+    label: '完全訪問',
+    title: '完全訪問許可權',
+    description: '工具呼叫自動放行',
   },
 ]
 

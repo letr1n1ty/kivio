@@ -9,10 +9,10 @@ export type SelectOption = {
   title?: string
 }
 
-// 修饰键集合（录制快捷键时忽略）
+// 修飾鍵集合（錄製快捷鍵時忽略）
 const modifierKeys = new Set(['Shift', 'Meta', 'Control', 'Alt', 'AltGraph'])
 
-// 键盘按键别名映射
+// 鍵盤按鍵別名對映
 const keyAliasMap: Record<string, string> = {
   Escape: 'Esc',
   ' ': 'Space',
@@ -24,7 +24,7 @@ const keyAliasMap: Record<string, string> = {
 }
 
 /**
- * 从键盘 code 提取字母/数字键值
+ * 從鍵盤 code 提取字母/數字鍵值
  */
 const normalizeKeyFromCode = (code: string) => {
   if (code.startsWith('Key')) return code.slice(3)
@@ -33,7 +33,7 @@ const normalizeKeyFromCode = (code: string) => {
 }
 
 /**
- * 将键盘事件转换为快捷键字符串
+ * 將鍵盤事件轉換為快捷鍵字串
  */
 export const normalizeHotkeyKey = (event: KeyboardEvent) => {
   const { key, code } = event
@@ -50,7 +50,7 @@ export const normalizeHotkeyKey = (event: KeyboardEvent) => {
 }
 
 /**
- * 构建完整的快捷键字符串（如 CommandOrControl+Alt+T）
+ * 構建完整的快捷鍵字串（如 CommandOrControl+Alt+T）
  */
 export const buildHotkey = (event: KeyboardEvent) => {
   const key = normalizeHotkeyKey(event)
@@ -64,7 +64,7 @@ export const buildHotkey = (event: KeyboardEvent) => {
 }
 
 /**
- * 平台检测（用于快捷键可视化）
+ * 平臺檢測（用於快捷鍵視覺化）
  */
 export const getPlatform = (): Platform => {
   if (navigator.platform.startsWith('Mac')) return 'macos'
@@ -73,7 +73,7 @@ export const getPlatform = (): Platform => {
 }
 
 /**
- * 将快捷键字符串解析为可视化按键数组
+ * 將快捷鍵字串解析為視覺化按鍵陣列
  */
 export const formatHotkey = (hotkey: string, platform: 'macos' | 'windows' | 'linux'): string[] => {
   const parts = hotkey.split('+')
@@ -117,7 +117,7 @@ export const parseModelPairValue = (value: string): [string, string] => {
       return [String(parsed[0] || ''), String(parsed[1] || '')]
     }
   } catch {
-    // 兼容旧版本用 "provider:model" 拼接的下拉值。
+    // 相容舊版本用 "provider:model" 拼接的下拉值。
   }
   const separator = value.indexOf(':')
   if (separator < 0) return [value, '']
@@ -138,10 +138,10 @@ export const buildModelPairOptions = (providers: ModelProvider[]): SelectOption[
     )
 
 /**
- * 与 JSON.stringify 等价但对对象 key 做递归排序,用于 dirty diff:
- * 后端 sanitize 与前端 spread 都可能改变字段顺序,普通 JSON.stringify 会
- * 把"语义无差异、字段顺序不同"误判为脏。数组顺序保留(数组顺序在 settings
- * 里语义上是有意义的,如 apiKeys 的 primary/backup 顺序)。
+ * 與 JSON.stringify 等價但對物件 key 做遞迴排序,用於 dirty diff:
+ * 後端 sanitize 與前端 spread 都可能改變欄位順序,普通 JSON.stringify 會
+ * 把"語義無差異、欄位順序不同"誤判為髒。陣列順序保留(陣列順序在 settings
+ * 裡語義上是有意義的,如 apiKeys 的 primary/backup 順序)。
  */
 export const stableStringify = (value: unknown): string =>
   JSON.stringify(value, (_key, v) => {
@@ -177,8 +177,8 @@ const KIND_KEY: Record<HotkeyErrorPayload['kind'], keyof typeof i18n.zh> = {
 }
 
 /**
- * 把后端 register_hotkeys 抛出的 JSON 错误数组翻译成用户语言的可读消息。
- * 解析失败(普通字符串错误)时原样返回,保证所有非热键错误也能正常显示。
+ * 把後端 register_hotkeys 拋出的 JSON 錯誤陣列翻譯成使用者語言的可讀訊息。
+ * 解析失敗(普通字串錯誤)時原樣返回,保證所有非熱鍵錯誤也能正常顯示。
  */
 export const formatHotkeyError = (raw: string, lang: Lang): string => {
   let parsed: unknown

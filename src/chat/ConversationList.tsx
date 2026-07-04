@@ -52,7 +52,7 @@ export const ConversationList = memo(function ConversationList({
   projects,
   sets,
   compact = false,
-  emptyLabel = '暂无对话',
+  emptyLabel = '暫無對話',
   indent = false,
   showAssistantName = true,
   showFolderLabel = false,
@@ -207,7 +207,7 @@ export const ConversationList = memo(function ConversationList({
                     ? 'opacity-100'
                     : 'opacity-0 group-hover:opacity-100'
                 }`}
-                aria-label="对话操作"
+                aria-label="對話操作"
               >
                 <MoreHorizontal size={15} />
               </button>

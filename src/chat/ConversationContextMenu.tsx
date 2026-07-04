@@ -72,7 +72,7 @@ export function ConversationContextMenu({
         }}
       >
         <Pencil size={16} strokeWidth={1.75} className="shrink-0 text-neutral-500" />
-        重命名
+        重新命名
       </button>
 
       <div className="group/sub relative">
@@ -82,14 +82,14 @@ export function ConversationContextMenu({
           className="flex w-full items-center gap-3 px-3.5 py-2 text-left text-[13px] text-neutral-800 transition-colors hover:bg-black/[0.04] dark:text-neutral-100 dark:hover:bg-white/[0.06]"
         >
           <Folder size={16} strokeWidth={1.75} className="shrink-0 text-neutral-500" />
-          <span className="min-w-0 flex-1">添加到项目</span>
+          <span className="min-w-0 flex-1">新增到專案</span>
           <ChevronRight size={16} className="shrink-0 text-neutral-400" />
         </button>
 
         <div className="pointer-events-none absolute left-full top-0 z-[201] min-w-[168px] pl-1 opacity-0 transition-opacity group-hover/sub:pointer-events-auto group-hover/sub:opacity-100">
           <div className="rounded-xl border border-neutral-200/90 bg-white py-1.5 shadow-lg dark:border-neutral-700 dark:bg-[#2a2a2c]">
             {projects.length === 0 ? (
-              <div className="px-3.5 py-2 text-[13px] text-neutral-400">暂无项目</div>
+              <div className="px-3.5 py-2 text-[13px] text-neutral-400">暫無專案</div>
             ) : (
               projects.map((project) => {
                 const active = conversationProjectId
@@ -125,7 +125,7 @@ export function ConversationContextMenu({
                     onClose()
                   }}
                 >
-                  移出项目
+                  移出專案
                 </button>
               </>
             )}
@@ -140,14 +140,14 @@ export function ConversationContextMenu({
           className="flex w-full items-center gap-3 px-3.5 py-2 text-left text-[13px] text-neutral-800 transition-colors hover:bg-black/[0.04] dark:text-neutral-100 dark:hover:bg-white/[0.06]"
         >
           <Layers size={16} strokeWidth={1.75} className="shrink-0 text-neutral-500" />
-          <span className="min-w-0 flex-1">移动到集</span>
+          <span className="min-w-0 flex-1">移動到集</span>
           <ChevronRight size={16} className="shrink-0 text-neutral-400" />
         </button>
 
         <div className="pointer-events-none absolute left-full top-0 z-[201] min-w-[168px] pl-1 opacity-0 transition-opacity group-hover/subset:pointer-events-auto group-hover/subset:opacity-100">
           <div className="rounded-xl border border-neutral-200/90 bg-white py-1.5 shadow-lg dark:border-neutral-700 dark:bg-[#2a2a2c]">
             {sets.length === 0 ? (
-              <div className="px-3.5 py-2 text-[13px] text-neutral-400">暂无集</div>
+              <div className="px-3.5 py-2 text-[13px] text-neutral-400">暫無集</div>
             ) : (
               sets.map((set) => {
                 const active = conversationSetId === set.id
@@ -201,7 +201,7 @@ export function ConversationContextMenu({
         }}
       >
         <Trash2 size={16} strokeWidth={1.75} className="shrink-0" />
-        删除
+        刪除
       </button>
     </div>
   )

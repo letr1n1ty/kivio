@@ -113,10 +113,10 @@ describe('summarizeToolGroup', () => {
       tool({ id: 'c2', name: 'read' }),
     ]
     const summary = summarizeToolGroup(segments, toolCalls)
-    expect(summary.text).toBe('读取 2 个文件')
+    expect(summary.text).toBe('讀取 2 個檔案')
     expect(summary.status).toBe('done')
     expect(summary.icon).toBe('read')
-    // 单类组：去重后仅一个类别
+    // 單類組：去重後僅一個類別
     expect(summary.categories).toEqual(['read'])
   })
 
@@ -124,7 +124,7 @@ describe('summarizeToolGroup', () => {
     const segments = [toolSegment('t1', 1, 'c1')]
     const toolCalls = [tool({ id: 'c1', name: 'search_files' })]
     const summary = summarizeToolGroup(segments, toolCalls)
-    expect(summary.text).toBe('搜索代码')
+    expect(summary.text).toBe('搜尋程式碼')
     expect(summary.icon).toBe('codeSearch')
     expect(summary.categories).toEqual(['codeSearch'])
   })
@@ -143,10 +143,10 @@ describe('summarizeToolGroup', () => {
       tool({ id: 'c4', name: 'search_files' }),
     ]
     const summary = summarizeToolGroup(segments, toolCalls)
-    expect(summary.text).toBe('读取 3 个文件和搜索代码')
-    // 混合类别 → 通用兜底图标
+    expect(summary.text).toBe('讀取 3 個檔案和搜尋程式碼')
+    // 混合類別 → 通用兜底圖示
     expect(summary.icon).toBe('other')
-    // 两个去重类别，保持首次出现顺序
+    // 兩個去重類別，保持首次出現順序
     expect(summary.categories).toEqual(['read', 'codeSearch'])
   })
 
@@ -162,7 +162,7 @@ describe('summarizeToolGroup', () => {
       tool({ id: 'c3', name: 'run_command' }),
     ]
     const summary = summarizeToolGroup(segments, toolCalls)
-    expect(summary.text).toBe('调用 3 次工具')
+    expect(summary.text).toBe('呼叫 3 次工具')
     expect(summary.categories).toEqual(['read', 'codeSearch', 'runCommand'])
   })
 
@@ -178,8 +178,8 @@ describe('summarizeToolGroup', () => {
       tool({ id: 'c3', name: 'read' }),
     ]
     const summary = summarizeToolGroup(segments, toolCalls)
-    // 重复 read 去重，未知工具(other)被剔除；m===1 → 读取片段（count 只数 read）
-    expect(summary.text).toBe('读取 2 个文件')
+    // 重複 read 去重，未知工具(other)被剔除；m===1 → 讀取片段（count 只數 read）
+    expect(summary.text).toBe('讀取 2 個檔案')
     expect(summary.categories).toEqual(['read'])
   })
 
@@ -190,9 +190,9 @@ describe('summarizeToolGroup', () => {
       tool({ id: 'c2', name: 'another_unknown', source: 'native' }),
     ]
     const summary = summarizeToolGroup(segments, toolCalls)
-    expect(summary.text).toBe('调用 2 次工具')
+    expect(summary.text).toBe('呼叫 2 次工具')
     expect(summary.icon).toBe('other')
-    // 全是 other → categories 为空
+    // 全是 other → categories 為空
     expect(summary.categories).toEqual([])
   })
 
@@ -200,20 +200,20 @@ describe('summarizeToolGroup', () => {
     const segments = [toolSegment('t1', 1, 'c1')]
     const toolCalls = [tool({ id: 'c1', name: 'read_file', status: 'running' })]
     const summary = summarizeToolGroup(segments, toolCalls)
-    expect(summary.text).toBe('正在读取 1 个文件…')
+    expect(summary.text).toBe('正在讀取 1 個檔案…')
     expect(summary.text.endsWith('…')).toBe(true)
     expect(summary.status).toBe('running')
   })
 
-  it('appends a 项失败 suffix on the done path when a tool failed', () => {
+  it('appends a 項失敗 suffix on the done path when a tool failed', () => {
     const segments = [toolSegment('t1', 1, 'c1'), toolSegment('t2', 2, 'c2')]
     const toolCalls = [
       tool({ id: 'c1', name: 'run_command', status: 'error' }),
       tool({ id: 'c2', name: 'run_command', status: 'completed' }),
     ]
     const summary = summarizeToolGroup(segments, toolCalls)
-    expect(summary.text).toBe('执行 2 条命令，1 项失败')
-    expect(summary.text.endsWith('，1 项失败')).toBe(true)
+    expect(summary.text).toBe('執行 2 條命令，1 項失敗')
+    expect(summary.text.endsWith('，1 項失敗')).toBe(true)
     expect(summary.status).toBe('error')
   })
 
@@ -221,7 +221,7 @@ describe('summarizeToolGroup', () => {
     const segments = [toolSegment('t1', 1, 'c1')]
     const toolCalls = [tool({ id: 'c1', name: 'search', source: 'mcp', server_name: 'notion-mcp' })]
     const summary = summarizeToolGroup(segments, toolCalls)
-    expect(summary.text).toBe('检索 Notion')
+    expect(summary.text).toBe('檢索 Notion')
     expect(summary.icon).toBe('notion')
   })
 
@@ -233,7 +233,7 @@ describe('summarizeToolGroup', () => {
     const summary = summarizeToolGroup(segments, [])
     expect(summary.text).toBe('思考')
     expect(summary.icon).toBe('reasoning')
-    // 纯思考组不进图标排
+    // 純思考組不進圖示排
     expect(summary.categories).toEqual([])
   })
 })

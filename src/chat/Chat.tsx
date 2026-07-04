@@ -65,9 +65,12 @@ import {
   forgetRememberedChatRoute,
   getChatPlatformWindowSize,
   getRememberedChatSidebarCollapsed,
+  getRememberedChatWebviewZoom,
   isChatOnboardingPath,
+  nextChatWebviewZoom,
   rememberChatSidebarCollapsed,
   rememberChatSize,
+  rememberChatWebviewZoom,
 } from './persistence'
 import { ChatDotGridBackground } from './ChatDotGridBackground'
 import { normalizeToolCallStatus } from './toolStatus'
@@ -154,6 +157,15 @@ function isChatAssistantCenterPath(path: string): boolean {
 
 function isChatOnboardingRoute(path: string): boolean {
   return isChatOnboardingPath(path)
+}
+
+function chatWebviewZoomShortcut(e: KeyboardEvent): 'in' | 'out' | 'reset' | null {
+  const mod = e.metaKey || e.ctrlKey
+  if (!mod || e.altKey) return null
+  if (e.key === '+' || e.key === '=' || e.code === 'Equal' || e.code === 'NumpadAdd') return 'in'
+  if (e.key === '-' || e.code === 'Minus' || e.code === 'NumpadSubtract') return 'out'
+  if (e.key === '0' || e.code === 'Digit0' || e.code === 'Numpad0') return 'reset'
+  return null
 }
 
 function isChatSkillCenterPath(path: string): boolean {
@@ -320,9 +332,9 @@ function sameSegmentField<T>(left: T | null | undefined, right: T | null | undef
   return (left ?? null) === (right ?? null)
 }
 
-// 设置当前视图的流式错误（写 streamingStore 的 coarse 片）。模块级函数，调用点无需进
-// useCallback 依赖。注意：与 setStreamErrorForConversation 不同，这里只改当前视图、不写
-// streamErrorsRef（保持原 setStreamError(useState) 的语义）。
+// 設定當前檢視的流式錯誤（寫 streamingStore 的 coarse 片）。模組級函式，呼叫點無需進
+// useCallback 依賴。注意：與 setStreamErrorForConversation 不同，這裡只改當前檢視、不寫
+// streamErrorsRef（保持原 setStreamError(useState) 的語義）。
 function setStreamError(error: string): void {
   setStreamCoarse({ streamError: error })
 }
@@ -367,8 +379,8 @@ function updateReasoningSegmentDuration(
   }
 }
 
-// 把一条 chat-stream delta 累积进给定快照（会话单流 or 多答组某列共用）。
-// 原地 mutate snapshot；segment 已由调用方算好。返回 void。
+// 把一條 chat-stream delta 累積進給定快照（會話單流 or 多答組某列共用）。
+// 原地 mutate snapshot；segment 已由呼叫方算好。返回 void。
 function applyStreamDeltaToSnapshot(
   snapshot: ConversationStreamSnapshot,
   payload: ChatStreamPayload,
@@ -418,7 +430,7 @@ function applyStreamDeltaToSnapshot(
   }
 }
 
-// done 帧收尾：补齐最后一段 reasoning 的时长。原地 mutate。
+// done 幀收尾：補齊最後一段 reasoning 的時長。原地 mutate。
 function finalizeReasoningDurationOnDone(snapshot: ConversationStreamSnapshot) {
   if (snapshot.reasoningStartedAt != null && snapshot.reasoningStreaming) {
     snapshot.reasoningDurationMs = Math.max(
@@ -434,7 +446,7 @@ function finalizeReasoningDurationOnDone(snapshot: ConversationStreamSnapshot) {
   }
 }
 
-// 把一条 chat-tool record 累积进给定快照（会话单流 or 多答组某列共用）。原地 mutate。
+// 把一條 chat-tool record 累積進給定快照（會話單流 or 多答組某列共用）。原地 mutate。
 function applyToolRecordToSnapshot(
   snapshot: ConversationStreamSnapshot,
   record: ToolCallRecord,
@@ -545,7 +557,7 @@ function conversationUsesModel(
 
 function optimisticConversationTitle(content: string): string {
   const compact = content.replace(/\s+/g, ' ').trim()
-  if (!compact) return '新对话'
+  if (!compact) return '新對話'
   return compact.length > 30 ? `${compact.slice(0, 30)}...` : compact
 }
 
@@ -554,7 +566,7 @@ function optimisticConversationListItem(
   content: string,
 ): ConversationListItem {
   const preview = content.replace(/\s+/g, ' ').trim()
-  const title = conversation.title === '新对话'
+  const title = conversation.title === '新對話'
     ? optimisticConversationTitle(content)
     : conversation.title
   return {
@@ -606,11 +618,11 @@ export default function Chat({ onSettingsChange }: ChatProps) {
   const [searchOpen, setSearchOpen] = useState(false)
   const [selectedProject, setSelectedProject] = useState<ChatProject | null>(null)
   const [selectedSet, setSelectedSet] = useState<ChatSet | null>(null)
-  // 流式高频状态已移到 streamingStore（useSyncExternalStore）。Chat 只订阅 coarse 这一片
-  // （streaming/streamFrozen/cancelling/streamError，边沿才变），用于 showEmptyHero / drain 判定；
-  // 内容快照由 MessageList 直接订阅，避免每帧 token 拖着整个 Chat 重渲。
+  // 流式高頻狀態已移到 streamingStore（useSyncExternalStore）。Chat 只訂閱 coarse 這一片
+  // （streaming/streamFrozen/cancelling/streamError，邊沿才變），用於 showEmptyHero / drain 判定；
+  // 內容快照由 MessageList 直接訂閱，避免每幀 token 拖著整個 Chat 重渲。
   const streamCoarse = useStreamCoarse()
-  /** 发送中待显示的用户消息（与 conversation 分离，避免 route reload 冲掉） */
+  /** 傳送中待顯示的使用者訊息（與 conversation 分離，避免 route reload 沖掉） */
   const [pendingUserMessage, setPendingUserMessage] = useState<ChatMessage | null>(null)
   const [pendingUserMessageConversationId, setPendingUserMessageConversationId] = useState<string | null>(null)
   const [assistantStreamStatsByMessageId, setAssistantStreamStatsByMessageId] =
@@ -624,11 +636,11 @@ export default function Chat({ onSettingsChange }: ChatProps) {
   const [sidebarProfileRefreshKey, setSidebarProfileRefreshKey] = useState(0)
   const [draftProviderId, setDraftProviderId] = useState('')
   const [draftModel, setDraftModel] = useState('')
-  // 欢迎页（尚无会话）时挂载的知识库草稿；首次发送建会话时落到会话上。
+  // 歡迎頁（尚無會話）時掛載的知識庫草稿；首次傳送建會話時落到會話上。
   const [draftKnowledgeBaseIds, setDraftKnowledgeBaseIds] = useState<string[]>([])
-  // 欢迎页思考等级草稿；首次发送建会话时落到会话上。null=跟随全局。
+  // 歡迎頁思考等級草稿；首次傳送建會話時落到會話上。null=跟隨全域性。
   const [draftThinkingLevel, setDraftThinkingLevel] = useState<ThinkingLevel | null>(null)
-  // 多模型一问多答（任务 06-30）：欢迎页（尚无会话）时的多答模型草稿；首次发送建会话时落到会话上。
+  // 多模型一問多答（任務 06-30）：歡迎頁（尚無會話）時的多答模型草稿；首次傳送建會話時落到會話上。
   const [draftReplyModels, setDraftReplyModels] = useState<ModelRef[]>([])
   const [draftAgentRuntime, setDraftAgentRuntime] = useState<AgentRuntimeConfig>(
     BUILTIN_AGENT_RUNTIME,
@@ -653,10 +665,11 @@ export default function Chat({ onSettingsChange }: ChatProps) {
   const [animateCompactionBoundaryId, setAnimateCompactionBoundaryId] = useState<string | null>(null)
   const [contextError, setContextError] = useState('')
   const [imageViewerItem, setImageViewerItem] = useState<ChatImageViewerItem | null>(null)
+  const chatWebviewZoomRef = useRef(getRememberedChatWebviewZoom())
   const currentConversationIdRef = useRef<string | null>(null)
-  // 始终指向最新 currentConversation。消息操作 handler（编辑/删除/重发）借此读取最新会话，
-  // 而无需把 currentConversation 列进 useCallback 依赖——否则每次切模型/思考等级（currentConversation
-  // 换引用）这些 handler 都换身份，打穿 MessageBubble 的 memo 导致全列表重渲（公式 remount 闪烁）。
+  // 始終指向最新 currentConversation。訊息操作 handler（編輯/刪除/重發）藉此讀取最新會話，
+  // 而無需把 currentConversation 列進 useCallback 依賴——否則每次切模型/思考等級（currentConversation
+  // 換引用）這些 handler 都換身份，打穿 MessageBubble 的 memo 導致全列表重渲（公式 remount 閃爍）。
   const currentConversationRef = useRef(currentConversation)
   currentConversationRef.current = currentConversation
   const activeRunIdRef = useRef<string | null>(null)
@@ -676,8 +689,8 @@ export default function Chat({ onSettingsChange }: ChatProps) {
   const streamingReasoningRef = useRef('')
   const settingsRef = useRef<SettingsShellHandle>(null)
   const pendingAfterSettingsCloseRef = useRef<(() => void) | null>(null)
-  // A 合帧（render coalescing）：高频 stream/tool/subagent/userprompt 事件不再每条都同步
-  // setState 重渲，而是把"待显示的快照"记到 ref，用 requestAnimationFrame 每帧最多 flush 一次。
+  // A 合幀（render coalescing）：高頻 stream/tool/subagent/userprompt 事件不再每條都同步
+  // setState 重渲，而是把"待顯示的快照"記到 ref，用 requestAnimationFrame 每幀最多 flush 一次。
   const pendingStreamRenderRef = useRef<{ conversationId: string; snapshot: ConversationStreamSnapshot } | null>(null)
   const streamRenderRafRef = useRef<number | null>(null)
 
@@ -701,8 +714,8 @@ export default function Chat({ onSettingsChange }: ChatProps) {
     syncGeneratingConversationIds()
   }, [syncGeneratingConversationIds])
 
-  // B：彻底把一个会话从所有本地乐观/in-flight/快照状态中剔除（ghost 清理）。
-  // 不触碰 currentConversation/route，由调用方按场景决定。
+  // B：徹底把一個會話從所有本地樂觀/in-flight/快照狀態中剔除（ghost 清理）。
+  // 不觸碰 currentConversation/route，由呼叫方按場景決定。
   const dropConversationLocally = useCallback((conversationId: string) => {
     inFlightConversationsRef.current.delete(conversationId)
     delete streamSnapshotsRef.current[conversationId]
@@ -710,7 +723,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
     delete pendingSessionConsentsRef.current[conversationId]
     delete pendingStreamDoneRef.current[conversationId]
     delete streamErrorsRef.current[conversationId]
-    // 若该会话还挂着待刷新的合帧，连带取消，避免被剔除的 ghost 还闪一帧。
+    // 若該會話還掛著待重新整理的合幀，連帶取消，避免被剔除的 ghost 還閃一幀。
     if (pendingStreamRenderRef.current?.conversationId === conversationId) {
       if (streamRenderRafRef.current != null) {
         cancelAnimationFrame(streamRenderRafRef.current)
@@ -742,10 +755,10 @@ export default function Chat({ onSettingsChange }: ChatProps) {
   ), [])
 
   const applyConversation = useCallback((conversation: Conversation | null) => {
-    // 兜底网：后端已在所有返回 Conversation 的命令出口剥离 model_messages/api_messages
-    // （strip_transcripts_for_frontend），所以正常路径到这里已是轻量副本。这里再剥一次，确保
-    // 任何遗漏/未来新增的后端出口都不会把这两份前端永不读的转录留进 React state。后端回放读盘
-    // 上完整副本，不受影响。
+    // 兜底網：後端已在所有返回 Conversation 的命令出口剝離 model_messages/api_messages
+    // （strip_transcripts_for_frontend），所以正常路徑到這裡已是輕量副本。這裡再剝一次，確保
+    // 任何遺漏/未來新增的後端出口都不會把這兩份前端永不讀的轉錄留進 React state。後端回放讀盤
+    // 上完整副本，不受影響。
     if (conversation?.messages) {
       for (const m of conversation.messages) {
         if (m.role !== 'assistant') continue
@@ -759,9 +772,9 @@ export default function Chat({ onSettingsChange }: ChatProps) {
     setContextState(conversation?.context_state ?? conversation?.contextState ?? null)
   }, [])
 
-  // 纯元数据更新（模型 / 思考等级 / 知识库挂载等）：合并后端返回的新元数据，但**保留现有
-  // messages 数组引用**。否则每条消息都变成新对象，击穿 MessageBubble/ChatMarkdown 的 memo，
-  // 历史消息里的 LaTeX 会整屏重渲闪一下。这类更新后端不会改 messages，沿用旧引用安全。
+  // 純後設資料更新（模型 / 思考等級 / 知識庫掛載等）：合併後端返回的新後設資料，但**保留現有
+  // messages 陣列引用**。否則每條訊息都變成新物件，擊穿 MessageBubble/ChatMarkdown 的 memo，
+  // 歷史訊息裡的 LaTeX 會整屏重渲閃一下。這類更新後端不會改 messages，沿用舊引用安全。
   const applyConversationMeta = useCallback((updated: Conversation) => {
     setCurrentConversation((prev) =>
       prev && prev.id === updated.id ? { ...updated, messages: prev.messages } : updated,
@@ -791,13 +804,13 @@ export default function Chat({ onSettingsChange }: ChatProps) {
   }, [])
 
   const clearStreamingPreview = useCallback(() => {
-    // 取消挂起的合帧，避免旧快照在清空后又被刷回来产生空帧/串帧。
+    // 取消掛起的合幀，避免舊快照在清空後又被刷回來產生空幀/串幀。
     if (streamRenderRafRef.current != null) {
       cancelAnimationFrame(streamRenderRafRef.current)
       streamRenderRafRef.current = null
     }
     pendingStreamRenderRef.current = null
-    // 内容回空闲 + streaming/frozen/cancelling 归位；streamError 不动（与原语义一致）。
+    // 內容回空閒 + streaming/frozen/cancelling 歸位；streamError 不動（與原語義一致）。
     resetStreamStore()
     activeRunIdRef.current = null
     streamStartedAtRef.current = null
@@ -815,7 +828,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
   }, [syncGeneratingConversationIds])
 
   const restoreStreamingPreview = useCallback((conversationId: string | null) => {
-    // 切换会话/恢复预览前取消任何挂起的合帧，避免上一个会话的快照被刷到当前视图。
+    // 切換會話/恢復預覽前取消任何掛起的合幀，避免上一個會話的快照被刷到當前檢視。
     if (streamRenderRafRef.current != null) {
       cancelAnimationFrame(streamRenderRafRef.current)
       streamRenderRafRef.current = null
@@ -853,7 +866,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
     streamingReasoningRef.current = snapshot.reasoning
   }, [])
 
-  // 立即把挂起帧刷出去（done/结束、卸载、切换会话前调用），保证不丢最后一帧。
+  // 立即把掛起幀刷出去（done/結束、解除安裝、切換會話前呼叫），保證不丟最後一幀。
   const flushStreamRender = useCallback(() => {
     if (streamRenderRafRef.current != null) {
       cancelAnimationFrame(streamRenderRafRef.current)
@@ -866,11 +879,11 @@ export default function Chat({ onSettingsChange }: ChatProps) {
     applyStreamSnapshotToState(pending.snapshot)
   }, [applyStreamSnapshotToState])
 
-  // 取消挂起帧而不应用（切换会话/卸载时调用，避免把旧会话快照刷到新会话）。
-  // 注：clearStreamingPreview / restoreStreamingPreview 已内联同样的取消逻辑。
+  // 取消掛起幀而不應用（切換會話/解除安裝時呼叫，避免把舊會話快照刷到新會話）。
+  // 注：clearStreamingPreview / restoreStreamingPreview 已內聯同樣的取消邏輯。
 
-  // A 合帧：事件本身仍即时累积到 snapshot 对象，这里只把"渲染"节流到每帧一次。
-  // immediate=true（done 等终止帧）立即 flush，不再等下一帧。
+  // A 合幀：事件本身仍即時累積到 snapshot 物件，這裡只把"渲染"節流到每幀一次。
+  // immediate=true（done 等終止幀）立即 flush，不再等下一幀。
   const showStreamSnapshotIfCurrent = useCallback((
     conversationId: string,
     snapshot: ConversationStreamSnapshot,
@@ -898,7 +911,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       cancelAnimationFrame(streamRenderRafRef.current)
       streamRenderRafRef.current = null
     }
-    // 卸载时清掉所有活跃多答组，避免遗留列快照。
+    // 解除安裝時清掉所有活躍多答組，避免遺留列快照。
     resetGroups()
   }, [])
 
@@ -918,10 +931,10 @@ export default function Chat({ onSettingsChange }: ChatProps) {
   const cancelCurrentRunLocally = useCallback(() => {
     locallyCancelledConversationIdRef.current = currentConversationIdRef.current
     locallyCancelledRunIdRef.current = activeRunIdRef.current
-    // 立即停掉"生成中"视觉（撤掉取消按钮 + 停 shimmer），但保留已生成文本：
-    // 切到 frozen 态冻结展示，等 send invoke 返回持久化消息时由
-    // finishStreamingRunWithConversation 无缝替换（clearStreamingPreview 会清除 frozen）。
-    // 后续迟到的流事件已被 isLocallyCancelledPayload 过滤，预览不会再变动。
+    // 立即停掉"生成中"視覺（撤掉取消按鈕 + 停 shimmer），但保留已生成文本：
+    // 切到 frozen 態凍結展示，等 send invoke 返回持久化訊息時由
+    // finishStreamingRunWithConversation 無縫替換（clearStreamingPreview 會清除 frozen）。
+    // 後續遲到的流事件已被 isLocallyCancelledPayload 過濾，預覽不會再變動。
     setStreamCoarse({ streaming: false, streamFrozen: true })
     patchStreamSnapshot({ reasoningStreaming: false })
     const conversationId = currentConversationIdRef.current
@@ -950,7 +963,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
   const activeModel = currentConversation && !currentConversationIsBlank
     ? currentConversation.model
     : draftModel
-  // 多模型一问多答（任务 06-30）：当前生效的多答模型集（会话级持久 reply_models，欢迎页用草稿）。
+  // 多模型一問多答（任務 06-30）：當前生效的多答模型集（會話級持久 reply_models，歡迎頁用草稿）。
   const activeReplyModels = useMemo<ModelRef[]>(
     () => (currentConversation && !currentConversationIsBlank
       ? currentConversation.reply_models ?? currentConversation.replyModels ?? []
@@ -1053,11 +1066,11 @@ export default function Chat({ onSettingsChange }: ChatProps) {
         setEnabledTools([])
         setEnabledToolCount(0)
         if (skillRuntimeEnabled && effectiveSkillId) {
-          setToolsDisabledReason('当前模型不支持 tools；已选 Skill 时将注入 SKILL.md')
+          setToolsDisabledReason('當前模型不支援 tools；已選 Skill 時將注入 SKILL.md')
         } else if (skillRuntimeEnabled) {
-          setToolsDisabledReason('Skill 渐进式加载需要 tools 支持；已选 Skill 时将注入 SKILL.md')
+          setToolsDisabledReason('Skill 漸進式載入需要 tools 支援；已選 Skill 時將注入 SKILL.md')
         } else {
-          setToolsDisabledReason('当前模型不支持 tools')
+          setToolsDisabledReason('當前模型不支援 tools')
         }
         return
       }
@@ -1099,7 +1112,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       const servers = (settings.chatTools?.servers ?? []).map((server) =>
         server.id === serverId ? { ...server, enabled: !server.enabled } : server,
       )
-      // 乐观更新本地列表（开关即时反馈），保存后由 refreshToolIndicator 校正。
+      // 樂觀更新本地列表（開關即時反饋），儲存後由 refreshToolIndicator 校正。
       setMcpServers(servers)
       await api.saveSettings({
         ...settings,
@@ -1123,18 +1136,18 @@ export default function Chat({ onSettingsChange }: ChatProps) {
 
   const toolStatusHint = useMemo(() => {
     if (toolsDisabledReason && (enabledToolCount ?? 0) === 0 && (toolsRequested || effectiveSkillRecommendedTools.length > 0)) {
-      if (toolsDisabledReason.includes('不支持 tools') && effectiveSkillId) {
+      if (toolsDisabledReason.includes('不支援 tools') && effectiveSkillId) {
         return toolsDisabledReason
       }
       return effectiveSkillRecommendedTools.length > 0
-        ? `当前 Skill 需要工具，但${toolsDisabledReason}`
+        ? `當前 Skill 需要工具，但${toolsDisabledReason}`
         : toolsDisabledReason
     }
     if (toolsDisabledReason && (enabledToolCount ?? 0) === 0) {
       return ''
     }
     if (unavailableRecommendedTools.length > 0) {
-      return `当前 Skill 推荐的工具不可用：${unavailableRecommendedTools.slice(0, 3).join(', ')}`
+      return `當前 Skill 推薦的工具不可用：${unavailableRecommendedTools.slice(0, 3).join(', ')}`
     }
     return ''
   }, [effectiveSkillId, effectiveSkillRecommendedTools.length, enabledToolCount, toolsDisabledReason, toolsRequested, unavailableRecommendedTools])
@@ -1340,7 +1353,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       setStreamCoarse({ cancelling: false })
     } catch (err) {
       console.error('Failed to reload conversation:', err)
-      // B2：reload 失败（尤其"对话不存在"）——把 ghost 从乐观列表/in-flight/快照剔除并刷新侧栏。
+      // B2：reload 失敗（尤其"對話不存在"）——把 ghost 從樂觀列表/in-flight/快照剔除並重新整理側欄。
       dropConversationLocally(conversationId)
       forgetRememberedChatRoute()
       if (currentConversationIdRef.current === conversationId || currentConversationIdRef.current === null) {
@@ -1349,7 +1362,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
         syncConversationRoute(null)
       }
       refreshSidebar()
-      setStreamError(typeof err === 'string' ? err : (err as Error).message || '对话加载失败，已从列表移除')
+      setStreamError(typeof err === 'string' ? err : (err as Error).message || '對話載入失敗，已從列表移除')
     }
   }, [applyConversation, dropConversationLocally, refreshSidebar, restoreStreamingPreview, syncConversationRoute])
 
@@ -1369,7 +1382,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       }
     } catch (err) {
       if (currentConversationIdRef.current === targetConversationId) {
-        setContextError(typeof err === 'string' ? err : (err as Error).message || '上下文统计失败')
+        setContextError(typeof err === 'string' ? err : (err as Error).message || '上下文統計失敗')
       }
     } finally {
       if (currentConversationIdRef.current === targetConversationId) {
@@ -1406,7 +1419,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       }
     } catch (err) {
       if (currentConversationIdRef.current === conversationId) {
-        setContextError(typeof err === 'string' ? err : (err as Error).message || '上下文压缩失败')
+        setContextError(typeof err === 'string' ? err : (err as Error).message || '上下文壓縮失敗')
       }
     } finally {
       if (currentConversationIdRef.current === conversationId) {
@@ -1418,7 +1431,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
   const finishStreamingRun = useCallback(
     async (payload: { reason?: string; conversationId?: string }) => {
       const conversationId = payload.conversationId ?? currentConversationIdRef.current
-      // 兜底：run 结束时压缩必然已终止；防御后端遗漏终止事件把"压缩中"状态卡死。
+      // 兜底：run 結束時壓縮必然已終止；防禦後端遺漏終止事件把"壓縮中"狀態卡死。
       setAgentLoopCompacting(false)
       if (payload.reason !== 'cancelled') {
         resetLocalCancellation()
@@ -1426,7 +1439,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       if (payload.reason === 'error' && conversationId) {
         setStreamErrorForConversation(
           conversationId,
-          streamErrorsRef.current[conversationId] || '回复生成失败，请稍后重试。',
+          streamErrorsRef.current[conversationId] || '回覆生成失敗，請稍後重試。',
         )
       }
       if (conversationId && payload.reason !== 'cancelled') {
@@ -1508,8 +1521,8 @@ export default function Chat({ onSettingsChange }: ChatProps) {
             return
           }
         }
-        // 多答组分支（任务 06-30）：该会话处于多模型并发流时，按 messageId 路由到对应列，
-        // 不动会话级单流快照（单模型路径零回归）。
+        // 多答組分支（任務 06-30）：該會話處於多模型併發流時，按 messageId 路由到對應列，
+        // 不動會話級單流快照（單模型路徑零迴歸）。
         if (hasActiveGroup(payload.conversationId) && payload.messageId) {
           const column = ensureGroupColumn(
             payload.conversationId,
@@ -1521,13 +1534,13 @@ export default function Chat({ onSettingsChange }: ChatProps) {
           if (payload.done) {
             finalizeReasoningDurationOnDone(column)
             column.streaming = false
-            // 列结束是终止帧：立即 flush（不等下一帧），让该列完成态尽快可见。
+            // 列結束是終止幀：立即 flush（不等下一幀），讓該列完成態儘快可見。
             flushGroups()
           } else {
-            // 内容 delta 经 rAF 合帧（N 列高频 delta 不各自打爆 setState）。
+            // 內容 delta 經 rAF 合幀（N 列高頻 delta 不各自打爆 setState）。
             touchGroup()
           }
-          // 组的整体「done / 持久化」交给 sendMessage 返回后的统一收尾；这里不触发 finishStreamingRun。
+          // 組的整體「done / 持久化」交給 sendMessage 返回後的統一收尾；這裡不觸發 finishStreamingRun。
           return
         }
         const snapshot = ensureStreamSnapshot(payload.conversationId)
@@ -1593,9 +1606,9 @@ export default function Chat({ onSettingsChange }: ChatProps) {
               updateReasoningSegmentDuration(snapshot, activeReasoningSegment.id)
             }
           }
-          // done：立即 flush 最后一帧，别让合帧吞掉收尾内容。
+          // done：立即 flush 最後一幀，別讓合幀吞掉收尾內容。
           showStreamSnapshotIfCurrent(payload.conversationId, snapshot, true)
-          // invoke 未完成前不要 reload；延后到 flushPendingStreamDone，避免与 send 写盘竞态。
+          // invoke 未完成前不要 reload；延後到 flushPendingStreamDone，避免與 send 寫盤競態。
           if (isConversationInFlight(inFlightConversationsRef.current, payload.conversationId)) {
             pendingStreamDoneRef.current[payload.conversationId] = () => finishStreamingRun(payload)
             return
@@ -1761,9 +1774,9 @@ export default function Chat({ onSettingsChange }: ChatProps) {
         )) {
           return
         }
-        // 忽略 invoke 结束后的迟到 tool 事件，否则会重新 setStreaming(true) 卡死输入栏。
+        // 忽略 invoke 結束後的遲到 tool 事件，否則會重新 setStreaming(true) 卡死輸入欄。
         if (!isConversationInFlight(inFlightConversationsRef.current, payload.conversationId)) return
-        // 多答组分支：按 messageId 路由到对应列。
+        // 多答組分支：按 messageId 路由到對應列。
         if (hasActiveGroup(payload.conversationId) && payload.messageId) {
           const column = ensureGroupColumn(payload.conversationId, payload.messageId)
           if (!column) return
@@ -1993,7 +2006,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
               : String(err)
             await api.chatPythonComplete(
               payload.runId,
-              `Python 沙盒调用失败：${message || 'Unknown error'}。不要使用 run_command/pip 安装或修改本机 Python 环境来绕过沙盒；请直接基于已有数据回答，除非用户明确要求修改本机环境。`,
+              `Python 沙盒呼叫失敗：${message || 'Unknown error'}。不要使用 run_command/pip 安裝或修改本機 Python 環境來繞過沙盒；請直接基於已有資料回答，除非使用者明確要求修改本機環境。`,
               true,
               [],
             )
@@ -2130,8 +2143,8 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       setStreamError('')
     } catch (err) {
       console.error('Failed to load conversation:', err)
-      // B2：点开一个不存在/加载失败的 ghost——从乐观列表 + in-flight + 快照剔除，
-      // 清空当前会话并刷新侧栏，让 ghost 自动消失而不是卡住。
+      // B2：點開一個不存在/載入失敗的 ghost——從樂觀列表 + in-flight + 快照剔除，
+      // 清空當前會話並重新整理側欄，讓 ghost 自動消失而不是卡住。
       dropConversationLocally(conversationId)
       if (currentConversationIdRef.current === conversationId) {
         currentConversationIdRef.current = null
@@ -2140,7 +2153,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       forgetRememberedChatRoute()
       syncConversationRoute(null)
       refreshSidebar()
-      setStreamError(typeof err === 'string' ? err : (err as Error).message || '对话加载失败，已从列表移除')
+      setStreamError(typeof err === 'string' ? err : (err as Error).message || '對話載入失敗，已從列表移除')
     }
   }, [applyConversation, dropConversationLocally, refreshSidebar, restoreStreamingPreview, syncConversationRoute])
 
@@ -2179,7 +2192,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       inFlightConversationsRef.current,
       streamSnapshotsRef.current,
     )) {
-      setStreamErrorForConversation(conversationId, '请先停止当前回复，再清空对话。')
+      setStreamErrorForConversation(conversationId, '請先停止當前回覆，再清空對話。')
       return
     }
 
@@ -2219,7 +2232,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       setStreamError('')
     } catch (err) {
       console.error('Failed to clear chat:', err)
-      setStreamError(typeof err === 'string' ? err : (err as Error).message || '清空对话失败')
+      setStreamError(typeof err === 'string' ? err : (err as Error).message || '清空對話失敗')
     }
   }, [applyConversation, clearConversationInFlight, refreshSidebar, restoreStreamingPreview, setStreamErrorForConversation, syncConversationRoute])
 
@@ -2244,7 +2257,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       setStreamError('')
     } catch (err) {
       console.error('Failed to start assistant conversation:', err)
-      setStreamError(typeof err === 'string' ? err : (err as Error).message || '创建助手对话失败')
+      setStreamError(typeof err === 'string' ? err : (err as Error).message || '建立助手對話失敗')
     }
   }, [activeModel, activeProviderId, applyConversation, refreshSidebar, restoreStreamingPreview, selectedProject?.id, selectedProject?.name, selectedSet?.id, syncConversationRoute])
 
@@ -2264,7 +2277,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       setStreamError('')
     } catch (err) {
       console.error('Failed to start builder conversation:', err)
-      setStreamError(typeof err === 'string' ? err : (err as Error).message || '创建搭建对话失败')
+      setStreamError(typeof err === 'string' ? err : (err as Error).message || '建立搭建對話失敗')
     }
   }, [activeModel, activeProviderId, applyConversation, refreshSidebar, restoreStreamingPreview, selectedProject?.id, syncConversationRoute])
 
@@ -2279,7 +2292,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       if (assistantId) void refreshContextStats(updated.id)
     } catch (err) {
       console.error('Failed to update conversation assistant:', err)
-      setStreamError(typeof err === 'string' ? err : (err as Error).message || '助手切换失败')
+      setStreamError(typeof err === 'string' ? err : (err as Error).message || '助手切換失敗')
     }
   }, [applyConversation, currentConversation, refreshContextStats, refreshSidebar])
 
@@ -2312,7 +2325,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       refreshSidebar()
     } catch (err) {
       console.error('Failed to update agent plan mode:', err)
-      setStreamError(typeof err === 'string' ? err : (err as Error).message || 'Plan 模式切换失败')
+      setStreamError(typeof err === 'string' ? err : (err as Error).message || 'Plan 模式切換失敗')
     }
   }, [applyConversation, ensureConversationForAgentPlan, refreshContextStats, refreshSidebar])
 
@@ -2363,6 +2376,39 @@ export default function Chat({ onSettingsChange }: ChatProps) {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [chatView, handleNewConversation, openEmbeddedSettings])
+
+  const applyChatWebviewZoom = useCallback(async (zoom: number) => {
+    if (!isTauriRuntime()) return
+    const { getCurrentWebview } = await import('@tauri-apps/api/webview')
+    await getCurrentWebview().setZoom(zoom)
+  }, [])
+
+  useEffect(() => {
+    const zoom = getRememberedChatWebviewZoom()
+    chatWebviewZoomRef.current = zoom
+    void applyChatWebviewZoom(zoom).catch((err) => {
+      console.error('[Chat] Failed to restore webview zoom:', err)
+    })
+  }, [applyChatWebviewZoom])
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const direction = chatWebviewZoomShortcut(e)
+      if (!direction) return
+
+      e.preventDefault()
+      e.stopPropagation()
+      const nextZoom = nextChatWebviewZoom(chatWebviewZoomRef.current, direction)
+      chatWebviewZoomRef.current = nextZoom
+      rememberChatWebviewZoom(nextZoom)
+      void applyChatWebviewZoom(nextZoom).catch((err) => {
+        console.error('[Chat] Failed to apply webview zoom:', err)
+      })
+    }
+
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
+  }, [applyChatWebviewZoom])
 
   const applyAssistantStreamStats = useCallback((updatedConv: Conversation) => {
     const lastAssistant = [...updatedConv.messages]
@@ -2431,7 +2477,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
         syncConversationRoute(conversation.id)
       } catch (err) {
         console.error('Failed to create conversation before send:', err)
-        setStreamError(typeof err === 'string' ? err : (err as Error).message || '创建对话失败')
+        setStreamError(typeof err === 'string' ? err : (err as Error).message || '建立對話失敗')
         return false
       }
     }
@@ -2442,7 +2488,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
         applyConversation(conversation)
       } catch (err) {
         console.error('Failed to apply agent runtime before send:', err)
-        setStreamError(typeof err === 'string' ? err : (err as Error).message || 'Agent 切换失败')
+        setStreamError(typeof err === 'string' ? err : (err as Error).message || 'Agent 切換失敗')
         return false
       }
     }
@@ -2466,7 +2512,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       }
     }
 
-    // 同理：把欢迎页选好的思考等级草稿落到新会话上。
+    // 同理：把歡迎頁選好的思考等級草稿落到新會話上。
     if (draftThinkingLevel) {
       const convLevel = conversation.thinking_level ?? conversation.thinkingLevel ?? null
       if (convLevel !== draftThinkingLevel) {
@@ -2481,7 +2527,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       }
     }
 
-    // 多模型一问多答（任务 06-30）：把欢迎页选好的多答模型草稿落到新会话上。
+    // 多模型一問多答（任務 06-30）：把歡迎頁選好的多答模型草稿落到新會話上。
     {
       const convReplyModels = conversation.reply_models ?? conversation.replyModels ?? []
       const sameReply =
@@ -2503,7 +2549,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
 
     const conversationId = conversation.id
     if (isConversationInFlight(inFlightConversationsRef.current, conversationId)) {
-      setStreamErrorForConversation(conversationId, '该对话正在生成中，请稍后再试')
+      setStreamErrorForConversation(conversationId, '該對話正在生成中，請稍後再試')
       return false
     }
     setOptimisticSidebarConversations((items) => [
@@ -2543,7 +2589,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
     syncGeneratingConversationIds()
 
     if (currentConversationIdRef.current === conversationId) {
-      // 起新一轮：内容回空闲，coarse 置 streaming。
+      // 起新一輪：內容回空閒，coarse 置 streaming。
       resetStreamStore()
       setStreamCoarse({ streaming: true })
       setStreamErrorForConversation(conversationId, '')
@@ -2556,9 +2602,9 @@ export default function Chat({ onSettingsChange }: ChatProps) {
     }
 
     markConversationInFlight(conversationId)
-    // 多模型一问多答（任务 06-30）：reply_models ≥2 且非 plan/orchestrate 模式时，后端会 fan-out
-    // 出 N 条并发流。前端据此建多答组（占位 N 列），流事件按 messageId 路由到对应列。
-    // 与后端 resolve_reply_arms 的判定保持一致（≤1 个臂 = 单模型路径，零回归）。
+    // 多模型一問多答（任務 06-30）：reply_models ≥2 且非 plan/orchestrate 模式時，後端會 fan-out
+    // 出 N 條併發流。前端據此建多答組（佔位 N 列），流事件按 messageId 路由到對應列。
+    // 與後端 resolve_reply_arms 的判定保持一致（≤1 個臂 = 單模型路徑，零迴歸）。
     const replyArms = conversation.reply_models ?? conversation.replyModels ?? []
     const convPlanMode =
       conversation.agent_plan_state?.mode ?? conversation.agentPlanState?.mode ?? 'act'
@@ -2570,7 +2616,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
         groupId,
         replyArms.map((ref) => ({ providerId: ref.provider_id, model: ref.model })),
       )
-      // 多答组不走单流预览：清掉刚才置的会话级 streaming 占位，避免顶部多出一条空预览气泡。
+      // 多答組不走單流預覽：清掉剛才置的會話級 streaming 佔位，避免頂部多出一條空預覽氣泡。
       if (currentConversationIdRef.current === conversationId) {
         resetStreamStore()
         setStreamCoarse({ streaming: true })
@@ -2604,8 +2650,8 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       }
     } catch (err) {
       console.error('Failed to send message:', err)
-      // 后端生成失败时保留了用户消息并随错误带回对话——套用它，让问题留在线程里可重试，
-      // 而不是连问题一起消失（旧行为）。
+      // 後端生成失敗時保留了使用者訊息並隨錯誤帶回對話——套用它，讓問題留線上程裡可重試，
+      // 而不是連問題一起消失（舊行為）。
       const keptConversation = (err as { conversation?: Conversation })?.conversation
       if (currentConversationIdRef.current === conversationId) {
         setPendingUserMessage(null)
@@ -2617,16 +2663,16 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       setOptimisticSidebarConversations((items) => items.filter((item) => item.id !== conversationId))
       clearStreamSnapshot(conversationId)
       if (keptConversation) refreshSidebar()
-      const message = typeof err === 'string' ? err : (err as Error).message || '发送失败'
+      const message = typeof err === 'string' ? err : (err as Error).message || '傳送失敗'
       setStreamErrorForConversation(conversationId, message)
     } finally {
       clearConversationInFlight(conversationId)
-      // 多答组收尾：sendMessage 返回时所有臂已结束，持久化后的会话已 applyConversation（含 N 条
-      // 带 group_id 的 assistant 消息），实时流列已可丢弃，由 MessageGroup 渲染落库后的列。
+      // 多答組收尾：sendMessage 返回時所有臂已結束，持久化後的會話已 applyConversation（含 N 條
+      // 帶 group_id 的 assistant 訊息），即時流列已可丟棄，由 MessageGroup 渲染落庫後的列。
       endGroup(conversationId)
       if (persistedConversation) {
-        // invoke 已返回持久化后的完整对话且上面已 applyConversation。
-        // 丢弃被延后的 finishStreamingRun(它会再次全量 reloadConversation),避免每轮随历史线性变慢。
+        // invoke 已返回持久化後的完整對話且上面已 applyConversation。
+        // 丟棄被延後的 finishStreamingRun(它會再次全量 reloadConversation),避免每輪隨歷史線性變慢。
         delete pendingStreamDoneRef.current[conversationId]
         finishStreamingRunWithConversation(conversationId, persistedConversation)
       } else if (!(await flushPendingStreamDone(conversationId))) {
@@ -2663,13 +2709,13 @@ export default function Chat({ onSettingsChange }: ChatProps) {
     syncGeneratingConversationIds,
   ])
 
-  // 用 ref 持有最新 handleSendMessage，使下方的 drainExternalSends 保持稳定身份，
-  // 避免其依赖抖动导致订阅 effect 反复 cleanup/重订阅（重订阅缝隙会丢掉外部发送事件）。
+  // 用 ref 持有最新 handleSendMessage，使下方的 drainExternalSends 保持穩定身份，
+  // 避免其依賴抖動導致訂閱 effect 反覆 cleanup/重訂閱（重訂閱縫隙會丟掉外部傳送事件）。
   const handleSendMessageRef = useRef(handleSendMessage)
   handleSendMessageRef.current = handleSendMessage
 
-  // 历史预置（Lens「在 AI 客户端继续」交接）：用最新 reactive 值（provider/model/project）创建带历史的新会话。
-  // 同 handleSendMessageRef 思路用 ref 持有，保持 drainExternalSends 稳定身份。
+  // 歷史預置（Lens「在 AI 客戶端繼續」交接）：用最新 reactive 值（provider/model/project）建立帶歷史的新會話。
+  // 同 handleSendMessageRef 思路用 ref 持有，保持 drainExternalSends 穩定身份。
   const importExternalConversation = useCallback(async (
     messages: { role: string; content: string }[],
     attachmentPaths: string[],
@@ -2689,7 +2735,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       return true
     } catch (err) {
       console.error('Failed to import external conversation:', err)
-      setStreamError(typeof err === 'string' ? err : (err as Error).message || '导入对话失败')
+      setStreamError(typeof err === 'string' ? err : (err as Error).message || '匯入對話失敗')
       return false
     }
   }, [activeModel, activeProviderId, applyConversation, refreshSidebar, selectedProject?.id, syncConversationRoute])
@@ -2716,7 +2762,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       : (isLegacyPlanMessage ? legacyPlanText : '')
     if (!isExecutableAgentPlanText(planText)) return
     if (isConversationInFlight(inFlightConversationsRef.current, conversation.id)) {
-      setStreamErrorForConversation(conversation.id, '该对话正在生成中，请稍后再试')
+      setStreamErrorForConversation(conversation.id, '該對話正在生成中，請稍後再試')
       return
     }
 
@@ -2728,12 +2774,12 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       applyConversation(updated)
       refreshSidebar()
       void refreshContextStats(updated.id)
-      void handleSendMessage('按这条计划开始执行。', [], { conversationOverride: updated })
+      void handleSendMessage('按這條計劃開始執行。', [], { conversationOverride: updated })
     } catch (err) {
       console.error('Failed to execute agent plan:', err)
       setStreamErrorForConversation(
         conversation.id,
-        typeof err === 'string' ? err : (err as Error).message || '执行计划失败',
+        typeof err === 'string' ? err : (err as Error).message || '執行計劃失敗',
       )
     }
   }, [
@@ -2775,7 +2821,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
           .map((attachment) => attachment.path)
           .filter((path): path is string => !!path)
 
-        // 历史预置分支：把 Lens 完整多轮历史 + 截图搬成一个新会话（不发消息、不触发回复），落地末尾可续聊。
+        // 歷史預置分支：把 Lens 完整多輪歷史 + 截圖搬成一個新會話（不發訊息、不觸發回覆），落地末尾可續聊。
         if (request.messages && request.messages.length > 0) {
           await importExternalConversationRef.current(request.messages, attachmentPaths)
           externalSendQueueRef.current.shift()
@@ -2804,7 +2850,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       } while (externalSendDrainRequestedRef.current || externalSendQueueRef.current.length > 0)
     } catch (err) {
       console.error('Failed to process external Chat message:', err)
-      setStreamError(typeof err === 'string' ? err : (err as Error).message || '外部消息发送失败')
+      setStreamError(typeof err === 'string' ? err : (err as Error).message || '外部訊息傳送失敗')
     } finally {
       externalSendDrainProcessingRef.current = false
       if (externalSendDrainRequestedRef.current) {
@@ -2825,14 +2871,14 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       }).catch((err) => console.error(err))
     }
 
-    // 外部发送（如 Lens 交接）的投递不依赖某个一次性事件的时序：
-    // 任意可靠时机都主动从后端取走 pending（chat_take_external_sends 幂等，取空即 no-op）。
+    // 外部傳送（如 Lens 交接）的投遞不依賴某個一次性事件的時序：
+    // 任意可靠時機都主動從後端取走 pending（chat_take_external_sends 冪等，取空即 no-op）。
     void drainExternalSends()
-    // 1) 后端就绪事件
+    // 1) 後端就緒事件
     register(api.onChatExternalSendReady(() => {
       if (!cancelled) void drainExternalSends()
     }))
-    // 2) 窗口获得焦点 —— 覆盖复用窗口被重新唤起、以及冷启动时就绪事件丢失的情况
+    // 2) 視窗獲得焦點 —— 覆蓋複用視窗被重新喚起、以及冷啟動時就緒事件丟失的情況
     register(
       import('@tauri-apps/api/window')
         .then(({ getCurrentWindow }) =>
@@ -2864,7 +2910,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
         refreshSidebar()
       } catch (err) {
         console.error('Failed to update message:', err)
-        setStreamError(typeof err === 'string' ? err : (err as Error).message || '保存失败')
+        setStreamError(typeof err === 'string' ? err : (err as Error).message || '儲存失敗')
       }
     },
     [applyConversation, refreshSidebar],
@@ -2874,7 +2920,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
     async (messageId: string) => {
       const conv = currentConversationRef.current
       if (!conv) return
-      if (!window.confirm('确定删除这条消息吗？')) return
+      if (!window.confirm('確定刪除這條訊息嗎？')) return
       try {
         const updated = await chatApi.deleteMessage(conv.id, messageId)
         applyConversation(updated)
@@ -2886,13 +2932,13 @@ export default function Chat({ onSettingsChange }: ChatProps) {
         refreshSidebar()
       } catch (err) {
         console.error('Failed to delete message:', err)
-        setStreamError(typeof err === 'string' ? err : (err as Error).message || '删除失败')
+        setStreamError(typeof err === 'string' ? err : (err as Error).message || '刪除失敗')
       }
     },
     [applyConversation, refreshSidebar],
   )
 
-  // 多答组「选中条」（任务 06-30 / D5）：标记某组进下一轮历史的列。默认第一列；用户点选改。
+  // 多答組「選中條」（任務 06-30 / D5）：標記某組進下一輪歷史的列。預設第一列；使用者點選改。
   const handleSetGroupSelection = useCallback(
     async (groupId: string, messageId: string) => {
       const conv = currentConversationRef.current
@@ -2902,7 +2948,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
         applyConversationMeta(updated)
       } catch (err) {
         console.error('Failed to set group selection:', err)
-        setStreamError(typeof err === 'string' ? err : (err as Error).message || '选中失败')
+        setStreamError(typeof err === 'string' ? err : (err as Error).message || '選中失敗')
       }
     },
     [applyConversationMeta],
@@ -2914,10 +2960,10 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       if (!conv) return
 
       const conversationId = conv.id
-      // Busy 拒绝（AC3）：入口已在 MessageList 按 streaming/frozen 收起，这里是兜底。
-      // 带编辑内容时静默 return 会无声丢掉用户改的文字，必须给出提示（与 handleSend 同文案）。
+      // Busy 拒絕（AC3）：入口已在 MessageList 按 streaming/frozen 收起，這裡是兜底。
+      // 帶編輯內容時靜默 return 會無聲丟掉使用者改的文字，必須給出提示（與 handleSend 同文案）。
       if (isConversationInFlight(inFlightConversationsRef.current, conversationId)) {
-        setStreamErrorForConversation(conversationId, '该对话正在生成中，请稍后再试')
+        setStreamErrorForConversation(conversationId, '該對話正在生成中，請稍後再試')
         return
       }
 
@@ -2926,11 +2972,11 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       )
       if (messageIndex < 0) return
 
-      // 助手消息：截到它之前重生成。用户消息：保留它（编辑时先替换内容）、只丢其后内容再重试。
+      // 助手訊息：截到它之前重生成。使用者訊息：保留它（編輯時先替換內容）、只丟其後內容再重試。
       const keepTarget = conv.messages[messageIndex].role === 'user'
       const cutFrom = keepTarget ? messageIndex + 1 : messageIndex
-      // 空白-only 的编辑内容按「未编辑」处理（纯重生成）：绝不能把 Some("") 发给后端——
-      // 乐观截断已经执行，后端再报「消息内容不能为空」会留下截断了却没重生成的线程。
+      // 空白-only 的編輯內容按「未編輯」處理（純重生成）：絕不能把 Some("") 發給後端——
+      // 樂觀截斷已經執行，後端再報「訊息內容不能為空」會留下截斷了卻沒重生成的執行緒。
       const trimmedNewContent = newContent?.trim() || undefined
       const keptMessages = conv.messages.slice(0, cutFrom)
       if (keepTarget && trimmedNewContent) {
@@ -2967,7 +3013,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       syncGeneratingConversationIds()
 
       if (currentConversationIdRef.current === conversationId) {
-        // 起新一轮：内容回空闲，coarse 置 streaming。
+        // 起新一輪：內容回空閒，coarse 置 streaming。
         resetStreamStore()
         setStreamCoarse({ streaming: true })
         setStreamErrorForConversation(conversationId, '')
@@ -2993,7 +3039,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
         console.error('Failed to regenerate message:', err)
         setStreamErrorForConversation(
           conversationId,
-          typeof err === 'string' ? err : (err as Error).message || '重新生成失败',
+          typeof err === 'string' ? err : (err as Error).message || '重新生成失敗',
         )
         clearStreamSnapshot(conversationId)
         if (currentConversationIdRef.current === conversationId) {
@@ -3002,7 +3048,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       } finally {
         clearConversationInFlight(conversationId)
         if (persistedConversation) {
-          // 同 handleSend:已有持久化对话,丢弃延后的全量重拉,直接套用。
+          // 同 handleSend:已有持久化對話,丟棄延後的全量重拉,直接套用。
           delete pendingStreamDoneRef.current[conversationId]
           finishStreamingRunWithConversation(conversationId, persistedConversation)
         } else if (!(await flushPendingStreamDone(conversationId))) {
@@ -3021,7 +3067,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       applyConversation(updated)
     } catch (err) {
       console.error('Failed to change agent runtime:', err)
-      setStreamError(typeof err === 'string' ? err : (err as Error).message || 'Agent 切换失败')
+      setStreamError(typeof err === 'string' ? err : (err as Error).message || 'Agent 切換失敗')
     }
   }, [applyConversation, currentConversation])
 
@@ -3060,7 +3106,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       applyConversationMeta(updatedConv)
     } catch (err) {
       console.error('Failed to change model:', err)
-      setStreamError(typeof err === 'string' ? err : (err as Error).message || '模型切换失败')
+      setStreamError(typeof err === 'string' ? err : (err as Error).message || '模型切換失敗')
     }
   }, [applyConversationMeta, currentConversation])
 
@@ -3074,12 +3120,12 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       applyConversationMeta(updatedConv)
     } catch (err) {
       console.error('Failed to change thinking level:', err)
-      setStreamError(typeof err === 'string' ? err : (err as Error).message || '思考等级切换失败')
+      setStreamError(typeof err === 'string' ? err : (err as Error).message || '思考等級切換失敗')
     }
   }, [applyConversationMeta, currentConversation])
 
-  // 多模型一问多答（任务 06-30 / D2）：变更多答模型集，持久化到会话（欢迎页先存草稿）。
-  // 上限 4 由 UI 侧约束；这里直落 chatApi.updateConversation({ replyModels })。
+  // 多模型一問多答（任務 06-30 / D2）：變更多答模型集，持久化到會話（歡迎頁先存草稿）。
+  // 上限 4 由 UI 側約束；這裡直落 chatApi.updateConversation({ replyModels })。
   const handleChangeReplyModels = useCallback(async (models: ModelRef[]) => {
     setDraftReplyModels(models)
     if (!currentConversation) return
@@ -3090,7 +3136,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       applyConversationMeta(updatedConv)
     } catch (err) {
       console.error('Failed to update reply models:', err)
-      setStreamError(typeof err === 'string' ? err : (err as Error).message || '多答模型更新失败')
+      setStreamError(typeof err === 'string' ? err : (err as Error).message || '多答模型更新失敗')
     }
   }, [applyConversationMeta, currentConversation])
 
@@ -3130,7 +3176,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
       console.error('Failed to cancel chat stream:', err)
       setStreamErrorForConversation(
         conversationId,
-        typeof err === 'string' ? err : (err as Error).message || '停止生成失败',
+        typeof err === 'string' ? err : (err as Error).message || '停止生成失敗',
       )
     } finally {
       setStreamCoarse({ cancelling: false })
@@ -3227,8 +3273,8 @@ export default function Chat({ onSettingsChange }: ChatProps) {
   }, [applyConversation, refreshSidebar, syncConversationRoute])
 
   const handleSidebarForceDropConversation = useCallback((id: string) => {
-    // B3：侧栏删除时强制清掉该会话的 in-flight/快照/乐观项，
-    // 使乐观合并不再保留它（删"generating"会话也能立即从侧栏消失）。
+    // B3：側欄刪除時強制清掉該會話的 in-flight/快照/樂觀項，
+    // 使樂觀合併不再保留它（刪"generating"會話也能立即從側欄消失）。
     dropConversationLocally(id)
   }, [dropConversationLocally])
 
@@ -3577,7 +3623,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
               <Wrench size={17} className="mt-0.5 shrink-0 text-[#C56646] dark:text-[#E39A78]" />
               <div className="min-w-0 flex-1">
                 <div className="text-[14px] font-semibold text-neutral-900 dark:text-neutral-100">
-                  允许调用工具 {pendingToolConfirm.name}？
+                  允許呼叫工具 {pendingToolConfirm.name}？
                 </div>
                 <div className="mt-1 text-[12px] text-neutral-500 dark:text-neutral-400">
                   {pendingToolConfirm.source}
@@ -3588,7 +3634,7 @@ export default function Chat({ onSettingsChange }: ChatProps) {
               <button
                 type="button"
                 className="rounded-md p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-                aria-label="拒绝"
+                aria-label="拒絕"
                 onClick={() => resolvePendingToolConfirm(false)}
               >
                 <X size={14} />
@@ -3605,14 +3651,14 @@ export default function Chat({ onSettingsChange }: ChatProps) {
                 className="rounded-md px-3 py-1.5 text-[12px] font-medium text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
                 onClick={() => resolvePendingToolConfirm(false)}
               >
-                拒绝
+                拒絕
               </button>
               <button
                 type="button"
                 className="rounded-md bg-neutral-900 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
                 onClick={() => resolvePendingToolConfirm(true)}
               >
-                允许
+                允許
               </button>
             </div>
           </div>
@@ -3625,16 +3671,16 @@ export default function Chat({ onSettingsChange }: ChatProps) {
               <Wrench size={17} className="mt-0.5 shrink-0 text-[#C56646] dark:text-[#E39A78]" />
               <div className="min-w-0 flex-1">
                 <div className="text-[14px] font-semibold text-neutral-900 dark:text-neutral-100">
-                  允许本次会话使用文件和命令工具？
+                  允許本次會話使用檔案和命令工具？
                 </div>
                 <div className="mt-1 text-[12px] text-neutral-500 dark:text-neutral-400">
-                  授权后，本会话内 Kivio 可读取、写入、删除磁盘上的任意文件，并执行任意终端命令（包括项目目录之外的位置）。仅本次会话有效，应用重启后需重新授权。
+                  授權後，本會話內 Kivio 可讀取、寫入、刪除磁碟上的任意檔案，並執行任意終端命令（包括專案目錄之外的位置）。僅本次會話有效，應用重啟後需重新授權。
                 </div>
               </div>
               <button
                 type="button"
                 className="rounded-md p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-                aria-label="拒绝"
+                aria-label="拒絕"
                 onClick={() => resolvePendingSessionConsent(false)}
               >
                 <X size={14} />
@@ -3646,14 +3692,14 @@ export default function Chat({ onSettingsChange }: ChatProps) {
                 className="rounded-md px-3 py-1.5 text-[12px] font-medium text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
                 onClick={() => resolvePendingSessionConsent(false)}
               >
-                拒绝
+                拒絕
               </button>
               <button
                 type="button"
                 className="rounded-md bg-neutral-900 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
                 onClick={() => resolvePendingSessionConsent(true)}
               >
-                允许本次会话
+                允許本次會話
               </button>
             </div>
           </div>

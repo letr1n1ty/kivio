@@ -186,7 +186,7 @@ export function AssistantCenter({
       setSelectedId(selected?.id ?? null)
       setDraft(selected ? normalizeAssistantForDraft(selected) : null)
     } catch (err) {
-      setError(typeof err === 'string' ? err : (err as Error).message || '套件加载失败')
+      setError(typeof err === 'string' ? err : (err as Error).message || '套件載入失敗')
     } finally {
       setLoading(false)
     }
@@ -210,7 +210,7 @@ export function AssistantCenter({
     void loadProviders()
   }, [currentAssistantId, loadAssistants, loadProviders])
 
-  // 对话搭建落库后会发 chat-assistants-changed,刷新列表让新专家实时出现。
+  // 對話搭建落庫後會發 chat-assistants-changed,重新整理列表讓新專家即時出現。
   useEffect(() => {
     const unlistenPromise = api.onChatAssistantsChanged(() => void loadAssistants())
     return () => {
@@ -271,7 +271,7 @@ export function AssistantCenter({
     if (!draft) return null
     const payload = draftPayload(draft)
     if (!payload.name) {
-      setError('套件名称不能为空')
+      setError('套件名稱不能為空')
       return null
     }
     setSaving(true)
@@ -286,7 +286,7 @@ export function AssistantCenter({
       setDraft(normalizeAssistantForDraft(saved))
       return saved
     } catch (err) {
-      setError(typeof err === 'string' ? err : (err as Error).message || '套件保存失败')
+      setError(typeof err === 'string' ? err : (err as Error).message || '套件儲存失敗')
       return null
     } finally {
       setSaving(false)
@@ -305,7 +305,7 @@ export function AssistantCenter({
       setDraft(normalizeAssistantForDraft(copy))
       setView('edit')
     } catch (err) {
-      setError(typeof err === 'string' ? err : (err as Error).message || '复制失败')
+      setError(typeof err === 'string' ? err : (err as Error).message || '複製失敗')
     } finally {
       setSaving(false)
     }
@@ -320,7 +320,7 @@ export function AssistantCenter({
       setView('list')
       return
     }
-    if (!window.confirm(`确定删除套件「${draft.name}」？已有对话会保留当时的套件快照。`)) return
+    if (!window.confirm(`確定刪除套件「${draft.name}」？已有對話會保留當時的套件快照。`)) return
     setSaving(true)
     setError('')
     try {
@@ -328,7 +328,7 @@ export function AssistantCenter({
       await loadAssistants(null)
       setView('list')
     } catch (err) {
-      setError(typeof err === 'string' ? err : (err as Error).message || '删除失败')
+      setError(typeof err === 'string' ? err : (err as Error).message || '刪除失敗')
     } finally {
       setSaving(false)
     }
@@ -352,8 +352,8 @@ export function AssistantCenter({
     <div className="space-y-4">
       <div className="assistant-center-tabs flex min-w-0 items-center gap-1 border-b border-neutral-200 pb-2 dark:border-neutral-800">
           {[
-            ['plaza', '套件广场', builtInCount],
-            ['installed', '已安装', installedCount],
+            ['plaza', '套件廣場', builtInCount],
+            ['installed', '已安裝', installedCount],
             ['mine', '我的', assistants.length - builtInCount],
           ].map(([value, label, count]) => (
             <button
@@ -375,10 +375,10 @@ export function AssistantCenter({
       </div>
 
       {loading ? (
-        <div className="grid min-h-[220px] place-items-center text-[13px] text-neutral-400">加载中...</div>
+        <div className="grid min-h-[220px] place-items-center text-[13px] text-neutral-400">載入中...</div>
       ) : filteredAssistants.length === 0 ? (
         <div className="grid min-h-[220px] place-items-center rounded-md border border-dashed border-neutral-200 text-[13px] text-neutral-400 dark:border-neutral-800">
-          没有匹配的套件
+          沒有匹配的套件
         </div>
       ) : (
         <div className="overflow-hidden rounded-md border border-neutral-200 divide-y divide-neutral-200 dark:border-neutral-800 dark:divide-neutral-800">
@@ -395,7 +395,7 @@ export function AssistantCenter({
                   onClick={() => openDetail(assistant)}
                   className="grid size-9 shrink-0 place-items-center rounded-md border border-neutral-200 bg-white text-[15px] font-semibold hover:border-neutral-300 dark:border-neutral-700 dark:bg-neutral-950"
                   style={{ color: assistant.color || '#6A8FBD' }}
-                  aria-label={`打开 ${assistant.name}`}
+                  aria-label={`開啟 ${assistant.name}`}
                 >
                   {builtinAssistantGlyph(assistant.id, 20) ?? (assistant.name.trim().slice(0, 1) || '套')}
                 </button>
@@ -410,15 +410,15 @@ export function AssistantCenter({
                     </span>
                     {builtIn && (
                       <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-                        内置
+                        內建
                       </span>
                     )}
                     <span className="truncate text-[12px] font-medium text-neutral-400 dark:text-neutral-500">
-                      {builtIn ? '内置' : '自定义'}
+                      {builtIn ? '內建' : '自定義'}
                     </span>
                   </div>
                   <p className="mt-0.5 truncate text-[12px] leading-relaxed text-neutral-500 dark:text-neutral-400">
-                    {assistant.description || '未设置描述'}
+                    {assistant.description || '未設定描述'}
                   </p>
                   <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[11px] text-neutral-400 dark:text-neutral-500">
                     <span className="shrink-0">{stats.mcp} MCP</span>
@@ -432,8 +432,8 @@ export function AssistantCenter({
                   onClick={() => void handleStartChat(assistant)}
                   disabled={assistant.enabled === false}
                   className="grid size-8 shrink-0 place-items-center rounded-md text-neutral-900 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-neutral-100 dark:hover:bg-neutral-800"
-                  aria-label={`使用 ${assistant.name} 开始聊天`}
-                  title="开始聊天"
+                  aria-label={`使用 ${assistant.name} 開始聊天`}
+                  title="開始聊天"
                 >
                   <Plus size={18} />
                 </button>
@@ -479,7 +479,7 @@ export function AssistantCenter({
                 {assistant.enabled === false ? '已停用' : '可用'}
               </div>
               <p className="mt-6 max-w-5xl text-[16px] leading-8 text-neutral-700 dark:text-neutral-300">
-                {assistant.description || '这个助手还没有描述。'}
+                {assistant.description || '這個助手還沒有描述。'}
               </p>
             </div>
           </div>
@@ -493,14 +493,14 @@ export function AssistantCenter({
               className="flex h-9 items-center gap-2 rounded-md bg-neutral-100 px-3 text-[13px] font-medium text-neutral-800 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
             >
               <Pencil size={15} />
-              编辑
+              編輯
             </button>
             <button
               type="button"
               onClick={() => void handleDuplicate(assistant)}
               className="grid h-9 w-9 place-items-center rounded-md bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
-              title="复制助手"
-              aria-label="复制助手"
+              title="複製助手"
+              aria-label="複製助手"
             >
               <Copy size={15} />
             </button>
@@ -512,7 +512,7 @@ export function AssistantCenter({
                 className="flex h-9 items-center gap-2 rounded-md px-3 text-[13px] font-medium text-neutral-700 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-neutral-200 dark:hover:bg-neutral-800"
               >
                 <Check size={15} />
-                应用到当前对话
+                應用到當前對話
               </button>
             )}
             <button
@@ -522,15 +522,15 @@ export function AssistantCenter({
               className="flex h-9 items-center gap-2 rounded-md bg-neutral-950 px-3 text-[13px] font-medium text-white hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-neutral-100 dark:text-neutral-950 dark:hover:bg-neutral-200"
             >
               <Play size={15} />
-              开始聊天
+              開始聊天
             </button>
           </div>
         </div>
 
         <section className="space-y-3">
-          <h3 className="text-[17px] font-semibold text-neutral-950 dark:text-neutral-50">系统提示词</h3>
+          <h3 className="text-[17px] font-semibold text-neutral-950 dark:text-neutral-50">系統提示詞</h3>
           <div className="rounded-md border border-neutral-200 px-4 py-3 text-[13px] leading-relaxed whitespace-pre-wrap text-neutral-700 dark:border-neutral-800 dark:text-neutral-300">
-            {systemPrompt || '未设置系统提示词。'}
+            {systemPrompt || '未設定系統提示詞。'}
           </div>
         </section>
 
@@ -542,7 +542,7 @@ export function AssistantCenter({
             </h3>
             <div className="flex flex-wrap gap-1.5">
               {mcpNames.length === 0 ? (
-                <span className="text-[13px] text-neutral-400">未启用任何 MCP</span>
+                <span className="text-[13px] text-neutral-400">未啟用任何 MCP</span>
               ) : mcpNames.map((name) => (
                 <span key={name} className="rounded-md bg-neutral-100 px-2.5 py-1 text-[12px] text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
                   {name}
@@ -558,7 +558,7 @@ export function AssistantCenter({
             </h3>
             <div className="flex flex-wrap gap-1.5">
               {skillNames.length === 0 ? (
-                <span className="text-[13px] text-neutral-400">未启用任何技能</span>
+                <span className="text-[13px] text-neutral-400">未啟用任何技能</span>
               ) : skillNames.map((name) => (
                 <span key={name} className="rounded-md bg-neutral-100 px-2.5 py-1 text-[12px] text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
                   {name}
@@ -586,9 +586,9 @@ export function AssistantCenter({
               <ArrowLeft size={18} />
             </button>
             <div className="min-w-0">
-              <h2 className="truncate text-[24px] font-semibold text-neutral-950 dark:text-neutral-50">编辑套件</h2>
+              <h2 className="truncate text-[24px] font-semibold text-neutral-950 dark:text-neutral-50">編輯套件</h2>
               <p className="mt-1 truncate text-[13px] text-neutral-500">
-                {draft.built_in ? '内置套件模板' : '自定义套件'} · {draft.enabled === false ? '已停用' : '可用'}
+                {draft.built_in ? '內建套件模板' : '自定義套件'} · {draft.enabled === false ? '已停用' : '可用'}
               </p>
             </div>
           </div>
@@ -598,8 +598,8 @@ export function AssistantCenter({
               onClick={() => void handleDelete()}
               disabled={saving}
               className="grid h-9 w-9 place-items-center rounded-md text-neutral-500 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-red-950/30 dark:hover:text-red-300"
-              title="删除"
-              aria-label="删除套件"
+              title="刪除"
+              aria-label="刪除套件"
             >
               <Trash2 size={15} />
             </button>
@@ -612,7 +612,7 @@ export function AssistantCenter({
               className="flex h-9 items-center gap-2 rounded-md px-3 text-[13px] font-medium text-neutral-700 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-neutral-200 dark:hover:bg-neutral-800"
             >
               <Save size={15} />
-              保存
+              儲存
             </button>
             <button
               type="button"
@@ -621,7 +621,7 @@ export function AssistantCenter({
               className="flex h-9 items-center gap-2 rounded-md bg-neutral-950 px-3 text-[13px] font-medium text-white hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-neutral-100 dark:text-neutral-950 dark:hover:bg-neutral-200"
             >
               <Play size={15} />
-              开始聊天
+              開始聊天
             </button>
           </div>
         </div>
@@ -630,7 +630,7 @@ export function AssistantCenter({
           <section className="space-y-5">
             <div className="grid gap-3 sm:grid-cols-[7rem_minmax(0,1fr)]">
               <label className="block">
-                <span className="mb-1.5 block text-[12px] font-medium text-neutral-600 dark:text-neutral-300">标识</span>
+                <span className="mb-1.5 block text-[12px] font-medium text-neutral-600 dark:text-neutral-300">標識</span>
                 <input
                   type="text"
                   value={draft.icon ?? ''}
@@ -639,7 +639,7 @@ export function AssistantCenter({
                 />
               </label>
               <label className="block">
-                <span className="mb-1.5 block text-[12px] font-medium text-neutral-600 dark:text-neutral-300">名称</span>
+                <span className="mb-1.5 block text-[12px] font-medium text-neutral-600 dark:text-neutral-300">名稱</span>
                 <input
                   type="text"
                   value={draft.name}
@@ -658,7 +658,7 @@ export function AssistantCenter({
               />
             </label>
             <label className="block">
-              <span className="mb-1.5 block text-[12px] font-medium text-neutral-600 dark:text-neutral-300">系统提示词</span>
+              <span className="mb-1.5 block text-[12px] font-medium text-neutral-600 dark:text-neutral-300">系統提示詞</span>
               <textarea
                 value={draft.system_prompt ?? ''}
                 onChange={(event) => updateDraft('system_prompt', event.target.value)}
@@ -669,12 +669,12 @@ export function AssistantCenter({
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[12px] font-medium text-neutral-600 dark:text-neutral-300">MCP 服务器</span>
-                  <span className="text-[11px] text-neutral-400">{draftMcpIds.length} 已选</span>
+                  <span className="text-[12px] font-medium text-neutral-600 dark:text-neutral-300">MCP 伺服器</span>
+                  <span className="text-[11px] text-neutral-400">{draftMcpIds.length} 已選</span>
                 </div>
                 <div className="custom-scrollbar max-h-56 space-y-1 overflow-y-auto rounded-md border border-neutral-200 p-2 dark:border-neutral-700">
                   {mcpServers.length === 0 ? (
-                    <div className="px-1 py-2 text-[12px] text-neutral-400">未配置 MCP 服务器（在「MCP」设置里添加）</div>
+                    <div className="px-1 py-2 text-[12px] text-neutral-400">未配置 MCP 伺服器（在「MCP」設定裡新增）</div>
                   ) : mcpServers.map((server) => (
                     <label key={server.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1.5 text-[13px] hover:bg-neutral-50 dark:hover:bg-neutral-800">
                       <input
@@ -691,11 +691,11 @@ export function AssistantCenter({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[12px] font-medium text-neutral-600 dark:text-neutral-300">技能</span>
-                  <span className="text-[11px] text-neutral-400">{draftSkillIds.length} 已选</span>
+                  <span className="text-[11px] text-neutral-400">{draftSkillIds.length} 已選</span>
                 </div>
                 <div className="custom-scrollbar max-h-56 space-y-1 overflow-y-auto rounded-md border border-neutral-200 p-2 dark:border-neutral-700">
                   {skills.length === 0 ? (
-                    <div className="px-1 py-2 text-[12px] text-neutral-400">没有可用技能</div>
+                    <div className="px-1 py-2 text-[12px] text-neutral-400">沒有可用技能</div>
                   ) : skills.map((skill) => (
                     <label key={skill.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1.5 text-[13px] hover:bg-neutral-50 dark:hover:bg-neutral-800">
                       <input
@@ -714,9 +714,9 @@ export function AssistantCenter({
 
           <section className="grid gap-4 lg:grid-cols-3">
             <section className="space-y-3 rounded-md border border-neutral-200 p-3 dark:border-neutral-800">
-              <div className="text-[12px] font-semibold text-neutral-700 dark:text-neutral-200">运行设置</div>
+              <div className="text-[12px] font-semibold text-neutral-700 dark:text-neutral-200">執行設定</div>
               <label className="block">
-                <span className="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">模型供应商</span>
+                <span className="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">模型供應商</span>
                 <Select
                   value={draft.provider_id ?? ''}
                   onChange={(providerId) => {
@@ -725,7 +725,7 @@ export function AssistantCenter({
                     updateDraft('model', providerModels(provider)[0] ?? '')
                   }}
                   options={[
-                    { value: '', label: '跟随聊天默认' },
+                    { value: '', label: '跟隨聊天預設' },
                     ...enabledProviders.map((provider) => ({
                       value: provider.id,
                       label: provider.name,
@@ -741,12 +741,12 @@ export function AssistantCenter({
                   options={
                     draft.provider_id
                       ? models.map((model) => ({ value: model, label: model }))
-                      : [{ value: '', label: '跟随聊天默认' }]
+                      : [{ value: '', label: '跟隨聊天預設' }]
                   }
                 />
               </label>
               <label className="flex items-center justify-between gap-3 rounded-md bg-neutral-50 px-2.5 py-2 text-[12px] text-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-200">
-                <span>启用助手</span>
+                <span>啟用助手</span>
                 <input
                   type="checkbox"
                   checked={draft.enabled !== false}
@@ -757,7 +757,7 @@ export function AssistantCenter({
             </section>
 
             <section className="space-y-3 rounded-md border border-neutral-200 p-3 dark:border-neutral-800">
-              <div className="text-[12px] font-semibold text-neutral-700 dark:text-neutral-200">颜色</div>
+              <div className="text-[12px] font-semibold text-neutral-700 dark:text-neutral-200">顏色</div>
               <div className="flex flex-wrap gap-1.5">
                 {assistantColors.map((color) => (
                   <button
@@ -770,22 +770,22 @@ export function AssistantCenter({
                         : 'border-transparent'
                     }`}
                     style={{ backgroundColor: color }}
-                    aria-label={`选择颜色 ${color}`}
+                    aria-label={`選擇顏色 ${color}`}
                   />
                 ))}
               </div>
             </section>
 
             <section className="space-y-2 rounded-md border border-neutral-200 p-3 dark:border-neutral-800">
-              <div className="text-[12px] font-semibold text-neutral-700 dark:text-neutral-200">当前配置</div>
+              <div className="text-[12px] font-semibold text-neutral-700 dark:text-neutral-200">當前配置</div>
               <div className="space-y-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-                <div className="truncate">模型：{draft.model || '跟随聊天默认'}</div>
-                <div className="truncate">MCP：{draftMcpIds.length} 个</div>
-                <div className="truncate">技能：{draftSkillIds.length} 个</div>
+                <div className="truncate">模型：{draft.model || '跟隨聊天預設'}</div>
+                <div className="truncate">MCP：{draftMcpIds.length} 個</div>
+                <div className="truncate">技能：{draftSkillIds.length} 個</div>
               </div>
               {providers.length === 0 && (
                 <div className="rounded-md bg-amber-50 px-2 py-1.5 text-[11px] text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
-                  未读取到模型供应商
+                  未讀取到模型供應商
                 </div>
               )}
             </section>
@@ -797,7 +797,7 @@ export function AssistantCenter({
 
   return (
     <div className="assistant-center-root flex h-full min-h-0 flex-col text-neutral-900 dark:text-neutral-100">
-      {/* 顶栏：与聊天主区同底色、无分隔，可拖拽，右侧避开窗口按钮 */}
+      {/* 頂欄：與聊天主區同底色、無分隔，可拖拽，右側避開視窗按鈕 */}
       <div
         className={`flex h-[52px] shrink-0 items-center gap-2 px-3 ${
           !usesNativeTitlebar ? 'chat-win-titlebar-safe' : ''
@@ -816,20 +816,20 @@ export function AssistantCenter({
         <div className="h-full min-w-5 flex-1" data-tauri-drag-region />
       </div>
 
-      {/* 内容区：直接坐在白底上，与聊天主区无缝 */}
+      {/* 內容區：直接坐在白底上，與聊天主區無縫 */}
       <main className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-6 py-6">
           <div className="mx-auto max-w-7xl space-y-4">
             <header className="flex min-w-0 items-center gap-3">
               <div className="flex min-w-0 shrink-0 items-center gap-2">
                 <h1 className="truncate text-[24px] font-semibold tracking-normal text-neutral-950 dark:text-neutral-50">
-                  专家套件
+                  專家套件
                 </h1>
                 <button
                   type="button"
                   onClick={() => void loadAssistants(selectedId)}
                   className="grid size-9 shrink-0 place-items-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
-                  aria-label="刷新套件"
-                  title="刷新"
+                  aria-label="重新整理套件"
+                  title="重新整理"
                 >
                   <RefreshCw size={16} />
                 </button>
@@ -844,7 +844,7 @@ export function AssistantCenter({
                     type="text"
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
-                    placeholder="搜索套件..."
+                    placeholder="搜尋套件..."
                     className="h-9 w-full rounded-md border border-neutral-200 bg-white pl-9 pr-3 text-[13px] outline-none placeholder:text-neutral-400 focus:border-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
                   />
                 </div>
@@ -853,10 +853,10 @@ export function AssistantCenter({
                     type="button"
                     onClick={() => onStartBuilder()}
                     className="flex h-9 shrink-0 items-center justify-center gap-2 rounded-md border border-neutral-200 bg-white px-3 text-[13px] font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
-                    title="通过对话搭建一个新专家"
+                    title="通過對話搭建一個新專家"
                   >
                     <Sparkles size={16} />
-                    AI 创建
+                    AI 建立
                   </button>
                 )}
                 <button
@@ -865,7 +865,7 @@ export function AssistantCenter({
                   className="flex h-9 shrink-0 items-center justify-center gap-2 rounded-md bg-neutral-950 px-3 text-[13px] font-medium text-white hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-950 dark:hover:bg-neutral-200"
                 >
                   <Plus size={16} />
-                  创建
+                  建立
                 </button>
               </div>
             </header>

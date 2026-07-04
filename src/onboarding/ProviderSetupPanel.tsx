@@ -71,7 +71,7 @@ function freshCustomProvider(id: string, lang: Lang, index: number): ModelProvid
   const suffix = index > 0 ? ` ${index + 1}` : ''
   return {
     id,
-    name: lang === 'zh' ? `自定义服务商${suffix}` : `Custom Provider${suffix}`,
+    name: lang === 'zh' ? `自定義服務商${suffix}` : `Custom Provider${suffix}`,
     apiKeys: [],
     baseUrl: 'https://api.openai.com/v1',
     availableModels: [],
@@ -579,16 +579,16 @@ export function ProviderSetupPanel({ t, lang, settings, onChange }: ProviderSetu
           lang={lang}
           labels={{
             title: t.onboardingProviderManageModels,
-            searchPlaceholder: lang === 'zh' ? '搜索模型 ID 或名称' : 'Search model ID or name',
+            searchPlaceholder: lang === 'zh' ? '搜尋模型 ID 或名稱' : 'Search model ID or name',
             fetchModels: t.fetchModels,
             fetching: t.fetching,
             addModel: t.addModel,
             manualAddModel: t.manualAddModel,
-            noModels: lang === 'zh' ? '尚未获取模型，请点击上方按钮拉取，或使用手动添加。' : 'No models yet. Fetch from API or add manually.',
-            noSearchResults: lang === 'zh' ? '没有匹配的模型' : 'No matching models',
+            noModels: lang === 'zh' ? '尚未獲取模型，請點選上方按鈕拉取，或使用手動新增。' : 'No models yet. Fetch from API or add manually.',
+            noSearchResults: lang === 'zh' ? '沒有匹配的模型' : 'No matching models',
             enabled: t.enabled,
-            addAllModels: lang === 'zh' ? '添加当前列表中的全部模型' : 'Add all models in the current list',
-            close: lang === 'zh' ? '关闭' : 'Close',
+            addAllModels: lang === 'zh' ? '新增當前列表中的全部模型' : 'Add all models in the current list',
+            close: lang === 'zh' ? '關閉' : 'Close',
           }}
           fetching={fetching}
           onClose={() => setModelPickerOpen(false)}

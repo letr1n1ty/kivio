@@ -1,10 +1,10 @@
-// 连接器品牌图标：单色线性/实心品牌 logo，跟随文字色（currentColor），深色模式自动反色。
-// 品牌 path 来源：
-//   - Notion：simple-icons 官方 SVG（https://cdn.simpleicons.org/notion，path 内联）。
-//   - GitHub：直接复用 lucide-react 的 Github 图标（仓库已依赖 lucide-react，准确且省事）。
-//   - Composio：官方图标（单色蒙版，CSS mask + currentColor，跟随文字色与其它连接器图标统一）。
-//   - Linear / Sentry / Atlassian / Obsidian：simple-icons 官方品牌 path（https://cdn.simpleicons.org/<slug>，path 内联）。
-//   - 自定义连接器：通用 link 图标（fallback）。
+// 連接器品牌圖示：單色線性/實心品牌 logo，跟隨文字色（currentColor），深色模式自動反色。
+// 品牌 path 來源：
+//   - Notion：simple-icons 官方 SVG（https://cdn.simpleicons.org/notion，path 內聯）。
+//   - GitHub：直接複用 lucide-react 的 Github 圖示（倉庫已依賴 lucide-react，準確且省事）。
+//   - Composio：官方圖示（單色蒙版，CSS mask + currentColor，跟隨文字色與其它連接器圖示統一）。
+//   - Linear / Sentry / Atlassian / Obsidian：simple-icons 官方品牌 path（https://cdn.simpleicons.org/<slug>，path 內聯）。
+//   - 自定義連接器：通用 link 圖示（fallback）。
 
 import { Github, Link2, Mail } from 'lucide-react'
 
@@ -29,12 +29,12 @@ export function NotionBrandIcon({ size = 22, className }: BrandIconProps) {
   )
 }
 
-// GitHub：复用 lucide-react 的 Github 图标（线性单色，跟随文字色）。
+// GitHub：複用 lucide-react 的 Github 圖示（線性單色，跟隨文字色）。
 export function GithubBrandIcon({ size = 22, className }: BrandIconProps) {
   return <Github size={size} className={className} />
 }
 
-// Composio：官方图标（单色蒙版，CSS mask + currentColor，跟随文字色与其它连接器图标统一）。
+// Composio：官方圖示（單色蒙版，CSS mask + currentColor，跟隨文字色與其它連接器圖示統一）。
 export function ComposioBrandIcon({ size = 22, className }: BrandIconProps) {
   return (
     <span
@@ -59,12 +59,12 @@ export function ComposioBrandIcon({ size = 22, className }: BrandIconProps) {
   )
 }
 
-// 自定义连接器 / 未知：通用 link 图标。
+// 自定義連接器 / 未知：通用 link 圖示。
 export function CustomConnectorIcon({ size = 22, className }: BrandIconProps) {
   return <Link2 size={size} className={className} />
 }
 
-// Email：lucide Mail 图标。
+// Email：lucide Mail 圖示。
 export function EmailBrandIcon({ size = 22, className }: BrandIconProps) {
   return <Mail size={size} className={className} />
 }

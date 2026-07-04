@@ -23,9 +23,9 @@ describe('MessageBubble agent plan action', () => {
 
     render(<MessageBubble message={message} onExecuteAgentPlan={(messageId) => { calls.push(messageId) }} />)
 
-    expect(screen.getByText('计划草案')).toBeInTheDocument()
-    expect(screen.queryByLabelText('计划内容')).not.toBeInTheDocument()
-    const button = screen.getByRole('button', { name: '执行这条计划' })
+    expect(screen.getByText('計劃草案')).toBeInTheDocument()
+    expect(screen.queryByLabelText('計劃內容')).not.toBeInTheDocument()
+    const button = screen.getByRole('button', { name: '執行這條計劃' })
     expect(
       button.compareDocumentPosition(screen.getByText('Read code')),
     ).toBe(Node.DOCUMENT_POSITION_PRECEDING)
@@ -37,17 +37,17 @@ describe('MessageBubble agent plan action', () => {
     const message: ChatMessage = {
       id: 'msg-plan-with-process',
       role: 'assistant',
-      content: '## 执行计划\n\n1. 调研\n2. 实现',
+      content: '## 執行計劃\n\n1. 調研\n2. 實現',
       agent_plan: {
         mode: 'plan',
         status: 'draft',
-        plan: '## 执行计划\n\n1. 调研\n2. 实现',
+        plan: '## 執行計劃\n\n1. 調研\n2. 實現',
         updated_at: 1,
       },
       segments: [
-        { id: 'seg-reasoning', kind: 'reasoning', phase: 'plain', order: 1, text: '先调研一下' },
+        { id: 'seg-reasoning', kind: 'reasoning', phase: 'plain', order: 1, text: '先調研一下' },
         { id: 'seg-tool', kind: 'tool', phase: 'tool_loop', order: 2, tool_call_id: 'tool-search' },
-        { id: 'seg-text', kind: 'text', phase: 'synthesis', order: 3, text: '## 执行计划\n\n1. 调研\n2. 实现' },
+        { id: 'seg-text', kind: 'text', phase: 'synthesis', order: 3, text: '## 執行計劃\n\n1. 調研\n2. 實現' },
       ],
       tool_calls: [
         {
@@ -63,12 +63,12 @@ describe('MessageBubble agent plan action', () => {
 
     render(<MessageBubble message={message} onExecuteAgentPlan={() => {}} />)
 
-    expect(screen.queryByLabelText('计划内容')).not.toBeInTheDocument()
-    const button = screen.getByRole('button', { name: '执行这条计划' })
+    expect(screen.queryByLabelText('計劃內容')).not.toBeInTheDocument()
+    const button = screen.getByRole('button', { name: '執行這條計劃' })
     expect(
-      button.compareDocumentPosition(screen.getByText('执行计划')),
+      button.compareDocumentPosition(screen.getByText('執行計劃')),
     ).toBe(Node.DOCUMENT_POSITION_PRECEDING)
-    expect(screen.getByText('计划草案')).toBeInTheDocument()
+    expect(screen.getByText('計劃草案')).toBeInTheDocument()
   })
 
   it('shows approved state without an execute button', () => {
@@ -87,19 +87,19 @@ describe('MessageBubble agent plan action', () => {
 
     render(<MessageBubble message={message} onExecuteAgentPlan={() => {}} />)
 
-    expect(screen.getByText('已按这条计划执行')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '执行这条计划' })).not.toBeInTheDocument()
+    expect(screen.getByText('已按這條計劃執行')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '執行這條計劃' })).not.toBeInTheDocument()
   })
 
   it('does not render execute action for an incomplete non-plan fragment', () => {
     const message: ChatMessage = {
       id: 'msg-plan-fragment',
       role: 'assistant',
-      content: '没问题！积萌,',
+      content: '沒問題！積萌,',
       agent_plan: {
         mode: 'plan',
         status: 'draft',
-        plan: '没问题！积萌,',
+        plan: '沒問題！積萌,',
         updated_at: 1,
       },
       stream_outcome: 'interrupted',
@@ -108,19 +108,19 @@ describe('MessageBubble agent plan action', () => {
 
     render(<MessageBubble message={message} onExecuteAgentPlan={() => {}} />)
 
-    expect(screen.queryByText('计划草案')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '执行这条计划' })).not.toBeInTheDocument()
+    expect(screen.queryByText('計劃草案')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '執行這條計劃' })).not.toBeInTheDocument()
   })
 
   it('does not render execute action for a non-plan sentence even if persisted as draft', () => {
     const message: ChatMessage = {
       id: 'msg-plan-sentence',
       role: 'assistant',
-      content: '计划：我会处理这个问题。',
+      content: '計劃：我會處理這個問題。',
       agent_plan: {
         mode: 'plan',
         status: 'draft',
-        plan: '计划：我会处理这个问题。',
+        plan: '計劃：我會處理這個問題。',
         updated_at: 1,
       },
       timestamp: 1,
@@ -128,8 +128,8 @@ describe('MessageBubble agent plan action', () => {
 
     render(<MessageBubble message={message} onExecuteAgentPlan={() => {}} />)
 
-    expect(screen.queryByText('计划草案')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '执行这条计划' })).not.toBeInTheDocument()
+    expect(screen.queryByText('計劃草案')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '執行這條計劃' })).not.toBeInTheDocument()
   })
 })
 
@@ -197,9 +197,9 @@ describe('MessageBubble timeline grouping', () => {
     }
 
     render(<MessageBubble message={message} />)
-    expect(screen.getByText(/读取 1 个文件/)).toBeInTheDocument()
+    expect(screen.getByText(/讀取 1 個檔案/)).toBeInTheDocument()
     // collapsed historical groups keep only the summary mounted
-    expect(screen.getByLabelText('过程分组')).toHaveAttribute('aria-label', '过程分组')
+    expect(screen.getByLabelText('過程分組')).toHaveAttribute('aria-label', '過程分組')
     expect(screen.queryByText('planning')).not.toBeInTheDocument()
     expect(screen.queryByText('read_file')).not.toBeInTheDocument()
     // final answer text still renders
@@ -230,7 +230,7 @@ describe('MessageBubble timeline grouping', () => {
     }
 
     render(<MessageBubble message={message} />)
-    const toggle = screen.getByRole('button', { name: /读取 1 个文件/ })
+    const toggle = screen.getByRole('button', { name: /讀取 1 個檔案/ })
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByText('planning details')).not.toBeInTheDocument()
     expect(screen.queryByText('read_file')).not.toBeInTheDocument()
@@ -284,7 +284,7 @@ describe('MessageBubble timeline grouping', () => {
 
     render(<MessageBubble message={message} />)
 
-    expect(screen.getByRole('button', { name: /编辑 20 个文件/ })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /編輯 20 個檔案/ })).toHaveAttribute(
       'aria-expanded',
       'false',
     )
@@ -292,7 +292,7 @@ describe('MessageBubble timeline grouping', () => {
     expect(screen.queryByText('diff payload 0')).not.toBeInTheDocument()
     expect(screen.getByText('final answer')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /编辑 20 个文件/ }))
+    await user.click(screen.getByRole('button', { name: /編輯 20 個檔案/ }))
 
     expect(screen.getAllByText('Write')).toHaveLength(toolCount)
     expect(screen.getAllByText('file-0.ts').length).toBeGreaterThan(0)
@@ -316,7 +316,7 @@ describe('MessageBubble timeline grouping', () => {
     }
 
     render(<MessageBubble message={message} />)
-    expect(screen.getAllByLabelText('过程分组')).toHaveLength(2)
+    expect(screen.getAllByLabelText('過程分組')).toHaveLength(2)
     expect(screen.getByText('middle')).toBeInTheDocument()
   })
 
@@ -333,7 +333,7 @@ describe('MessageBubble timeline grouping', () => {
           id: 'tool-1',
           name: 'run_command',
           source: 'native',
-          // 工具已完成、但消息整体仍在流式：末组应保持展开，不折叠抖动
+          // 工具已完成、但訊息整體仍在流式：末組應保持展開，不折疊抖動
           status: 'completed',
         },
       ],
@@ -341,10 +341,10 @@ describe('MessageBubble timeline grouping', () => {
     }
 
     render(<MessageBubble message={message} messageStreaming />)
-    expect(screen.getByText(/执行 1 条命令/)).toBeInTheDocument()
-    // 展开态：组内工具块细节仍渲染（动词 Run）
-    expect(screen.getByText('Run')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /执行 1 条命令/ })).toHaveAttribute(
+    expect(screen.getByText(/執行 1 條命令/)).toBeInTheDocument()
+    // 展開態：組內工具區塊細節仍渲染
+    expect(screen.getByText('執行')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /執行 1 條命令/ })).toHaveAttribute(
       'aria-expanded',
       'true',
     )
@@ -368,14 +368,14 @@ describe('MessageBubble timeline grouping', () => {
     }
 
     render(<MessageBubble message={message} messageStreaming />)
-    const groups = screen.getAllByLabelText('过程分组')
+    const groups = screen.getAllByLabelText('過程分組')
     expect(groups).toHaveLength(2)
-    // 前组（被正文打断、非末组）折叠；末组展开
-    expect(screen.getByRole('button', { name: /执行 1 条命令/ })).toHaveAttribute(
+    // 前組（被正文打斷、非末組）摺疊；末組展開
+    expect(screen.getByRole('button', { name: /執行 1 條命令/ })).toHaveAttribute(
       'aria-expanded',
       'false',
     )
-    expect(screen.getByRole('button', { name: /正在读取 1 个网页/ })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /正在讀取 1 個網頁/ })).toHaveAttribute(
       'aria-expanded',
       'true',
     )
@@ -395,25 +395,25 @@ describe('MessageBubble timeline grouping', () => {
       timestamp: 1,
     }
 
-    // messageStreaming 默认 false（历史消息）→ 末组也折叠
+    // messageStreaming 預設 false（歷史訊息）→ 末組也摺疊
     render(<MessageBubble message={message} />)
-    expect(screen.getByRole('button', { name: /执行 1 条命令/ })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /執行 1 條命令/ })).toHaveAttribute(
       'aria-expanded',
       'false',
     )
   })
 })
 
-describe('MessageBubble 多模型所发模型标签（R8）', () => {
+describe('MessageBubble 多模型所發模型標籤（R8）', () => {
   const userMessage: ChatMessage = {
     id: 'msg-user',
     role: 'user',
-    content: '比较这几个模型',
+    content: '比較這幾個模型',
     group_id: 'grp-1',
     timestamp: 1,
   }
 
-  it('多模型（≥2）时在 user 气泡顶部渲染所发模型标签', () => {
+  it('多模型（≥2）時在 user 氣泡頂部渲染所發模型標籤', () => {
     render(
       <MessageBubble
         message={userMessage}
@@ -427,7 +427,7 @@ describe('MessageBubble 多模型所发模型标签（R8）', () => {
     expect(screen.getByText('@qwen-max')).toBeInTheDocument()
   })
 
-  it('单模型 / 缺省时不渲染标签行（无回归）', () => {
+  it('單模型 / 預設時不渲染標籤行（無迴歸）', () => {
     const { rerender } = render(
       <MessageBubble message={userMessage} sentModels={[{ providerId: 'deepseek', model: 'deepseek-chat' }]} />,
     )
@@ -437,54 +437,54 @@ describe('MessageBubble 多模型所发模型标签（R8）', () => {
   })
 })
 
-describe('MessageBubble 用户消息编辑并重新生成', () => {
+describe('MessageBubble 使用者訊息編輯並重新生成', () => {
   const userMessage: ChatMessage = {
     id: 'msg-user-edit',
     role: 'user',
-    content: '原始问题',
+    content: '原始問題',
     timestamp: 1,
   }
 
-  it('点击编辑进入编辑态，保存并重新生成携带新内容', async () => {
+  it('點選編輯進入編輯態，儲存並重新生成攜帶新內容', async () => {
     const onRegenerateMessage = vi.fn().mockResolvedValue(undefined)
     render(<MessageBubble message={userMessage} onRegenerateMessage={onRegenerateMessage} />)
 
-    await userEvent.click(screen.getByRole('button', { name: '编辑并重新生成' }))
+    await userEvent.click(screen.getByRole('button', { name: '編輯並重新生成' }))
     const textarea = screen.getByRole('textbox')
-    expect(textarea).toHaveValue('原始问题')
+    expect(textarea).toHaveValue('原始問題')
 
     await userEvent.clear(textarea)
-    await userEvent.type(textarea, '改过的问题')
-    await userEvent.click(screen.getByRole('button', { name: '保存并重新生成' }))
+    await userEvent.type(textarea, '改過的問題')
+    await userEvent.click(screen.getByRole('button', { name: '儲存並重新生成' }))
 
-    expect(onRegenerateMessage).toHaveBeenCalledWith('msg-user-edit', '改过的问题')
+    expect(onRegenerateMessage).toHaveBeenCalledWith('msg-user-edit', '改過的問題')
   })
 
-  it('内容未改动时保存走纯重新生成（不带 newContent）', async () => {
+  it('內容未改動時儲存走純重新生成（不帶 newContent）', async () => {
     const onRegenerateMessage = vi.fn().mockResolvedValue(undefined)
     render(<MessageBubble message={userMessage} onRegenerateMessage={onRegenerateMessage} />)
 
-    await userEvent.click(screen.getByRole('button', { name: '编辑并重新生成' }))
-    await userEvent.click(screen.getByRole('button', { name: '保存并重新生成' }))
+    await userEvent.click(screen.getByRole('button', { name: '編輯並重新生成' }))
+    await userEvent.click(screen.getByRole('button', { name: '儲存並重新生成' }))
 
     expect(onRegenerateMessage).toHaveBeenCalledWith('msg-user-edit', undefined)
   })
 
-  it('取消恢复原文并退出编辑态；无回调时不渲染编辑按钮', async () => {
+  it('取消恢復原文並退出編輯態；無回撥時不渲染編輯按鈕', async () => {
     const onRegenerateMessage = vi.fn().mockResolvedValue(undefined)
     const { rerender } = render(
       <MessageBubble message={userMessage} onRegenerateMessage={onRegenerateMessage} />,
     )
 
-    await userEvent.click(screen.getByRole('button', { name: '编辑并重新生成' }))
+    await userEvent.click(screen.getByRole('button', { name: '編輯並重新生成' }))
     await userEvent.type(screen.getByRole('textbox'), '不想要的修改')
     await userEvent.click(screen.getByRole('button', { name: '取消' }))
 
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
-    expect(screen.getByText('原始问题')).toBeInTheDocument()
+    expect(screen.getByText('原始問題')).toBeInTheDocument()
     expect(onRegenerateMessage).not.toHaveBeenCalled()
 
     rerender(<MessageBubble message={userMessage} />)
-    expect(screen.queryByRole('button', { name: '编辑并重新生成' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '編輯並重新生成' })).not.toBeInTheDocument()
   })
 })

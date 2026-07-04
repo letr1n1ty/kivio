@@ -13,7 +13,7 @@ function msg(id: string, role: 'user' | 'assistant', groupId?: string): ChatMess
 }
 
 describe('foldMessageGroups', () => {
-  it('单模型（无 group_id）保持线性，不折叠（零回归）', () => {
+  it('單模型（無 group_id）保持線性，不折疊（零迴歸）', () => {
     const items = foldMessageGroups([
       msg('u1', 'user'),
       msg('a1', 'assistant'),
@@ -23,14 +23,14 @@ describe('foldMessageGroups', () => {
     expect(items.map((i) => i.type)).toEqual(['message', 'message', 'message', 'message'])
   })
 
-  it('同 group_id 的连续 assistant 折成一个组', () => {
+  it('同 group_id 的連續 assistant 折成一個組', () => {
     const items = foldMessageGroups([
       msg('u1', 'user', 'g1'),
       msg('a1', 'assistant', 'g1'),
       msg('a2', 'assistant', 'g1'),
       msg('a3', 'assistant', 'g1'),
     ])
-    // user 即使带 group_id 也不并入组（只折 assistant）。
+    // user 即使帶 group_id 也不併入組（只折 assistant）。
     expect(items[0].type).toBe('message')
     expect(items[1].type).toBe('group')
     const group = items[1]
@@ -39,7 +39,7 @@ describe('foldMessageGroups', () => {
     expect(group.messages.map((m) => m.id)).toEqual(['a1', 'a2', 'a3'])
   })
 
-  it('不同 group_id 的 assistant 分成两组', () => {
+  it('不同 group_id 的 assistant 分成兩組', () => {
     const items = foldMessageGroups([
       msg('a1', 'assistant', 'g1'),
       msg('a2', 'assistant', 'g1'),
@@ -52,17 +52,17 @@ describe('foldMessageGroups', () => {
     if (items[1].type === 'group') expect(items[1].messages).toHaveLength(1)
   })
 
-  it('组之间被普通消息打断', () => {
+  it('組之間被普通訊息打斷', () => {
     const items = foldMessageGroups([
       msg('a1', 'assistant', 'g1'),
       msg('u1', 'user'),
       msg('a2', 'assistant', 'g1'),
     ])
-    // 同 group_id 但被 user 打断 → 两个独立组（连续性被破坏）。
+    // 同 group_id 但被 user 打斷 → 兩個獨立組（連續性被破壞）。
     expect(items.map((i) => i.type)).toEqual(['group', 'message', 'group'])
   })
 
-  it('多答轮 + 单模型续聊轮混合', () => {
+  it('多答輪 + 單模型續聊輪混合', () => {
     const items = foldMessageGroups([
       msg('u1', 'user', 'g1'),
       msg('a1', 'assistant', 'g1'),

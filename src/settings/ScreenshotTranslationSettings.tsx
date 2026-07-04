@@ -60,7 +60,7 @@ export function ScreenshotTranslationSettings({
   const ocrMode = screenshot?.ocrMode ?? 'cloud_vision'
   const cardWidth = screenshot?.cardWidth ?? 480
   const [widthDraft, setWidthDraft] = useState(String(cardWidth))
-  // 边打字不 clamp（避免输 "5" 立刻跳 360）；失焦/回车时 clamp 到 360–720 再提交。
+  // 邊打字不 clamp（避免輸 "5" 立刻跳 360）；失焦/回車時 clamp 到 360–720 再提交。
   const commitCardWidth = () => {
     const n = parseInt(widthDraft, 10)
     const next = Number.isFinite(n) ? Math.max(360, Math.min(720, n)) : cardWidth
@@ -283,8 +283,8 @@ export function ScreenshotTranslationSettings({
 }
 
 /**
- * 自定义提示词字段：空值时把默认模板预填进文本框（可编辑起点），
- * 用户未编辑前保存仍写空串（运行时用内置默认）；"恢复默认" 清空并复位预填。
+ * 自定義提示詞欄位：空值時把預設模板預填進文本框（可編輯起點），
+ * 使用者未編輯前儲存仍寫空串（執行時用內建預設）；"恢復預設" 清空並復位預填。
  */
 export function PromptField({
   label,

@@ -152,7 +152,7 @@ function parseAskUser(toolCall: ToolCallRecord): ParsedAskUser | null {
       return {
         title: typeof askUser.title === 'string' && askUser.title.trim()
           ? askUser.title.trim()
-          : '需要确认',
+          : '需要確認',
         phase: typeof askUser.phase === 'string' ? askUser.phase : 'awaiting',
         questions,
         answers: normalizeAnswers(askUser.answers),
@@ -164,7 +164,7 @@ function parseAskUser(toolCall: ToolCallRecord): ParsedAskUser | null {
   const questions = normalizeQuestions(args?.questions)
   if (!questions.length) return null
   return {
-    title: typeof args?.title === 'string' && args.title.trim() ? args.title.trim() : '需要确认',
+    title: typeof args?.title === 'string' && args.title.trim() ? args.title.trim() : '需要確認',
     phase: toolCall.status === 'cancelled' ? 'cancelled' : 'awaiting',
     questions,
     answers: {},
@@ -226,9 +226,9 @@ function phaseLabel(phase: string): string {
     case 'answered':
       return '已回答'
     case 'skipped':
-      return '已跳过'
+      return '已跳過'
     case 'timeout':
-      return '已超时'
+      return '已超時'
     case 'cancelled':
       return '已取消'
     default:
@@ -290,7 +290,7 @@ export function AskUserBlock({ toolCall }: AskUserBlockProps) {
     return (
       <div className="not-prose mb-2 inline-flex max-w-full items-center gap-1.5 rounded-md py-0.5 text-[11.5px] leading-5 text-neutral-400 dark:text-neutral-500">
         <MessageSquareMore size={12} strokeWidth={1.9} className="shrink-0" />
-        <span className="truncate">等待用户确认</span>
+        <span className="truncate">等待使用者確認</span>
       </div>
     )
   }
@@ -405,7 +405,7 @@ export function AskUserBlock({ toolCall }: AskUserBlockProps) {
                           ? 'w-2.5 bg-neutral-400/80 dark:bg-neutral-500'
                           : 'w-2.5 bg-neutral-200 dark:bg-neutral-700'
                     }`}
-                    aria-label={`问题 ${index + 1}`}
+                    aria-label={`問題 ${index + 1}`}
                   />
                 )
               })}
@@ -421,7 +421,7 @@ export function AskUserBlock({ toolCall }: AskUserBlockProps) {
                 {currentQuestion.prompt}
               </div>
               <span className="mt-0.5 shrink-0 rounded-full bg-neutral-100 px-1.5 py-0.5 text-[10px] leading-4 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500">
-                {allowMultiple(currentQuestion) ? '多选' : '单选'}
+                {allowMultiple(currentQuestion) ? '多選' : '單選'}
               </span>
             </div>
 
@@ -516,7 +516,7 @@ export function AskUserBlock({ toolCall }: AskUserBlockProps) {
             className="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-[11.5px] text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 disabled:cursor-not-allowed disabled:opacity-30 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
           >
             <ArrowLeft size={12} strokeWidth={1.9} />
-            上一题
+            上一題
           </button>
           <div className="flex items-center gap-1.5">
             {!isLastQuestion && (
@@ -527,7 +527,7 @@ export function AskUserBlock({ toolCall }: AskUserBlockProps) {
                 disabled={!currentAnswered || submitting}
                 className="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-[11.5px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 disabled:cursor-not-allowed disabled:opacity-30 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
               >
-                下一题
+                下一題
                 <ArrowRight size={12} strokeWidth={1.9} />
               </button>
             )}
@@ -539,7 +539,7 @@ export function AskUserBlock({ toolCall }: AskUserBlockProps) {
             className="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-[11.5px] text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 disabled:cursor-not-allowed disabled:opacity-60 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
           >
             <SkipForward size={12} strokeWidth={1.9} />
-            跳过
+            跳過
           </button>
           <button
             type="button"

@@ -34,7 +34,7 @@ export type ExtensionsNavItem = 'assistants' | 'skill' | 'mcp'
 const extensionSubItems: Array<{ id: ExtensionsNavItem; label: string }> = [
   { id: 'assistants', label: '助手' },
   { id: 'skill', label: '技能' },
-  { id: 'mcp', label: '连接器' },
+  { id: 'mcp', label: '連接器' },
 ]
 
 const PROJECT_PREVIEW_LIMIT = 5
@@ -141,8 +141,8 @@ function SidebarUserFooter({
               ? 'bg-black/[0.06] text-neutral-800 dark:bg-white/[0.1] dark:text-neutral-100'
               : 'text-neutral-400 hover:bg-black/[0.05] hover:text-neutral-600 dark:text-neutral-500 dark:hover:bg-white/[0.08] dark:hover:text-neutral-300'
           }`}
-          title="设置"
-          aria-label="设置"
+          title="設定"
+          aria-label="設定"
           aria-pressed={settingsActive}
         >
           <SettingsIcon size={16} strokeWidth={1.75} />
@@ -158,7 +158,7 @@ interface NavRowProps {
   onClick?: () => void
   disabled?: boolean
   active?: boolean
-  /** 图标在 hover 时的微动效（group-hover transform 工具类） */
+  /** 圖示在 hover 時的微動效（group-hover transform 工具類） */
   iconMotion?: string
 }
 
@@ -214,7 +214,7 @@ function ExtensionsNav({
         <span className="flex h-5 w-5 shrink-0 items-center justify-center text-neutral-600 transition duration-300 ease-out will-change-transform group-hover:text-neutral-800 group-active:scale-90 group-hover:rotate-3 group-hover:scale-110 dark:text-neutral-400 dark:group-hover:text-neutral-200">
           <LayoutGrid size={17} strokeWidth={1.75} />
         </span>
-        <span className="min-w-0 flex-1 truncate">插件</span>
+        <span className="min-w-0 flex-1 truncate">外掛</span>
         <ChevronRight
           size={14}
           strokeWidth={2}
@@ -297,7 +297,7 @@ function SearchDialog({
         className="chat-motion-popover flex max-h-[62vh] w-full max-w-[560px] flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xl shadow-black/25 dark:border-neutral-700 dark:bg-[#242426]"
         role="dialog"
         aria-modal="true"
-        aria-label="搜索对话"
+        aria-label="搜尋對話"
       >
         <div className="flex items-center gap-2 border-b border-neutral-200/80 px-3 py-2 dark:border-neutral-700/80">
           <Search size={15} strokeWidth={1.75} className="shrink-0 text-neutral-400" />
@@ -313,13 +313,13 @@ function SearchDialog({
                 onSelectConversation(results[0])
               }
             }}
-            placeholder="搜索对话"
+            placeholder="搜尋對話"
             className="min-w-0 flex-1 bg-transparent text-[14px] font-medium text-neutral-900 outline-none placeholder:text-neutral-400 dark:text-neutral-100 dark:placeholder:text-neutral-500"
           />
         </div>
 
         <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-          {normalizedQuery ? '搜索结果' : '近期对话'}
+          {normalizedQuery ? '搜尋結果' : '近期對話'}
         </div>
 
         <div className="custom-scrollbar min-h-0 overflow-y-auto px-1.5 pb-1.5">
@@ -365,7 +365,7 @@ function SearchDialog({
             })
           ) : (
             <div className="px-3 py-6 text-center text-[13px] text-neutral-400 dark:text-neutral-500">
-              没有匹配的对话
+              沒有匹配的對話
             </div>
           )}
         </div>
@@ -399,8 +399,8 @@ export const Sidebar = memo(function Sidebar({
   onSearchOpenChange,
 }: SidebarProps) {
   const asideRef = useRef<HTMLElement>(null)
-  // 折叠后侧栏仍挂载（用于滑出动画），用 inert 让其退出 tab 序 / 不可点击 / 不进 a11y 树。
-  // useLayoutEffect：在绘制前与 JSX 里的 aria-hidden 原子地一起生效，避免短暂可聚焦窗口。
+  // 摺疊後側欄仍掛載（用於滑出動畫），用 inert 讓其退出 tab 序 / 不可點選 / 不進 a11y 樹。
+  // useLayoutEffect：在繪製前與 JSX 裡的 aria-hidden 原子地一起生效，避免短暫可聚焦視窗。
   useLayoutEffect(() => {
     const el = asideRef.current
     if (el) el.inert = collapsed
@@ -410,9 +410,9 @@ export const Sidebar = memo(function Sidebar({
   const [sets, setSets] = useState<ChatSet[]>([])
   const [assistants, setAssistants] = useState<ChatAssistant[]>([])
   const [searchQuery, setSearchQuery] = useState('')
-  // 后端全量索引搜索结果（覆盖所有对话，不止已加载的前 80）；空查询/非 Tauri 时为空，回退客户端过滤。
+  // 後端全量索引搜尋結果（覆蓋所有對話，不止已載入的前 80）；空查詢/非 Tauri 時為空，回退客戶端過濾。
   const [fullSearchResults, setFullSearchResults] = useState<ConversationListItem[]>([])
-  // 侧栏三块改为横排标签页：同一时刻只显示一块（对话/集/项目）。
+  // 側欄三塊改為橫排標籤頁：同一時刻只顯示一塊（對話/集/專案）。
   const [activeTab, setActiveTab] = useState<'conversations' | 'sets' | 'projects'>('conversations')
   const [collapsedProjectIds, setCollapsedProjectIds] = useState<Set<string>>(
     () => new Set(),
@@ -486,9 +486,9 @@ export const Sidebar = memo(function Sidebar({
   }, [onSelectProject, onSelectSet, selectedProject, selectedSet])
 
   useEffect(() => {
-    // 侧栏数据与 selectedProject 无关（loadSidebarData 始终拉全部项目+对话，仅用 selectedProject
-    // 判断项目是否被删）。切项目时拉到的是相同数据，不该进 loading 态白闪一下；首次加载非静默
-    // 显 loading，之后（含跨项目切换）一律静默后台刷新，消除切换对话时的侧栏闪烁。
+    // 側欄資料與 selectedProject 無關（loadSidebarData 始終拉全部專案+對話，僅用 selectedProject
+    // 判斷專案是否被刪）。切專案時拉到的是相同資料，不該進 loading 態白閃一下；首次載入非靜默
+    // 顯 loading，之後（含跨專案切換）一律靜默後臺重新整理，消除切換對話時的側欄閃爍。
     void loadSidebarData({ silent: sidebarLoadedRef.current })
     sidebarLoadedRef.current = true
   }, [loadSidebarData, selectedProject?.id])
@@ -520,9 +520,9 @@ export const Sidebar = memo(function Sidebar({
   }
 
   const handleDeleteConversation = async (id: string) => {
-    if (!window.confirm('确定删除此对话？此操作无法撤销。')) return
-    // B3：删"generating"会话先强制清父组件 in-flight/乐观状态，
-    // 让乐观合并（visibleConversations）不再保留它。
+    if (!window.confirm('確定刪除此對話？此操作無法撤銷。')) return
+    // B3：刪"generating"會話先強制清父元件 in-flight/樂觀狀態，
+    // 讓樂觀合併（visibleConversations）不再保留它。
     if (generatingConversationIds.has(id)) {
       onForceDropConversation?.(id)
       try {
@@ -536,7 +536,7 @@ export const Sidebar = memo(function Sidebar({
     } catch (err) {
       console.error('Failed to delete conversation:', err)
     } finally {
-      // 无论后端删除成功或抛错，都本地剔除该 id 并刷新侧栏，确保 ghost 立即消失。
+      // 無論後端刪除成功或拋錯，都本地剔除該 id 並重新整理側欄，確保 ghost 立即消失。
       setConversations((items) => items.filter((item) => item.id !== id))
       onForceDropConversation?.(id)
       if (currentConversationId === id) {
@@ -567,7 +567,7 @@ export const Sidebar = memo(function Sidebar({
     try {
       const conversation = await chatApi.updateConversation(id, { setId: setId ?? null })
       const conversationSetId = conversation.set_id ?? conversation.setId ?? null
-      // 当前打开的对话被移出当前选中集，则从主视图移除（与项目逻辑一致）。
+      // 當前開啟的對話被移出當前選中集，則從主檢視移除（與專案邏輯一致）。
       if (currentConversationId === id && selectedSet && conversationSetId !== selectedSet.id) {
         onConversationDeleted?.(id)
       }
@@ -602,14 +602,14 @@ export const Sidebar = memo(function Sidebar({
       await loadSidebarData({ silent: true, setOverride: set })
       setDialogSet(undefined)
     } catch (err) {
-      setSetDialogError(typeof err === 'string' ? err : (err as Error).message || '集保存失败')
+      setSetDialogError(typeof err === 'string' ? err : (err as Error).message || '集儲存失敗')
     } finally {
       setSetDialogSaving(false)
     }
   }
 
   const handleDeleteSet = async (set: ChatSet) => {
-    if (!window.confirm(`确定删除集「${set.name}」？集内的对话会移出集，不会被删除。`)) {
+    if (!window.confirm(`確定刪除集「${set.name}」？集內的對話會移出集，不會被刪除。`)) {
       return
     }
     try {
@@ -655,7 +655,7 @@ export const Sidebar = memo(function Sidebar({
       await loadSidebarData({ silent: true, projectOverride: project })
       setDialogProject(undefined)
     } catch (err) {
-      setProjectError(typeof err === 'string' ? err : (err as Error).message || '项目保存失败')
+      setProjectError(typeof err === 'string' ? err : (err as Error).message || '專案儲存失敗')
     } finally {
       setProjectSaving(false)
     }
@@ -665,12 +665,12 @@ export const Sidebar = memo(function Sidebar({
     try {
       await chatApi.openProjectFolder(project.id)
     } catch (err) {
-      window.alert(typeof err === 'string' ? err : (err as Error).message || '打开项目文件夹失败')
+      window.alert(typeof err === 'string' ? err : (err as Error).message || '開啟專案資料夾失敗')
     }
   }
 
   const handleDeleteProject = async (project: ChatProject) => {
-    if (!window.confirm(`确定删除项目「${project.name}」？项目内的聊天会移出项目，不会被删除。`)) {
+    if (!window.confirm(`確定刪除專案「${project.name}」？專案內的聊天會移出專案，不會被刪除。`)) {
       return
     }
     try {
@@ -690,8 +690,8 @@ export const Sidebar = memo(function Sidebar({
       ? conversations.filter((conv) => conversationBelongsToProject(conv, selectedProject))
       : conversations
     if (targetConversations.length === 0) return
-    const scope = selectedProject ? `项目「${selectedProject.name}」中的` : '全部'
-    if (!window.confirm(`确定删除${scope} ${targetConversations.length} 个对话？此操作无法撤销。`)) return
+    const scope = selectedProject ? `專案「${selectedProject.name}」中的` : '全部'
+    if (!window.confirm(`確定刪除${scope} ${targetConversations.length} 個對話？此操作無法撤銷。`)) return
     try {
       await Promise.all(targetConversations.map((conv) => chatApi.deleteConversation(conv.id)))
       if (currentConversationId && targetConversations.some((conv) => conv.id === currentConversationId)) {
@@ -745,7 +745,7 @@ export const Sidebar = memo(function Sidebar({
     return map
   }, [sets, visibleConversations])
 
-  // 「最近」标签：跨集/项目的全部对话，置顶在前、再按更新时间倒序。
+  // 「最近」標籤：跨集/專案的全部對話，置頂在前、再按更新時間倒序。
   const recentConversations = useMemo(
     () =>
       [...visibleConversations].sort((a, b) => {
@@ -756,7 +756,7 @@ export const Sidebar = memo(function Sidebar({
     [visibleConversations],
   )
 
-  // 查询变化时去后端全量索引搜（debounce 180ms）。覆盖掉出"最近 80"的老对话。
+  // 查詢變化時去後端全量索引搜（debounce 180ms）。覆蓋掉出"最近 80"的老對話。
   useEffect(() => {
     if (!searchOpen || !normalizedSearchQuery) {
       setFullSearchResults([])
@@ -783,7 +783,7 @@ export const Sidebar = memo(function Sidebar({
     if (!normalizedSearchQuery) {
       return visibleConversations.slice(0, 9)
     }
-    // Tauri：后端全量结果优先；为空/mock 时回退到已加载列表的客户端过滤（也覆盖后端结果到达前的瞬间）。
+    // Tauri：後端全量結果優先；為空/mock 時回退到已載入列表的客戶端過濾（也覆蓋後端結果到達前的瞬間）。
     if (fullSearchResults.length > 0) {
       return fullSearchResults
     }
@@ -861,7 +861,7 @@ export const Sidebar = memo(function Sidebar({
         />
         <NavRow
           icon={<Search size={17} strokeWidth={1.75} />}
-          label="搜索"
+          label="搜尋"
           onClick={() => onSearchOpenChange(true)}
           active={searchOpen}
           iconMotion="group-hover:scale-110"
@@ -876,7 +876,7 @@ export const Sidebar = memo(function Sidebar({
 
       <div className="flex min-h-0 flex-1 flex-col" data-tauri-drag-region="false">
         {loading ? (
-          <div className="space-y-2 px-3 py-3" aria-label="加载中" aria-busy="true">
+          <div className="space-y-2 px-3 py-3" aria-label="載入中" aria-busy="true">
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="kv-skeleton h-7 rounded-lg" />
             ))}
@@ -888,7 +888,7 @@ export const Sidebar = memo(function Sidebar({
                 {([
                   ['conversations', '最近'],
                   ['sets', '集'],
-                  ['projects', '项目'],
+                  ['projects', '專案'],
                 ] as const).flatMap(([tab, label], i) => {
                   const button = (
                     <button
@@ -927,7 +927,7 @@ export const Sidebar = memo(function Sidebar({
                           ? 'bg-black/[0.06] text-neutral-600 dark:bg-white/[0.1] dark:text-neutral-200'
                           : ''
                       }`}
-                      aria-label="对话列表操作"
+                      aria-label="對話列表操作"
                       aria-haspopup="menu"
                       aria-expanded={sectionMenuAnchor !== null}
                     >
@@ -960,8 +960,8 @@ export const Sidebar = memo(function Sidebar({
                         })
                       }}
                       className="rounded-md p-0.5 text-neutral-400 transition-colors hover:bg-black/[0.06] hover:text-neutral-600 dark:hover:bg-white/[0.1] dark:hover:text-neutral-200"
-                      title={allVisibleSetsCollapsed ? '展开全部集' : '折叠全部集'}
-                      aria-label={allVisibleSetsCollapsed ? '展开全部集' : '折叠全部集'}
+                      title={allVisibleSetsCollapsed ? '展開全部集' : '摺疊全部集'}
+                      aria-label={allVisibleSetsCollapsed ? '展開全部集' : '摺疊全部集'}
                     >
                       <MoreHorizontal size={15} />
                     </button>
@@ -992,8 +992,8 @@ export const Sidebar = memo(function Sidebar({
                         })
                       }}
                       className="rounded-md p-0.5 text-neutral-400 transition-colors hover:bg-black/[0.06] hover:text-neutral-600 dark:hover:bg-white/[0.1] dark:hover:text-neutral-200"
-                      title={allVisibleProjectsCollapsed ? '展开全部项目' : '折叠全部项目'}
-                      aria-label={allVisibleProjectsCollapsed ? '展开全部项目' : '折叠全部项目'}
+                      title={allVisibleProjectsCollapsed ? '展開全部專案' : '摺疊全部專案'}
+                      aria-label={allVisibleProjectsCollapsed ? '展開全部專案' : '摺疊全部專案'}
                     >
                       <MoreHorizontal size={15} />
                     </button>
@@ -1001,8 +1001,8 @@ export const Sidebar = memo(function Sidebar({
                       type="button"
                       onClick={openCreateProjectDialog}
                       className="rounded-md p-0.5 text-neutral-400 transition-colors hover:bg-black/[0.06] hover:text-neutral-600 dark:hover:bg-white/[0.1] dark:hover:text-neutral-200"
-                      title={`新建项目 (${modLabel}P)`}
-                      aria-label="新建项目"
+                      title={`新建專案 (${modLabel}P)`}
+                      aria-label="新建專案"
                     >
                       <FolderPlus size={15} strokeWidth={1.75} />
                     </button>
@@ -1050,7 +1050,7 @@ export const Sidebar = memo(function Sidebar({
                                 ? 'font-semibold text-neutral-900 dark:text-neutral-100'
                                 : 'font-medium text-neutral-600 dark:text-neutral-300'
                             }`}
-                            title={collapsedProject ? `展开 ${project.name}` : `折叠 ${project.name}`}
+                            title={collapsedProject ? `展開 ${project.name}` : `摺疊 ${project.name}`}
                             aria-expanded={!collapsedProject}
                           >
                             <ChevronRight
@@ -1078,7 +1078,7 @@ export const Sidebar = memo(function Sidebar({
                                 ? 'opacity-100'
                                 : 'opacity-0 group-hover:opacity-100'
                             }`}
-                            aria-label="项目操作"
+                            aria-label="專案操作"
                           >
                             <MoreHorizontal size={15} />
                           </button>
@@ -1135,7 +1135,7 @@ export const Sidebar = memo(function Sidebar({
                           }}
                           className="ml-8 rounded-md px-2.5 py-0.5 text-left text-[13px] font-medium text-neutral-400 transition-colors hover:bg-black/[0.035] hover:text-neutral-600 dark:text-neutral-500 dark:hover:bg-white/[0.06] dark:hover:text-neutral-300"
                         >
-                          {expanded ? '收起' : '展开显示'}
+                          {expanded ? '收起' : '展開顯示'}
                         </button>
                       )}
                       </div>
@@ -1155,7 +1155,7 @@ export const Sidebar = memo(function Sidebar({
                       className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-left text-[13px] text-neutral-400 transition-colors hover:bg-black/[0.035] hover:text-neutral-600 dark:text-neutral-500 dark:hover:bg-white/[0.06] dark:hover:text-neutral-300"
                     >
                       <Plus size={14} strokeWidth={2} className="shrink-0" />
-                      新建一个集（系统提示词 + 默认助手）
+                      新建一個集（系統提示詞 + 預設助手）
                     </button>
                   ) : (
                     sets.map((set, index) => {
@@ -1191,7 +1191,7 @@ export const Sidebar = memo(function Sidebar({
                                   ? 'font-semibold text-neutral-900 dark:text-neutral-100'
                                   : 'font-medium text-neutral-600 dark:text-neutral-300'
                               }`}
-                              title={collapsedSet ? `展开 ${set.name}` : `折叠 ${set.name}`}
+                              title={collapsedSet ? `展開 ${set.name}` : `摺疊 ${set.name}`}
                               aria-expanded={!collapsedSet}
                             >
                               <ChevronRight
@@ -1274,7 +1274,7 @@ export const Sidebar = memo(function Sidebar({
                               }}
                               className="ml-8 rounded-md px-2.5 py-0.5 text-left text-[13px] font-medium text-neutral-400 transition-colors hover:bg-black/[0.035] hover:text-neutral-600 dark:text-neutral-500 dark:hover:bg-white/[0.06] dark:hover:text-neutral-300"
                             >
-                              {expanded ? '收起' : '展开显示'}
+                              {expanded ? '收起' : '展開顯示'}
                             </button>
                           )}
                         </div>

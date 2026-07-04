@@ -16,9 +16,9 @@ function modeIcon(value: string, label: string) {
   if (value === 'always_confirm') return ShieldAlert
   if (value === 'readonly_auto_sensitive_confirm') return ShieldQuestion
   if (value === 'auto') return ShieldCheck
-  if (/计划|只读|read|plan/i.test(label)) return Eye
-  if (/编辑|edit/i.test(label)) return FilePen
-  if (/完全|默认|full|default/i.test(label)) return ShieldCheck
+  if (/計劃|只讀|read|plan/i.test(label)) return Eye
+  if (/編輯|edit/i.test(label)) return FilePen
+  if (/完全|預設|full|default/i.test(label)) return ShieldCheck
   return ShieldAlert
 }
 
@@ -67,7 +67,7 @@ function PermissionPickerBase({
   const current = useMemo(() => {
     if (usesExternal) {
       if (agentRuntime.externalSandbox) return agentRuntime.externalSandbox
-      const def = sandboxOptions.find((o) => o.label.includes('默认')) ?? sandboxOptions[0]
+      const def = sandboxOptions.find((o) => o.label.includes('預設')) ?? sandboxOptions[0]
       return def?.id ?? ''
     }
     return approvalPolicy ?? APPROVAL_POLICY_OPTIONS[1]?.value ?? ''
@@ -76,7 +76,7 @@ function PermissionPickerBase({
   if (usesExternal && options.length === 0) return null
   if (!usesExternal && !onApprovalPolicyChange) return null
 
-  const currentLabel = options.find((o) => o.value === current)?.label ?? '权限'
+  const currentLabel = options.find((o) => o.value === current)?.label ?? '許可權'
   const CurrentIcon = modeIcon(current, currentLabel)
 
   const pick = (value: string) => {
@@ -98,8 +98,8 @@ function PermissionPickerBase({
             ? 'bg-black/[0.06] text-neutral-800 dark:bg-white/[0.09] dark:text-neutral-100'
             : 'hover:text-neutral-800 dark:hover:text-neutral-100'
         }`}
-        title={`${usesExternal ? '沙盒 / 权限等级' : '工具审批策略'}：${currentLabel}`}
-        aria-label={`${usesExternal ? '沙盒 / 权限等级' : '工具审批策略'}：${currentLabel}`}
+        title={`${usesExternal ? '沙盒 / 許可權等級' : '工具審批策略'}：${currentLabel}`}
+        aria-label={`${usesExternal ? '沙盒 / 許可權等級' : '工具審批策略'}：${currentLabel}`}
       >
         <CurrentIcon size={16} strokeWidth={1.8} />
       </button>
@@ -134,5 +134,5 @@ function PermissionPickerBase({
   )
 }
 
-// memo：顶栏选择器，仅在 props 变化时重渲。
+// memo：頂欄選擇器，僅在 props 變化時重渲。
 export const PermissionPicker = memo(PermissionPickerBase)

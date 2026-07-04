@@ -1,4 +1,4 @@
-/** 与参考 UI 一致：Jun 1, 2026 at 12:30 AM */
+/** 與參考 UI 一致：Jun 1, 2026 at 12:30 AM */
 export function formatAssistantMessageTime(timestamp: number): string {
   const date = new Date(timestamp * 1000)
   const datePart = new Intl.DateTimeFormat('en-US', {

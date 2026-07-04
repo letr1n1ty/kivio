@@ -55,7 +55,7 @@ function RuntimePickerBase({ agentRuntime, onRuntimeChange }: RuntimePickerProps
   const currentAgent = agents.find((item) => item.id === agentRuntime.externalAgentId)
 
   const label = useMemo(() => {
-    if (!usesExternal) return '内置 Agent'
+    if (!usesExternal) return '內建 Agent'
     return currentAgent?.name ?? agentRuntime.externalAgentId ?? '本地 CLI'
   }, [agentRuntime.externalAgentId, currentAgent?.name, usesExternal])
 
@@ -122,7 +122,7 @@ function RuntimePickerBase({ agentRuntime, onRuntimeChange }: RuntimePickerProps
                   className={`kv-runtime-picker__seg-btn${!usesExternal ? ' is-active' : ''}`}
                   onClick={selectBuiltin}
                 >
-                  内置 Agent
+                  內建 Agent
                 </button>
                 <button
                   type="button"
@@ -140,9 +140,9 @@ function RuntimePickerBase({ agentRuntime, onRuntimeChange }: RuntimePickerProps
             <div className="kv-runtime-picker__row">
               <span className="kv-runtime-picker__label">代理</span>
               {agents.length === 0 ? (
-                <span className="kv-runtime-picker__hint">正在检测本机 CLI…</span>
+                <span className="kv-runtime-picker__hint">正在檢測本機 CLI…</span>
               ) : availableAgents.length === 0 ? (
-                <span className="kv-runtime-picker__hint">PATH 中未发现可用 CLI</span>
+                <span className="kv-runtime-picker__hint">PATH 中未發現可用 CLI</span>
               ) : (
                 <div className="kv-runtime-picker__agent-grid" role="radiogroup">
                   {availableAgents.map((agent) => {
@@ -296,6 +296,6 @@ function ExternalModelSelectorBase({
   )
 }
 
-// memo：顶栏选择器，仅在 props 变化时重渲。
+// memo：頂欄選擇器，僅在 props 變化時重渲。
 export const RuntimePicker = memo(RuntimePickerBase)
 export const ExternalModelSelector = memo(ExternalModelSelectorBase)

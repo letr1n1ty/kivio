@@ -9,7 +9,7 @@ export function toolRecordRawName(toolCall: ToolCallRecord): string {
   return toolCall.tool_name || toolCall.toolName || toolCall.name || ''
 }
 
-/** tool record 的唯一 id（兼容多种字段命名）。 */
+/** tool record 的唯一 id（相容多種欄位命名）。 */
 export function toolRecordId(toolCall: ToolCallRecord): string {
   return toolCall.id || toolCall.toolCallId || toolCall.call_id || toolCall.callId || ''
 }
@@ -42,8 +42,8 @@ export function compareTimelineSegments(
   return a.order - b.order
 }
 
-/** 渲染前的「有内容」判定：reasoning/text 段空白则不渲染，也不应单独成组/打断分组。
- *  tool 段始终保留（其记录可能缺失，交由 UI 兜底）。 */
+/** 渲染前的「有內容」判定：reasoning/text 段空白則不渲染，也不應單獨成組/打斷分組。
+ *  tool 段始終保留（其記錄可能缺失，交由 UI 兜底）。 */
 function segmentHasContent(segment: ChatMessageSegment): boolean {
   if (segment.kind === 'tool') return true
   return Boolean((segment.text ?? '').trim())
@@ -54,11 +54,11 @@ export type TimelineGroupItem =
   | { type: 'group'; segments: ChatMessageSegment[] }
 
 /**
- * 以正文(text)段为分隔，把两条正文之间连续的非 text 段（reasoning + tool）聚成一个组。
- * - 纯函数：输入有序 segments → 输出渲染项数组，便于单测。
- * - text 段单独成项（原样渲染正文），永远打断分组。
- * - `tool → text → tool` ⇒ 两个组。
- * - 空白 reasoning/text 段先过滤，避免产生空组或多余分隔。
+ * 以正文(text)段為分隔，把兩條正文之間連續的非 text 段（reasoning + tool）聚成一個組。
+ * - 純函式：輸入有序 segments → 輸出渲染項陣列，便於單測。
+ * - text 段單獨成項（原樣渲染正文），永遠打斷分組。
+ * - `tool → text → tool` ⇒ 兩個組。
+ * - 空白 reasoning/text 段先過濾，避免產生空組或多餘分隔。
  */
 export function groupTimelineSegments(orderedSegments: ChatMessageSegment[]): TimelineGroupItem[] {
   const items: TimelineGroupItem[] = []
@@ -99,7 +99,7 @@ export type ToolGroupCategory =
   | 'mcp'
   | 'other'
 
-/** 分组头图标用的代表类别：工具类别全集 + 纯思考组的 `'reasoning'`。 */
+/** 分組頭圖示用的代表類別：工具類別全集 + 純思考組的 `'reasoning'`。 */
 export type ToolGroupIcon = ToolGroupCategory | 'reasoning'
 
 function categorizeTool(toolCall: ToolCallRecord): ToolGroupCategory {
@@ -173,7 +173,7 @@ function categorizeTool(toolCall: ToolCallRecord): ToolGroupCategory {
   return 'other'
 }
 
-/** 去重（保持首次出现顺序）并剔除 `'other'` 后的「有意义类别」集合，文案与图标共用同一判定。 */
+/** 去重（保持首次出現順序）並剔除 `'other'` 後的「有意義類別」集合，文案與圖示共用同一判定。 */
 function meaningfulCategories(categories: ToolGroupCategory[]): ToolGroupCategory[] {
   const seen = new Set<ToolGroupCategory>()
   const result: ToolGroupCategory[] = []
@@ -186,53 +186,53 @@ function meaningfulCategories(categories: ToolGroupCategory[]): ToolGroupCategor
 }
 
 /**
- * 每个类别的「动作片段」（不带时态前缀、不带状态后缀）。
- * n = 该类别下的工具数；部分类别不带数量。
- * Codex 风格：动词 + 数量 + 宾语，由调用方加「已/正在」前缀。
+ * 每個類別的「動作片段」（不帶時態字首、不帶狀態字尾）。
+ * n = 該類別下的工具數；部分類別不帶數量。
+ * Codex 風格：動詞 + 數量 + 賓語，由呼叫方加「已/正在」字首。
  */
 function categoryFragment(category: ToolGroupCategory, count: number): string {
   switch (category) {
     case 'read':
-      return `读取 ${count} 个文件`
+      return `讀取 ${count} 個檔案`
     case 'fileWrite':
-      return `编辑 ${count} 个文件`
+      return `編輯 ${count} 個檔案`
     case 'runCommand':
-      return `执行 ${count} 条命令`
+      return `執行 ${count} 條命令`
     case 'webFetch':
-      return `读取 ${count} 个网页`
+      return `讀取 ${count} 個網頁`
     case 'listDir':
-      return `浏览 ${count} 个目录`
+      return `瀏覽 ${count} 個目錄`
     case 'fileOps':
-      return `处理 ${count} 个文件`
+      return `處理 ${count} 個檔案`
     case 'codeSearch':
-      return '搜索代码'
+      return '搜尋程式碼'
     case 'webSearch':
-      return '搜索网络'
+      return '搜尋網路'
     case 'globFiles':
-      return '查找文件'
+      return '查詢檔案'
     case 'runPython':
-      return '运行代码'
+      return '執行程式碼'
     case 'todo':
-      return '更新任务清单'
+      return '更新任務清單'
     case 'memory':
-      return '检索记忆'
+      return '檢索記憶'
     case 'subAgent':
-      return '调度 Subagent'
+      return '排程 Subagent'
     case 'skill':
-      return '运行技能'
+      return '執行技能'
     case 'image':
-      return '处理图像'
+      return '處理影像'
     case 'notion':
-      return '检索 Notion'
+      return '檢索 Notion'
     case 'mcp':
-      return '调用外部工具'
+      return '呼叫外部工具'
     case 'other':
     default:
-      return '工具调用'
+      return '工具呼叫'
   }
 }
 
-/** 代表类别：单一有意义类别时取该类别，混合/未知时回退 `'other'`（与文案选择保持一致）。 */
+/** 代表類別：單一有意義類別時取該類別，混合/未知時回退 `'other'`（與文案選擇保持一致）。 */
 function representativeCategory(categories: ToolGroupCategory[]): ToolGroupCategory {
   const meaningful = meaningfulCategories(categories)
   return meaningful.length === 1 ? meaningful[0] : 'other'
@@ -241,27 +241,27 @@ function representativeCategory(categories: ToolGroupCategory[]): ToolGroupCateg
 export interface ToolGroupSummary {
   text: string
   status: 'running' | 'error' | 'done'
-  /** 折叠头图标用的代表类别。 */
+  /** 摺疊頭圖示用的代表類別。 */
   icon: ToolGroupIcon
-  /** 组内涉及的「有意义类别」列表（去重、保持首次出现顺序、剔除 `'other'`）。
-   *  混合类别时用于在摘要后排一行各类工具图标；纯 reasoning 组为 `[]`。 */
+  /** 組內涉及的「有意義類別」列表（去重、保持首次出現順序、剔除 `'other'`）。
+   *  混合類別時用於在摘要後排一行各類工具圖示；純 reasoning 組為 `[]`。 */
   categories: ToolGroupIcon[]
 }
 
 /**
- * 为一个分组生成 Codex 风格的自然语言摘要：动词 + 数量 + 宾语。
- * - 纯 reasoning 组：done → `思考`；running → `正在思考…`。
- * - 有意义类别 1 个：单个动作片段；2 个：用「和」连接；0 个或 ≥3 个：`调用 N 次工具`。
- * - done 时片段直接用原形（不加「已」）；running 时前缀「正在」且整体以「…」结尾。
- * - 失败（仅 done 态）：整体末尾追加 `，N 项失败`。
- * `status` 字段保留供 MessageBubble 做流光/失败判定。
+ * 為一個分組生成 Codex 風格的自然語言摘要：動詞 + 數量 + 賓語。
+ * - 純 reasoning 組：done → `思考`；running → `正在思考…`。
+ * - 有意義類別 1 個：單個動作片段；2 個：用「和」連線；0 個或 ≥3 個：`呼叫 N 次工具`。
+ * - done 時片段直接用原形（不加「已」）；running 時字首「正在」且整體以「…」結尾。
+ * - 失敗（僅 done 態）：整體末尾追加 `，N 項失敗`。
+ * `status` 欄位保留供 MessageBubble 做流光/失敗判定。
  */
 export function summarizeToolGroup(
   segments: ChatMessageSegment[],
   toolCalls: ToolCallRecord[],
 ): ToolGroupSummary {
   const toolSegments = segments.filter((segment) => segment.kind === 'tool')
-  // 「步数」按工具步计；纯 reasoning 组（无工具）回退到总段数。
+  // 「步數」按工具步計；純 reasoning 組（無工具）回退到總段數。
   const stepCount = toolSegments.length || segments.length
   const matchedTools: ToolCallRecord[] = []
   for (const segment of toolSegments) {
@@ -273,7 +273,7 @@ export function summarizeToolGroup(
   const categories = matchedTools.map((tool) => categorizeTool(tool))
   const meaningful = meaningfulCategories(categories)
 
-  // 图标代表类别：无工具段（纯 reasoning 组）→ 'reasoning'；否则取代表类别。
+  // 圖示代表類別：無工具段（純 reasoning 組）→ 'reasoning'；否則取代表類別。
   const icon: ToolGroupIcon = toolSegments.length
     ? representativeCategory(categories)
     : 'reasoning'
@@ -283,17 +283,17 @@ export function summarizeToolGroup(
 
   const status: ToolGroupSummary['status'] = running ? 'running' : failed > 0 ? 'error' : 'done'
 
-  // 选出本组的「动作片段」数组（不带时态前缀）。
+  // 選出本組的「動作片段」陣列（不帶時態字首）。
   const fragments = buildGroupFragments(categories, meaningful, toolSegments.length, stepCount)
 
-  // running 时每个片段前缀「正在」且整体以「…」结尾；done 时片段直接用原形（不加「已」）。
+  // running 時每個片段字首「正在」且整體以「…」結尾；done 時片段直接用原形（不加「已」）。
   let text: string
   if (running) {
     text = `${fragments.map((fragment) => `正在${fragment}`).join('和')}…`
   } else {
     text = fragments.join('和')
     if (failed > 0) {
-      text = `${text}，${failed} 项失败`
+      text = `${text}，${failed} 項失敗`
     }
   }
 
@@ -306,12 +306,12 @@ export function summarizeToolGroup(
 }
 
 /**
- * 选出一个分组的「动作片段」数组（不带时态前缀/状态后缀）。
- * - 纯 reasoning 组（无 tool 段）：`['思考']`。
- * - 有意义类别 m===0（全 other/未知）：`['调用 N 次工具']`。
- * - m===1：该类别片段（带其自身工具数）。
- * - m===2：两个片段（各带自身工具数）。
- * - m>=3：`['调用 N 次工具']`（类别太多不逐一列，图标排已展示种类）。
+ * 選出一個分組的「動作片段」陣列（不帶時態字首/狀態字尾）。
+ * - 純 reasoning 組（無 tool 段）：`['思考']`。
+ * - 有意義類別 m===0（全 other/未知）：`['呼叫 N 次工具']`。
+ * - m===1：該類別片段（帶其自身工具數）。
+ * - m===2：兩個片段（各帶自身工具數）。
+ * - m>=3：`['呼叫 N 次工具']`（類別太多不逐一列，圖示排已展示種類）。
  */
 function buildGroupFragments(
   categories: ToolGroupCategory[],
@@ -321,9 +321,9 @@ function buildGroupFragments(
 ): string[] {
   if (toolSegmentCount === 0) return ['思考']
   if (meaningful.length === 0 || meaningful.length >= 3) {
-    return [`调用 ${stepCount} 次工具`]
+    return [`呼叫 ${stepCount} 次工具`]
   }
-  // 按类别统计工具数。
+  // 按類別統計工具數。
   const counts = new Map<ToolGroupCategory, number>()
   for (const category of categories) {
     counts.set(category, (counts.get(category) ?? 0) + 1)

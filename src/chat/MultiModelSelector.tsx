@@ -9,12 +9,12 @@ import type { ModelRef } from './types'
 const MAX_REPLY_MODELS = 4
 
 interface MultiModelSelectorProps {
-  // 当前会话级多答模型集（含单模型时的会话主模型 0/1 个）。
+  // 當前會話級多答模型集（含單模型時的會話主模型 0/1 個）。
   value: ModelRef[]
   onChange: (models: ModelRef[]) => void
-  // 弹层方向：与输入框其他按钮（知识库/项目/MCP/专家）一致——footer 朝上、inline 朝下。
+  // 彈層方向：與輸入框其他按鈕（知識庫/專案/MCP/專家）一致——footer 朝上、inline 朝下。
   placement?: 'up' | 'down'
-  // 弹层 portal 挂载到输入框容器，与项目/知识库弹窗共用同一锚点/整宽/方向/样式。
+  // 彈層 portal 掛載到輸入框容器，與專案/知識庫彈窗共用同一錨點/整寬/方向/樣式。
   anchorRef?: RefObject<HTMLDivElement | null>
 }
 
@@ -46,7 +46,7 @@ function MultiModelSelectorBase({ value, onChange, placement = 'up', anchorRef }
     if (!open) return
     const onDown = (e: MouseEvent) => {
       const t = e.target as Node
-      // 弹层经 portal 渲染到容器外，需同时排除触发区与弹层本身，否则点弹层会被判为外部点击而关闭。
+      // 彈層經 portal 渲染到容器外，需同時排除觸發區與彈層本身，否則點彈層會被判為外部點選而關閉。
       if (triggerRef.current?.contains(t) || popoverRef.current?.contains(t)) return
       setOpen(false)
     }
@@ -97,11 +97,11 @@ function MultiModelSelectorBase({ value, onChange, placement = 'up', anchorRef }
 
   const enabled = value.length >= 2
 
-  // 与输入框其他弹层一致：朝上(footer)用 bottom-full，朝下(inline)用 top-full。
+  // 與輸入框其他彈層一致：朝上(footer)用 bottom-full，朝下(inline)用 top-full。
   const placementClass = placement === 'down' ? 'top-full mt-1.5' : 'bottom-full mb-1.5'
   const popoverOrigin = placement === 'down' ? 'top left' : 'bottom left'
 
-  // 面板内容：与项目/知识库弹窗共用——portal 到输入框容器、inset-x-0 整宽、按 placement 上下翻转。
+  // 面板內容：與專案/知識庫彈窗共用——portal 到輸入框容器、inset-x-0 整寬、按 placement 上下翻轉。
   const panel =
     open && anchorRef?.current
       ? createPortal(
@@ -113,7 +113,7 @@ function MultiModelSelectorBase({ value, onChange, placement = 'up', anchorRef }
             role="menu"
           >
             <div className="px-2.5 py-1 text-[11px] font-medium text-neutral-400">
-              选择并行回答的模型（{value.length}/{MAX_REPLY_MODELS}）。选 0 或 1 个 = 单模型。
+              選擇並行回答的模型（{value.length}/{MAX_REPLY_MODELS}）。選 0 或 1 個 = 單模型。
             </div>
             {visibleProviders.map(({ provider, models }) => (
               <div key={provider.id} className="px-1 py-0.5">
@@ -154,7 +154,7 @@ function MultiModelSelectorBase({ value, onChange, placement = 'up', anchorRef }
               </div>
             ))}
             {visibleProviders.length === 0 && (
-              <div className="px-4 py-6 text-center text-sm text-neutral-500">暂无可用模型</div>
+              <div className="px-4 py-6 text-center text-sm text-neutral-500">暫無可用模型</div>
             )}
           </div>,
           anchorRef.current,
@@ -171,7 +171,7 @@ function MultiModelSelectorBase({ value, onChange, placement = 'up', anchorRef }
         }`}
         aria-expanded={open}
         aria-haspopup="menu"
-        title="多模型一问多答 · 选择并行回答的模型（上限 4）"
+        title="多模型一問多答 · 選擇並行回答的模型（上限 4）"
       >
         <Layers size={18} strokeWidth={1.75} className="shrink-0" />
       </button>

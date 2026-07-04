@@ -55,7 +55,7 @@ function ModelSelectorBase({
     .filter((entry) => entry.models.length > 0)
   const currentProvider = activeProviders.find((p) => p.id === currentProviderId)
     ?? providers.find((p) => p.id === currentProviderId)
-  const displayName = currentModel || currentProvider?.enabledModels[0] || '选择模型'
+  const displayName = currentModel || currentProvider?.enabledModels[0] || '選擇模型'
 
   return (
     <div className="relative max-w-full min-w-0" data-tauri-drag-region="false">
@@ -104,7 +104,7 @@ function ModelSelectorBase({
               </div>
             ))}
             {visibleProviders.length === 0 && (
-              <div className="px-4 py-6 text-center text-sm text-neutral-500">暂无可用模型</div>
+              <div className="px-4 py-6 text-center text-sm text-neutral-500">暫無可用模型</div>
             )}
           </div>
         </>
@@ -113,5 +113,5 @@ function ModelSelectorBase({
   )
 }
 
-// memo：顶栏选择器，仅在 props 变化时重渲，避免 Chat 重渲时跟着白渲。
+// memo：頂欄選擇器，僅在 props 變化時重渲，避免 Chat 重渲時跟著白渲。
 export const ModelSelector = memo(ModelSelectorBase)

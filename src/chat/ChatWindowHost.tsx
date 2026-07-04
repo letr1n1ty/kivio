@@ -7,7 +7,7 @@ type ChatWindowHostProps = {
   children: ReactNode
 }
 
-/** Chat 专用窗口外壳：Windows 自绘圆角边缘，最大化时收起圆角。 */
+/** Chat 專用視窗外殼：Windows 自繪圓角邊緣，最大化時收起圓角。 */
 export function ChatWindowHost({ children }: ChatWindowHostProps) {
   const [maximized, setMaximized] = useState(false)
 
@@ -29,8 +29,8 @@ export function ChatWindowHost({ children }: ChatWindowHostProps) {
 
     const setup = async () => {
       await syncMaximized()
-      // resize 事件在拖动伸缩时高频触发；isMaximized() 是一次 IPC 往返。只在伸缩停止后查一次，
-      // 避免每帧 IPC 洪流拖慢窗口伸缩。最大化/还原是离散动作，延迟 ~150ms 更新圆角无感知。
+      // resize 事件在拖動伸縮時高頻觸發；isMaximized() 是一次 IPC 往返。只在伸縮停止後查一次，
+      // 避免每幀 IPC 洪流拖慢視窗伸縮。最大化/還原是離散動作，延遲 ~150ms 更新圓角無感知。
       const handler = await getCurrentWindow().onResized(() => {
         if (timer !== undefined) clearTimeout(timer)
         timer = setTimeout(() => {

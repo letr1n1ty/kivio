@@ -1,13 +1,13 @@
 import { useSyncExternalStore } from 'react'
 import type { ConversationStreamSnapshot } from './conversationRuns'
 
-// 流式预览的高频状态从 Chat.tsx 的 useState 抽到这里，用 React 内置 useSyncExternalStore 订阅。
-// 用外部 store（而非 Context）：60fps 下 Context 会重渲所有 consumer，store 只通知真正订阅的组件。
+// 流式預覽的高頻狀態從 Chat.tsx 的 useState 抽到這裡，用 React 內建 useSyncExternalStore 訂閱。
+// 用外部 store（而非 Context）：60fps 下 Context 會重渲所有 consumer，store 只通知真正訂閱的元件。
 //
-// 切成两个 slice，按更新频率分开订阅：
-// - content：每帧都变（流式文本/推理/工具/分段），仅 MessageList 订阅。
-// - coarse：边沿才变（streaming/frozen/cancelling/error 布尔），Chat 的 showEmptyHero/drain 与
-//   InputBar 的取消按钮订阅——避免它们被每帧的内容更新拖着重渲。
+// 切成兩個 slice，按更新頻率分開訂閱：
+// - content：每幀都變（流式文本/推理/工具/分段），僅 MessageList 訂閱。
+// - coarse：邊沿才變（streaming/frozen/cancelling/error 布林），Chat 的 showEmptyHero/drain 與
+//   InputBar 的取消按鈕訂閱——避免它們被每幀的內容更新拖著重渲。
 
 export interface StreamCoarse {
   streaming: boolean
@@ -16,8 +16,8 @@ export interface StreamCoarse {
   streamError: string
 }
 
-// 空闲态内容快照（streaming:false、内容全空）。与 createEmptyStreamSnapshot 不同——后者是
-// 「起一轮新流」用的（streaming:true + startedAt:now）。这里是 reset 的目标常量，引用恒定。
+// 空閒態內容快照（streaming:false、內容全空）。與 createEmptyStreamSnapshot 不同——後者是
+// 「起一輪新流」用的（streaming:true + startedAt:now）。這裡是 reset 的目標常量，引用恆定。
 const IDLE_SNAPSHOT: ConversationStreamSnapshot = {
   runId: null,
   streaming: false,
@@ -61,8 +61,8 @@ export function getSnapshot(): ConversationStreamSnapshot {
   return snapshot
 }
 
-// Chat 每帧传入的是 streamSnapshotsRef 里被原地 mutate 的同一个对象引用，必须浅拷贝出新引用，
-// 否则 useSyncExternalStore 的 Object.is 比较检测不到变化、不会重渲。
+// Chat 每幀傳入的是 streamSnapshotsRef 裡被原地 mutate 的同一個物件引用，必須淺複製出新引用，
+// 否則 useSyncExternalStore 的 Object.is 比較檢測不到變化、不會重渲。
 export function setSnapshot(next: ConversationStreamSnapshot): void {
   snapshot = { ...next }
   emit(snapshotSubs)
@@ -86,8 +86,8 @@ export function getCoarse(): StreamCoarse {
   return coarse
 }
 
-// 逐字段浅比较：无实际变化则不分配新对象、不通知。否则流式中重复写 {streaming:true} 仍会让
-// 订阅者每帧重渲，等于没隔离。
+// 逐欄位淺比較：無實際變化則不分配新物件、不通知。否則流式中重複寫 {streaming:true} 仍會讓
+// 訂閱者每幀重渲，等於沒隔離。
 export function setCoarse(patch: Partial<StreamCoarse>): void {
   let changed = false
   for (const key of Object.keys(patch) as (keyof StreamCoarse)[]) {
@@ -101,8 +101,8 @@ export function setCoarse(patch: Partial<StreamCoarse>): void {
   emit(coarseSubs)
 }
 
-// 清空预览：内容回空闲 + streaming/frozen/cancelling 归位。**不动 streamError**——与
-// Chat 原 clearStreamingPreview 语义一致（错误由 setStreamErrorForConversation/restore 独立管理）。
+// 清空預覽：內容回空閒 + streaming/frozen/cancelling 歸位。**不動 streamError**——與
+// Chat 原 clearStreamingPreview 語義一致（錯誤由 setStreamErrorForConversation/restore 獨立管理）。
 export function reset(): void {
   if (snapshot !== IDLE_SNAPSHOT) {
     snapshot = IDLE_SNAPSHOT

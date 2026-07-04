@@ -72,7 +72,7 @@ export function SetDialog({
         <h3 className="text-[14px] font-semibold text-neutral-900 dark:text-neutral-50">{title}</h3>
 
         <label className="mt-3 block text-[12px] font-medium text-neutral-500 dark:text-neutral-400">
-          集名称
+          集名稱
         </label>
         <input
           ref={inputRef}
@@ -85,8 +85,8 @@ export function SetDialog({
         />
 
         <label className="mt-3 block text-[12px] font-medium text-neutral-500 dark:text-neutral-400">
-          系统提示词
-          <span className="ml-1 font-normal text-neutral-400">（集内对话实时套用）</span>
+          系統提示詞
+          <span className="ml-1 font-normal text-neutral-400">（集內對話即時套用）</span>
         </label>
         <textarea
           value={systemPrompt}
@@ -97,14 +97,14 @@ export function SetDialog({
         />
 
         <label className="mt-3 block text-[12px] font-medium text-neutral-500 dark:text-neutral-400">
-          默认助手
-          <span className="ml-1 font-normal text-neutral-400">（在集下新建对话时使用）</span>
+          預設助手
+          <span className="ml-1 font-normal text-neutral-400">（在集下新建對話時使用）</span>
         </label>
         <Select
           value={defaultAssistantId}
           onChange={setDefaultAssistantId}
           options={[
-            { value: '', label: '不指定（用全局默認）' },
+            { value: '', label: '不指定（用全域性預設）' },
             ...selectableAssistants.map((assistant) => ({
               value: assistant.id,
               label: assistant.name,
@@ -127,7 +127,7 @@ export function SetDialog({
             disabled={!name.trim() || saving}
             className="rounded-lg bg-neutral-900 px-3 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-neutral-800 disabled:cursor-default disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-950 dark:hover:bg-white"
           >
-            {saving ? '保存中…' : set ? '保存' : '創建'}
+            {saving ? '儲存中…' : set ? '儲存' : '建立'}
           </button>
         </div>
       </form>

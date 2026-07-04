@@ -78,10 +78,10 @@ function previewFromDataUrl(dataUrl: string): string {
 
 function artifactPreview(artifact: ChatToolArtifact): string {
   const kind = artifactKind(artifact)
-  if (kind === 'Spreadsheet') return '表格文件已生成，可用默认应用打开查看。'
+  if (kind === 'Spreadsheet') return '表格檔案已生成，可用預設應用開啟檢視。'
   const preview = previewFromDataUrl(artifactDataUrl(artifact)).trim()
   if (preview) return preview
-  return '文件已生成，可打开查看完整内容。'
+  return '檔案已生成，可開啟檢視完整內容。'
 }
 
 async function openGeneratedArtifact(artifact: ChatToolArtifact) {
@@ -154,8 +154,8 @@ function GeneratedFileCard({
         type="button"
         className="flex min-w-0 flex-1 p-0 text-left"
         onClick={() => void openGeneratedArtifact(artifact)}
-        title="打开文件"
-        aria-label={`打开文件 ${artifact.name}`}
+        title="開啟檔案"
+        aria-label={`開啟檔案 ${artifact.name}`}
       >
         <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800">
           <ArtifactIcon artifact={artifact} />
@@ -183,9 +183,9 @@ function GeneratedFileCard({
             event.stopPropagation()
             setMenuOpen((value) => !value)
           }}
-          aria-label="文件操作"
+          aria-label="檔案操作"
           aria-expanded={menuOpen}
-          title="文件操作"
+          title="檔案操作"
         >
           <MoreHorizontal size={16} strokeWidth={2} />
         </button>
@@ -200,7 +200,7 @@ function GeneratedFileCard({
               }}
             >
               <FileText className={menuIconClass} strokeWidth={1.9} />
-              <span>打开</span>
+              <span>開啟</span>
             </button>
             <button
               type="button"
@@ -212,7 +212,7 @@ function GeneratedFileCard({
               }}
             >
               <FolderOpen className={menuIconClass} strokeWidth={1.9} />
-              <span>在文件系统中打开</span>
+              <span>在檔案系統中開啟</span>
             </button>
             <button
               type="button"
@@ -221,7 +221,7 @@ function GeneratedFileCard({
               onClick={() => void handleCopyPath()}
             >
               {copied ? <Check className={`${menuIconClass} chat-motion-pop`} strokeWidth={2} /> : <Clipboard className={menuIconClass} strokeWidth={1.9} />}
-              <span>{copied ? '已复制路径' : '复制路径'}</span>
+              <span>{copied ? '已複製路徑' : '複製路徑'}</span>
             </button>
           </div>
         )}
