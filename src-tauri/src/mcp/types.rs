@@ -113,6 +113,9 @@ impl ChatToolDefinition {
         // Native read-only metadata lives in the static registry
         // (mcp/native_registry.rs). Note: this set includes memory_read and
         // memory_search, which are read-only but deliberately not parallel-safe.
+        if self.source == "native" && self.id == "native__list_dir" {
+            return true;
+        }
         self.source == "native"
             && super::native_registry::find_entry(&self.name).is_some_and(|entry| entry.read_only)
     }

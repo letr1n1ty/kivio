@@ -7609,7 +7609,7 @@ mod tests {
             conversation.messages.push(test_chat_message(
                 &format!("msg_extra_{i}"),
                 role,
-                &format!("extra content {i}"),
+                &"a".repeat(80_000),
                 10 + i,
             ));
         }

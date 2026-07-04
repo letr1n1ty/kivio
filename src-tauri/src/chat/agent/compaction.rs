@@ -1569,9 +1569,9 @@ mod tests {
 
     #[test]
     fn summary_quality_guard_rejects_degraded_vs_previous() {
-        // 旧 summary 达标（300 字），新 summary 仅 50 字 < 30%×300=90 → Degraded。
-        let previous = "p".repeat(300);
-        let degraded = "n".repeat(50);
+        // 舊 summary 夠長，新 summary 仍達最短長度但小於舊版 30% -> Degraded。
+        let previous = "p".repeat(800);
+        let degraded = "n".repeat(MIN_SUMMARY_CHARS);
         assert_eq!(
             summary_quality_guard(&degraded, Some(&previous)),
             SummaryQuality::Degraded
